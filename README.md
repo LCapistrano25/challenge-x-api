@@ -125,7 +125,7 @@ uv sync
 Aplique as migrações para criar ou atualizar as tabelas do Django no PostgreSQL:
 
 ```
-python manage.py migrate
+uv run python manage.py migrate
 ```
 
 ---
@@ -135,11 +135,10 @@ python manage.py migrate
 Crie um usuário administrador para acessar o **Django Admin**:
 
 ```
-python manage.py createsuperuser
+uv run python manage.py createsuperuser
 ```
 
-Informe o nome de usuário, o e-mail e a senha conforme solicitado no terminal.
-
+Informe o nome de usuário (ex: admin), o e-mail (ex: admin@exemplo.com) e a senha conforme solicitado no terminal.
 ---
 
 ### Passo 7: Iniciar o Servidor de Desenvolvimento
@@ -147,7 +146,7 @@ Informe o nome de usuário, o e-mail e a senha conforme solicitado no terminal.
 Inicie o servidor local do Django:
 
 ```
-python manage.py runserver
+uv run python manage.py runserver
 ```
 
 Após executar o comando, a aplicação estará disponível nos seguintes endereços:
@@ -169,15 +168,15 @@ uv sync
 docker compose up -d
 
 # Aplicar migrações
-python manage.py migrate
+uv run python manage.py migrate
 
 # Criar administrador (opcional, se ainda não existir)
-python manage.py createsuperuser
+uv run python manage.py createsuperuser
 
 # Iniciar servidor
-python manage.py runserver
+uv run python manage.py runserver
 ```
 
-**Pronto!** O ambiente estará configurado para o desenvolvimento local do Projeto X.
+**Pronto!** O ambiente estará configurado para o desenvolvimento local do challenge-x-api.
 
-Observação técnica: como você está usando `uv`, também pode executar os comandos Django com `uv run`, por exemplo, `uv run python manage.py migrate` e `uv run python manage.py runserver`. Isso garante que os comandos utilizem o ambiente virtual gerenciado pelo `uv`.
+Observação técnica: como você está usando `uv`, você deve executar os comandos Django com `uv run`, por exemplo, `uv run python manage.py migrate` e `uv run python manage.py runserver`. Isso garante que os comandos utilizem o ambiente virtual gerenciado pelo `uv`.
