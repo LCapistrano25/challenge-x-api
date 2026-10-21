@@ -441,4 +441,6 @@ wheels/
 .venv
 
 .env
+# Cookies e dados de sessão locais
+cookies.txt
 >>>>>>> ee1b879 (chore: initialize Django backend)
