@@ -13,7 +13,7 @@ def test_database_connection():
 
 
 def course(**fields):
-    data = {"name": "Engenharia de Software", "term_count": 8}
+    data = {"name": "Curso de Teste", "term_count": 8}
     return Course.objects.create(**{**data, **fields})
 
 
@@ -47,3 +47,9 @@ def test_sdg_recusa_numero_fora_de_1_a_17(number):
 
 def test_seed_carrega_as_ods_da_edicao_2026():
     assert list(Sdg.objects.values_list("number", flat=True)) == [1, 2, 3, 9, 16]
+
+
+def test_seed_carrega_os_cursos_da_unicatolica():
+    assert Course.objects.count() == 15
+    assert Course.objects.get(name="Direito").term_count == 10
+    assert Course.objects.get(name="Engenharia de Software").term_count == 8
