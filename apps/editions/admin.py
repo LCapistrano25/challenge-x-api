@@ -38,10 +38,10 @@ class EditionAdmin(admin.ModelAdmin):
 
 @admin.register(Challenge)
 class ChallengeAdmin(admin.ModelAdmin):
-    list_display = ("title", "edition", "course", "sdg", "active")
+    list_display = ("__str__", "edition", "course", "sdg", "active")
     list_filter = ("edition", "course", "sdg", "active")
     list_select_related = ("edition", "course", "sdg")
-    search_fields = ("title",)
+    search_fields = ("description",)
 
 
 class StageSubmissionFieldInline(admin.TabularInline):

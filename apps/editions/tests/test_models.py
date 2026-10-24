@@ -6,12 +6,16 @@ from django.core.exceptions import ValidationError
 from django.db import IntegrityError
 from django.utils import timezone
 
+from apps.accounts.enums import UserRole
+from apps.accounts.models import ExternalReviewer, User
 from apps.core.models import Course, Sdg
 from apps.editions.enums import StageKind
 from apps.editions.models import (
+    Category,
     Challenge,
     Criterion,
     Edition,
+    EditionReviewer,
     EditionSdg,
     Stage,
     StageCriterion,
@@ -68,7 +72,51 @@ def test_criterio_unico_por_etapa(edition):
         StageCriterion.objects.create(stage=etapa, criterion=criterio, max_score=1)
 
 
+# Unicidades do DBML
+
+
+def test_categoria_com_nome_unico_na_edicao(edition):
+    Category.objects.create(edition=edition, name="Protótipos e Artefatos")
+    with pytest.raises(IntegrityError):
+        Category.objects.create(edition=edition, name="Protótipos e Artefatos")
+
+
+def test_ordem_de_desempate_unica_na_edicao(edition):
+    Criterion.objects.create(edition=edition, name="Inovação", tiebreak_order=1)
+    with pytest.raises(IntegrityError):
+        Criterion.objects.create(edition=edition, name="Impacto", tiebreak_order=1)
+
+
+def test_varios_criterios_sem_desempate_na_edicao(edition):
+    Criterion.objects.create(edition=edition, name="Inovação")
+    Criterion.objects.create(edition=edition, name="Impacto")
+    assert edition.criteria.count() == 2
+
+
+def test_avaliador_entra_uma_vez_por_edicao(edition):
+    user = User.objects.create_user(
+        "av@empresa.com", "x", role=UserRole.EXTERNAL_REVIEWER
+    )
+    avaliador = ExternalReviewer.objects.create(user=user)
+    EditionReviewer.objects.create(edition=edition, reviewer=avaliador)
+    with pytest.raises(IntegrityError):
+        EditionReviewer.objects.create(edition=edition, reviewer=avaliador)
+
+
 # Demais regras de integridade
+
+
+def test_etapa_exige_ao_menos_uma_avaliacao(edition):
+    with pytest.raises(IntegrityError):
+        stage(edition, min_evaluations=0)
+
+
+def test_criterio_da_etapa_vale_mais_que_zero(edition):
+    criterio = Criterion.objects.create(edition=edition, name="Inovação")
+    with pytest.raises(IntegrityError):
+        StageCriterion.objects.create(
+            stage=stage(edition), criterion=criterio, max_score=0
+        )
 
 
 @pytest.mark.parametrize("semester", [0, 3])
@@ -100,9 +148,9 @@ def test_etapa_de_formacao_sem_pontuacao(edition):
 def test_curso_pode_ter_varios_desafios_na_mesma_ods(edition):
     curso = Course.objects.get(name="Agronomia")
     sdg = Sdg.objects.get(number=9)
-    for titulo in ("Desafio A", "Desafio B"):
+    for texto in ("Desafio A", "Desafio B"):
         Challenge.objects.create(
-            edition=edition, course=curso, sdg=sdg, title=titulo, description="."
+            edition=edition, course=curso, sdg=sdg, description=texto
         )
     assert Challenge.objects.filter(course=curso, sdg=sdg).count() == 2
 
@@ -113,9 +161,7 @@ def test_curso_pode_ter_varios_desafios_na_mesma_ods(edition):
 def test_desafio_exige_ods_habilitada_na_edicao(edition):
     curso = Course.objects.get(name="Agronomia")
     sdg = Sdg.objects.get(number=9)
-    desafio = Challenge(
-        edition=edition, course=curso, sdg=sdg, title="Desafio", description="."
-    )
+    desafio = Challenge(edition=edition, course=curso, sdg=sdg, description="Desafio")
     with pytest.raises(ValidationError, match="não está habilitada"):
         desafio.full_clean()
 
