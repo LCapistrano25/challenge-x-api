@@ -1,7 +1,9 @@
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
+from django.db.models import Q
 
 from apps.accounts.enums import UserRole
+from apps.core.models import TimeStampedModel
 
 
 class UserManager(BaseUserManager):
@@ -37,16 +39,6 @@ class User(AbstractUser):
 
     email = models.EmailField(unique=True)
     role = models.CharField(max_length=20, choices=UserRole)
-
-    # shortcut: dados do aluno ficam no User até o model Student existir.
-    registration_number = models.CharField(
-        max_length=30,
-        unique=True,
-        null=True,
-        blank=True,
-    )
-    course = models.CharField(max_length=150, blank=True)
-    term = models.PositiveSmallIntegerField(null=True, blank=True)
     email_confirmed = models.BooleanField(default=False)
 
     USERNAME_FIELD = "email"
@@ -72,3 +64,92 @@ class EmailDomain(models.Model):
 
     def __str__(self):
         return f"{self.name} - {self.role}"
+
+
+# Os perfis estendem o User um para um; sem o usuário não fazem sentido (CASCADE).
+
+
+class Student(TimeStampedModel):
+    """Acadêmico: dados informados no autocadastro (RF19)."""
+
+    user = models.OneToOneField(
+        User, on_delete=models.CASCADE, primary_key=True, related_name="student"
+    )
+    registration_number = models.CharField(max_length=30, unique=True)
+    course = models.ForeignKey(
+        "core.Course", on_delete=models.PROTECT, related_name="students"
+    )
+    # Período do aluno; o limite superior (course.term_count) é validado no cadastro.
+    term = models.PositiveSmallIntegerField()
+
+    class Meta:
+        verbose_name = "acadêmico"
+        verbose_name_plural = "acadêmicos"
+        constraints = [
+            models.CheckConstraint(condition=Q(term__gte=1), name="student_term_gte_1"),
+        ]
+
+    def __str__(self):
+        return f"{self.user.email} ({self.registration_number})"
+
+
+class Teacher(TimeStampedModel):
+    """Professor, vinculado a um ou mais cursos (RF10, RF36)."""
+
+    user = models.OneToOneField(
+        User, on_delete=models.CASCADE, primary_key=True, related_name="teacher"
+    )
+    courses = models.ManyToManyField(
+        "core.Course", through="TeacherCourse", related_name="teachers"
+    )
+
+    class Meta:
+        verbose_name = "professor"
+        verbose_name_plural = "professores"
+
+    def __str__(self):
+        return self.user.email
+
+
+class TeacherCourse(TimeStampedModel):
+    """Vínculo professor–curso; define o escopo de avaliação (RF10, RN04)."""
+
+    # O vínculo não existe sem o professor (CASCADE); o curso é protegido.
+    teacher = models.ForeignKey(
+        Teacher, on_delete=models.CASCADE, related_name="course_links"
+    )
+    course = models.ForeignKey(
+        "core.Course", on_delete=models.PROTECT, related_name="teacher_links"
+    )
+    active = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = "vínculo professor–curso"
+        verbose_name_plural = "vínculos professor–curso"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["teacher", "course"], name="unique_course_per_teacher"
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.teacher} - {self.course}"
+
+
+class ExternalReviewer(TimeStampedModel):
+    """Avaliador externo; o vínculo com a edição fica em editions (RF11)."""
+
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        primary_key=True,
+        related_name="external_reviewer",
+    )
+    institution = models.CharField(max_length=200, blank=True)
+
+    class Meta:
+        verbose_name = "avaliador externo"
+        verbose_name_plural = "avaliadores externos"
+
+    def __str__(self):
+        return self.user.email

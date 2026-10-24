@@ -7,8 +7,9 @@ from django.core.mail import send_mail
 from django.db import IntegrityError, transaction
 
 from apps.accounts.enums import UserRole
-from apps.accounts.models import User
+from apps.accounts.models import Student, User
 from apps.accounts.rules import ensure_institutional_domain
+from apps.core.models import Course
 
 EMAIL_CONFIRMATION_SALT = "email-confirmation"
 
@@ -27,7 +28,7 @@ def register_student(
     email: str,
     password: str,
     registration_number: str,
-    course: str,
+    course_id: int,
     term: int,
     confirmation_url: str,
 ) -> User:
@@ -38,11 +39,19 @@ def register_student(
     """
     ensure_institutional_domain(email, UserRole.STUDENT)
 
+    course = Course.objects.filter(pk=course_id, active=True).first()
+    if course is None:
+        raise RegistrationRejected("Curso inválido.")
+    if term > course.term_count:
+        raise RegistrationRejected(
+            f"O período deve estar entre 1 e {course.term_count}."
+        )
+
     # Mensagem genérica: não revela se o e-mail ou a matrícula já existem.
     rejected = "Não foi possível realizar o cadastro com esses dados."
     if (
         User.objects.filter(email__iexact=email).exists()
-        or User.objects.filter(registration_number=registration_number).exists()
+        or Student.objects.filter(registration_number=registration_number).exists()
     ):
         raise RegistrationRejected(rejected)
 
@@ -53,11 +62,14 @@ def register_student(
             email=email,
             password=password,
             role=UserRole.STUDENT,
+            is_active=False,
+            email_confirmed=False,
+        )
+        Student.objects.create(
+            user=user,
             registration_number=registration_number,
             course=course,
             term=term,
-            is_active=False,
-            email_confirmed=False,
         )
     except IntegrityError:
         # Dois cadastros simultâneos passam pela checagem acima; o banco desempata.
