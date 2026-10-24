@@ -95,7 +95,9 @@ class StageCriterion(TimeStampedModel):
         ]
 
     def clean(self):
-        if self.stage_id and self.criterion_id:
+        # No admin a etapa nova ainda não tem id quando os critérios são validados.
+        has_stage = self.stage_id or StageCriterion.stage.is_cached(self)
+        if has_stage and self.criterion_id:
             ensure_criterion_in_stage_edition(self.stage, self.criterion)
 
     def __str__(self):

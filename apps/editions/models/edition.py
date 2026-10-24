@@ -60,6 +60,14 @@ class EditionSdg(TimeStampedModel):
             ),
         ]
 
+    def delete(self, *args, **kwargs):
+        # Challenge aponta para Sdg, não para esta linha: o banco não protege.
+        # shortcut: queryset.delete() não passa por aqui; hoje só o admin apaga.
+        from apps.editions.rules import ensure_sdg_not_used_by_challenges
+
+        ensure_sdg_not_used_by_challenges(self.edition_id, self.sdg_id)
+        return super().delete(*args, **kwargs)
+
     def __str__(self):
         return f"{self.edition} - {self.sdg}"
 

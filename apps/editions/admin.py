@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.forms.models import BaseInlineFormSet
 
 from apps.editions.models import (
     Category,
@@ -11,10 +12,23 @@ from apps.editions.models import (
     StageCriterion,
     StageSubmissionField,
 )
+from apps.editions.rules import ensure_sdg_not_used_by_challenges
+
+
+class EditionSdgFormSet(BaseInlineFormSet):
+    def clean(self):
+        # Valida antes de salvar: o erro aparece na tela em vez de virar erro 500.
+        super().clean()
+        for form in self.deleted_forms:
+            if form.instance.pk:
+                ensure_sdg_not_used_by_challenges(
+                    form.instance.edition_id, form.instance.sdg_id
+                )
 
 
 class EditionSdgInline(admin.TabularInline):
     model = EditionSdg
+    formset = EditionSdgFormSet
     extra = 0
 
 

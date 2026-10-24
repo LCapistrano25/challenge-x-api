@@ -175,3 +175,79 @@ def test_criterio_da_etapa_e_da_mesma_edicao(edition):
     vinculo = StageCriterion(stage=stage(edition), criterion=criterio, max_score=1)
     with pytest.raises(ValidationError, match="outra edição"):
         vinculo.full_clean()
+
+
+def test_etapa_nova_recusa_criterio_de_outra_edicao(edition):
+    # Como no admin: a etapa ainda não foi salva quando os critérios são validados.
+    outra = Edition.objects.create(year=2027, semester=1)
+    criterio = Criterion.objects.create(edition=outra, name="Inovação")
+    agora = timezone.now()
+    nova = Stage(
+        edition=edition,
+        order=1,
+        name="Etapa",
+        kind=StageKind.SUBMISSION,
+        starts_at=agora,
+        ends_at=agora + timedelta(days=1),
+        max_score=Decimal("3.00"),
+    )
+    vinculo = StageCriterion(stage=nova, criterion=criterio, max_score=1)
+    with pytest.raises(ValidationError, match="outra edição"):
+        vinculo.full_clean(exclude=["stage"])
+
+
+def test_ods_usada_por_desafio_nao_sai_da_edicao(edition):
+    sdg = Sdg.objects.get(number=9)
+    habilitada = EditionSdg.objects.create(edition=edition, sdg=sdg)
+    Challenge.objects.create(
+        edition=edition,
+        course=Course.objects.get(name="Agronomia"),
+        sdg=sdg,
+        description="Desafio",
+    )
+    with pytest.raises(ValidationError, match="desafios"):
+        habilitada.delete()
+    assert EditionSdg.objects.filter(pk=habilitada.pk).exists()
+
+
+def test_ods_sem_desafio_sai_da_edicao(edition):
+    EditionSdg.objects.create(edition=edition, sdg=Sdg.objects.get(number=9)).delete()
+    assert not EditionSdg.objects.exists()
+
+
+def test_admin_mostra_erro_ao_tirar_ods_usada(edition, client):
+    admin = User.objects.create_superuser("admin@teste.com", "x")
+    client.force_login(admin)
+    sdg = Sdg.objects.get(number=9)
+    habilitada = EditionSdg.objects.create(edition=edition, sdg=sdg)
+    Challenge.objects.create(
+        edition=edition,
+        course=Course.objects.get(name="Agronomia"),
+        sdg=sdg,
+        description="Desafio",
+    )
+    data = {
+        "year": 2026,
+        "semester": 2,
+        "status": "SETUP",
+        "min_members": 3,
+        "max_members": 5,
+        "sdg_links-TOTAL_FORMS": 1,
+        "sdg_links-INITIAL_FORMS": 1,
+        "sdg_links-0-id": habilitada.pk,
+        "sdg_links-0-edition": edition.pk,
+        "sdg_links-0-sdg": sdg.pk,
+        "sdg_links-0-DELETE": "on",
+        "categories-TOTAL_FORMS": 0,
+        "categories-INITIAL_FORMS": 0,
+        "reviewers-TOTAL_FORMS": 0,
+        "reviewers-INITIAL_FORMS": 0,
+    }
+
+    response = client.post(
+        f"/admin/editions/edition/{edition.pk}/change/", data, HTTP_HOST="localhost"
+    )
+
+    assert response.status_code == 200  # formulário volta com erro, sem salvar
+    assert "Há desafios desta edição usando esta ODS." in response.text
+    assert EditionSdg.objects.filter(pk=habilitada.pk).exists()
