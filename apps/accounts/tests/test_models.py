@@ -1,9 +1,18 @@
-from django.db import IntegrityError
+from django.core.exceptions import ValidationError
+from django.db import IntegrityError, connection
 from django.db.models import ProtectedError
 from django.test import TestCase
+from django.test.utils import CaptureQueriesContext
 
 from apps.accounts.enums import UserRole
-from apps.accounts.models import EmailDomain, Student, Teacher, TeacherCourse, User
+from apps.accounts.models import (
+    EmailDomain,
+    ExternalReviewer,
+    Student,
+    Teacher,
+    TeacherCourse,
+    User,
+)
 from apps.core.models import Course
 
 
@@ -78,3 +87,54 @@ class ConstraintTests(TestCase):
 
         with self.assertRaises(ProtectedError):
             aluno.course.delete()
+
+
+class ProfileValidationTests(TestCase):
+    """Validações que o admin aplica via full_clean()."""
+
+    def test_periodo_acima_do_curso_e_recusado(self):
+        user = User.objects.create_user("a@teste.com", "x", role=UserRole.STUDENT)
+        course = Course.objects.get(name="Engenharia de Software")  # 8 períodos
+        student = Student(user=user, registration_number="1", course=course, term=9)
+
+        with self.assertRaisesMessage(ValidationError, "entre 1 e 8"):
+            student.full_clean()
+
+        student.term = 8
+        student.full_clean()
+
+    def test_perfil_exige_usuario_do_mesmo_papel(self):
+        aluno = User.objects.create_user("a@teste.com", "x", role=UserRole.STUDENT)
+
+        for profile in (Teacher(user=aluno), ExternalReviewer(user=aluno)):
+            with self.subTest(profile=type(profile).__name__):
+                with self.assertRaises(ValidationError):
+                    profile.full_clean()
+
+
+class AdminListQueriesTests(TestCase):
+    def test_lista_de_alunos_nao_faz_consulta_por_linha(self):
+        admin = User.objects.create_superuser("admin@teste.com", "x")
+        self.client.force_login(admin)
+        course = Course.objects.get(name="Direito")
+
+        def add_students(start, count):
+            for i in range(start, start + count):
+                user = User.objects.create_user(f"a{i}@t.com", "x", role="STUDENT")
+                Student.objects.create(
+                    user=user, registration_number=str(i), course=course, term=1
+                )
+
+        def list_queries():
+            with CaptureQueriesContext(connection) as queries:
+                response = self.client.get(
+                    "/admin/accounts/student/", HTTP_HOST="localhost"
+                )
+            self.assertEqual(response.status_code, 200)
+            return len(queries)
+
+        add_students(0, 1)
+        one = list_queries()
+        add_students(1, 10)
+
+        self.assertEqual(list_queries(), one)

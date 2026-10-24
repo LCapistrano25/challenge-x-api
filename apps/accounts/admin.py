@@ -67,6 +67,7 @@ class EmailDomainAdmin(admin.ModelAdmin):
 class StudentAdmin(admin.ModelAdmin):
     list_display = ("user", "registration_number", "course", "term")
     list_filter = ("course", "term")
+    list_select_related = ("user", "course")
     search_fields = ("user__email", "registration_number")
     autocomplete_fields = ("user",)
 
@@ -79,6 +80,7 @@ class TeacherCourseInline(admin.TabularInline):
 @admin.register(Teacher)
 class TeacherAdmin(admin.ModelAdmin):
     list_display = ("user",)
+    list_select_related = ("user",)
     search_fields = ("user__email",)
     autocomplete_fields = ("user",)
     inlines = (TeacherCourseInline,)
@@ -87,5 +89,6 @@ class TeacherAdmin(admin.ModelAdmin):
 @admin.register(ExternalReviewer)
 class ExternalReviewerAdmin(admin.ModelAdmin):
     list_display = ("user", "institution")
+    list_select_related = ("user",)
     search_fields = ("user__email", "institution")
     autocomplete_fields = ("user",)

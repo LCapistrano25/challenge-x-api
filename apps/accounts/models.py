@@ -1,4 +1,5 @@
 from django.contrib.auth.models import AbstractUser, BaseUserManager
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q
 
@@ -73,13 +74,16 @@ class Student(TimeStampedModel):
     """Acadêmico: dados informados no autocadastro (RF19)."""
 
     user = models.OneToOneField(
-        User, on_delete=models.CASCADE, primary_key=True, related_name="student"
+        User,
+        on_delete=models.CASCADE,
+        primary_key=True,
+        related_name="student",
+        limit_choices_to={"role": UserRole.STUDENT},
     )
     registration_number = models.CharField(max_length=30, unique=True)
     course = models.ForeignKey(
         "core.Course", on_delete=models.PROTECT, related_name="students"
     )
-    # Período do aluno; o limite superior (course.term_count) é validado no cadastro.
     term = models.PositiveSmallIntegerField()
 
     class Meta:
@@ -89,6 +93,13 @@ class Student(TimeStampedModel):
             models.CheckConstraint(condition=Q(term__gte=1), name="student_term_gte_1"),
         ]
 
+    def clean(self):
+        # O limite depende de outra tabela, então não cabe numa constraint (RN10).
+        if self.course_id and self.term and self.term > self.course.term_count:
+            raise ValidationError(
+                {"term": f"O período deve estar entre 1 e {self.course.term_count}."}
+            )
+
     def __str__(self):
         return f"{self.user.email} ({self.registration_number})"
 
@@ -97,7 +108,11 @@ class Teacher(TimeStampedModel):
     """Professor, vinculado a um ou mais cursos (RF10, RF36)."""
 
     user = models.OneToOneField(
-        User, on_delete=models.CASCADE, primary_key=True, related_name="teacher"
+        User,
+        on_delete=models.CASCADE,
+        primary_key=True,
+        related_name="teacher",
+        limit_choices_to={"role": UserRole.TEACHER},
     )
     courses = models.ManyToManyField(
         "core.Course", through="TeacherCourse", related_name="teachers"
@@ -144,6 +159,7 @@ class ExternalReviewer(TimeStampedModel):
         on_delete=models.CASCADE,
         primary_key=True,
         related_name="external_reviewer",
+        limit_choices_to={"role": UserRole.EXTERNAL_REVIEWER},
     )
     institution = models.CharField(max_length=200, blank=True)
 
