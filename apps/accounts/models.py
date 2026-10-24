@@ -46,7 +46,7 @@ class User(AbstractUser):
         blank=True,
     )
     course = models.CharField(max_length=150, blank=True)
-    semester = models.PositiveSmallIntegerField(null=True, blank=True)
+    term = models.PositiveSmallIntegerField(null=True, blank=True)
     email_confirmed = models.BooleanField(default=False)
 
     USERNAME_FIELD = "email"
