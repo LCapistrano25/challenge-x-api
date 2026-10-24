@@ -439,4 +439,6 @@ wheels/
 .venv
 
 .env
+# Cookies e dados de sessão locais
+cookies.txt
 graphify-out/
