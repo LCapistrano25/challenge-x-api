@@ -13,20 +13,14 @@ def test_database_connection():
 
 
 def course(**fields):
-    data = {"name": "Engenharia de Software", "slug": "ES", "term_count": 8}
+    data = {"name": "Engenharia de Software", "term_count": 8}
     return Course.objects.create(**{**data, **fields})
 
 
 def test_course_name_unico():
     course()
     with pytest.raises(IntegrityError):
-        course(slug="ES2")
-
-
-def test_course_slug_unico():
-    course()
-    with pytest.raises(IntegrityError):
-        course(name="Outro curso")
+        course()
 
 
 @pytest.mark.parametrize("term_count", [8, 10])

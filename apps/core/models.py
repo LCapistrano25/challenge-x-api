@@ -16,7 +16,6 @@ class Course(TimeStampedModel):
     """Curso de graduação participante do Desafio X (RF03, RN10)."""
 
     name = models.CharField(max_length=150, unique=True)
-    slug = models.CharField(max_length=20, unique=True)
     # Quantidade de períodos: identifica quem está no último ano (RN10).
     term_count = models.PositiveSmallIntegerField()
     active = models.BooleanField(default=True)
