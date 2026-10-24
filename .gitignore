@@ -21,3 +21,6 @@ db.sqlite3
 htmlcov/
 .coverage
 cookies.txt
+
+# graphify
+graphify-out/
