@@ -426,4 +426,12 @@ O validador oficial (`openapi-spec-validator`) **não pôde ser instalado**, por
 
 - `edition_sdg`, `teacher_course` e `project_course` têm PK composta, o que exige `CompositePrimaryKey` (Django 5.2 ou superior). `challenge → edition_sdg` usa a `CompositeForeignKey` customizada.
 - O índice parcial `ux_invitation_pending_email` usa `lower(invited_email)` e precisa de um `UniqueConstraint` com expressão (`Lower("invited_email")`) e `condition`.
-- `student.period ≤ course.period_count` envolve duas tabelas e, portanto, deve ser validado na aplicação.
+- `student.term ≤ course.term_count` envolve duas tabelas e, portanto, deve ser validado na aplicação.
+
+---
+
+## Histórico de alterações do contrato
+
+| Data | Alteração | Motivo |
+| :- | :- | :- |
+| 24/10/2026 | `Course.period_count` → `term_count`; campo `period` do aluno → `term` (cadastro, perfil e atualização de aluno). | Glossário do guia de implementação: período do aluno é `term`. Alinha com `User.term` e `Course.term_count` no código. |

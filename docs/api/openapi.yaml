@@ -282,7 +282,7 @@ paths:
               - id: 1
                 name: Engenharia de Software
                 slug: ES
-                period_count: 8
+                term_count: 8
                 active: true
                 created_at: '2026-10-22T16:00:00Z'
                 updated_at: '2026-10-22T16:00:00Z'
@@ -305,7 +305,7 @@ paths:
         **Perfis permitidos:** ADMIN
 
         **Regras de negócio:**
-        - period_count > 0.
+        - term_count > 0.
         - Nome e slug (código/sigla) únicos.
 
         **Pendências relacionadas (api-pendencias.md):** P-17
@@ -325,7 +325,7 @@ paths:
             example:
               name: Engenharia de Software
               slug: ES
-              period_count: 8
+              term_count: 8
               active: true
       responses:
         '201':
@@ -338,7 +338,7 @@ paths:
                 id: 1
                 name: Engenharia de Software
                 slug: ES
-                period_count: 8
+                term_count: 8
                 active: true
                 created_at: '2026-10-22T16:00:00Z'
                 updated_at: '2026-10-22T16:00:00Z'
@@ -385,7 +385,7 @@ paths:
         **Perfis permitidos:** ADMIN
 
         **Regras de negócio:**
-        - Reduzir period_count abaixo do período de alunos vinculados é recusado (400).
+        - Reduzir term_count abaixo do período de alunos vinculados é recusado (400).
       x-status: confirmed
       x-requirements:
       - RF03
@@ -402,7 +402,7 @@ paths:
             example:
               name: Engenharia de Software
               slug: ES
-              period_count: 10
+              term_count: 10
               active: false
       responses:
         '200':
@@ -415,7 +415,7 @@ paths:
                 id: 1
                 name: Engenharia de Software
                 slug: ES
-                period_count: 8
+                term_count: 8
                 active: true
                 created_at: '2026-10-22T16:00:00Z'
                 updated_at: '2026-10-22T16:00:00Z'
@@ -3052,7 +3052,7 @@ paths:
                     id: 1
                     name: Engenharia de Software
                     slug: ES
-                  period: 4
+                  term: 4
                   created_at: '2026-10-22T16:00:00Z'
                   updated_at: '2026-10-22T16:00:00Z'
         '401':
@@ -3097,7 +3097,7 @@ paths:
                   id: 1
                   name: Engenharia de Software
                   slug: ES
-                period: 4
+                term: 4
                 created_at: '2026-10-22T16:00:00Z'
                 updated_at: '2026-10-22T16:00:00Z'
         '401':
@@ -3122,7 +3122,7 @@ paths:
 
         **Regras de negócio:**
         - registration_number continua única.
-        - period entre 1 e period_count do curso informado ou atual.
+        - term entre 1 e term_count do curso informado ou atual.
         - Preserva vínculos com equipes, projetos, entregas e avaliações.
       x-status: confirmed
       x-requirements:
@@ -3141,7 +3141,7 @@ paths:
               name: Maria Souza Lima
               registration_number: '202600124'
               course_id: 1
-              period: 5
+              term: 5
       responses:
         '200':
           description: Operação concluída.
@@ -3159,7 +3159,7 @@ paths:
                   id: 1
                   name: Engenharia de Software
                   slug: ES
-                period: 4
+                term: 4
                 created_at: '2026-10-22T16:00:00Z'
                 updated_at: '2026-10-22T16:00:00Z'
         '400':
@@ -4019,7 +4019,7 @@ paths:
         **Regras de negócio:**
         - O curso deve existir e estar ativo.
         - registration_number é única.
-        - period deve estar entre 1 e course.period_count.
+        - term deve estar entre 1 e course.term_count.
         - Operação transacional; não retorna senha nem tokens do provedor.
 
         **Pendências relacionadas (api-pendencias.md):** P-02
@@ -4039,7 +4039,7 @@ paths:
             example:
               course_id: 1
               registration_number: '202600123'
-              period: 4
+              term: 4
       responses:
         '201':
           description: Perfil criado.
@@ -8219,16 +8219,16 @@ components:
           maxLength: 50
           examples:
           - '202600123'
-        period:
+        term:
           type: integer
-          description: Período acadêmico (1..period_count do curso).
+          description: Período do aluno (1..term_count do curso).
           minimum: 1
           examples:
           - 4
       required:
       - course_id
       - registration_number
-      - period
+      - term
       additionalProperties: false
     StudentProfileCreated:
       type: object
@@ -8329,7 +8329,7 @@ components:
           - '202600123'
         course:
           $ref: '#/components/schemas/CourseSummary'
-        period:
+        term:
           type: integer
           examples:
           - 4
@@ -8350,7 +8350,7 @@ components:
       - active
       - registration_number
       - course
-      - period
+      - term
       - created_at
       - updated_at
     StudentAdminUpdate:
@@ -8371,7 +8371,7 @@ components:
           type: integer
           examples:
           - 1
-        period:
+        term:
           type: integer
           minimum: 1
           examples:
@@ -8617,7 +8617,7 @@ components:
           description: Código/sigla do curso (P-17).
           examples:
           - ES
-        period_count:
+        term_count:
           type: integer
           minimum: 1
           examples:
@@ -8640,7 +8640,7 @@ components:
       - id
       - name
       - slug
-      - period_count
+      - term_count
       - active
       - created_at
       - updated_at
@@ -8657,7 +8657,7 @@ components:
           maxLength: 255
           examples:
           - ES
-        period_count:
+        term_count:
           type: integer
           minimum: 1
           examples:
@@ -8670,7 +8670,7 @@ components:
       required:
       - name
       - slug
-      - period_count
+      - term_count
       additionalProperties: false
     CourseUpdate:
       type: object
@@ -8686,7 +8686,7 @@ components:
           maxLength: 255
           examples:
           - ES
-        period_count:
+        term_count:
           type: integer
           minimum: 1
           examples:

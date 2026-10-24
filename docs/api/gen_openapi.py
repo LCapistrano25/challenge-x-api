@@ -194,8 +194,8 @@ SC["SessionResponse"] = obj({"token": STR("JWT da aplicação.", "eyJhbGciOiJIUz
 SC["StudentProfileCreate"] = obj({
     "course_id": INT("Curso ativo do aluno.", 1),
     "registration_number": STR("Matrícula (única).", "202600123", maxLength=50),
-    "period": INT("Período acadêmico (1..period_count do curso).", 4, minimum=1),
-}, ["course_id", "registration_number", "period"], strict=True)
+    "term": INT("Período do aluno (1..term_count do curso).", 4, minimum=1),
+}, ["course_id", "registration_number", "term"], strict=True)
 SC["StudentProfileCreated"] = obj({"student": obj({"user_id": UUID()}, ["user_id"])}, ["student"])
 SC["TeacherProfileCreate"] = obj({"course_ids": arr(INT(ex=1), description="Cursos aos quais o professor declara vínculo.", uniqueItems=True, minItems=1)}, ["course_ids"], strict=True)
 SC["TeacherProfileCreated"] = obj({"teacher": obj({"user_id": UUID()}, ["user_id"])}, ["teacher"])
@@ -205,13 +205,13 @@ SC["UserStatusUpdate"] = obj({"active": BOOL("Novo status de acesso (explícito,
 SC["UserStatus"] = obj({"user_id": UUID(), "active": BOOL(ex=False)}, ["user_id", "active"])
 SC["StudentAdmin"] = obj({
     "user_id": UUID(), "name": STR(ex="Maria Souza"), "email": EMAIL(), "active": BOOL(ex=True),
-    "registration_number": STR(ex="202600123"), "course": ref("CourseSummary"), "period": INT(ex=4),
+    "registration_number": STR(ex="202600123"), "course": ref("CourseSummary"), "term": INT(ex=4),
     "created_at": DT(), "updated_at": DT(),
-}, ["user_id", "name", "email", "active", "registration_number", "course", "period", "created_at", "updated_at"])
+}, ["user_id", "name", "email", "active", "registration_number", "course", "term", "created_at", "updated_at"])
 SC["StudentAdminUpdate"] = obj({
     "name": STR(ex="Maria Souza Lima", maxLength=150),
     "registration_number": STR(ex="202600124", maxLength=50),
-    "course_id": INT(ex=1), "period": INT(ex=5, minimum=1),
+    "course_id": INT(ex=1), "term": INT(ex=5, minimum=1),
 }, desc="Ao menos um campo deve ser informado.", strict=True, minProperties=1)
 SC["TeacherCourseLink"] = obj({"course": ref("CourseSummary"), "active": BOOL(ex=True)}, ["course", "active"])
 SC["TeacherAdmin"] = obj({
@@ -242,15 +242,15 @@ SC["ExternalEvaluatorCreated"] = obj({"external_evaluator": obj({"user_id": UUID
 # ---------------------------------------------------------------- core
 SC["Course"] = obj({
     "id": INT(ex=1), "name": STR(ex="Engenharia de Software"), "slug": STR("Código/sigla do curso (P-17).", "ES"),
-    "period_count": INT(ex=8, minimum=1), "active": BOOL(ex=True), "created_at": DT(), "updated_at": DT(),
-}, ["id", "name", "slug", "period_count", "active", "created_at", "updated_at"])
+    "term_count": INT(ex=8, minimum=1), "active": BOOL(ex=True), "created_at": DT(), "updated_at": DT(),
+}, ["id", "name", "slug", "term_count", "active", "created_at", "updated_at"])
 SC["CourseCreate"] = obj({
     "name": STR(ex="Engenharia de Software", maxLength=150), "slug": STR(ex="ES", maxLength=255),
-    "period_count": INT(ex=8, minimum=1), "active": BOOL(ex=True, default=True),
-}, ["name", "slug", "period_count"], strict=True)
+    "term_count": INT(ex=8, minimum=1), "active": BOOL(ex=True, default=True),
+}, ["name", "slug", "term_count"], strict=True)
 SC["CourseUpdate"] = obj({
     "name": STR(ex="Engenharia de Software", maxLength=150), "slug": STR(ex="ES", maxLength=255),
-    "period_count": INT(ex=10, minimum=1), "active": BOOL(ex=False),
+    "term_count": INT(ex=10, minimum=1), "active": BOOL(ex=False),
 }, desc="Ao menos um campo deve ser informado.", strict=True, minProperties=1)
 SC["Sdg"] = obj({
     "id": INT(ex=9), "number": INT(ex=9, minimum=1, maximum=17), "title": STR(ex="Indústria, Inovação e Infraestrutura"),
@@ -669,7 +669,7 @@ op("post", "/api/auth/students", "authCompleteStudentProfile", "auth", "Concluir
    ["RF19"], ["STUDENT"], "Cria o perfil acadêmico (student) do usuário autenticado pela Microsoft.",
    authz="Somente o próprio usuário autenticado; o user_id vem do token, nunca do corpo.",
    body=ref("StudentProfileCreate"), ok=ref("StudentProfileCreated"), ok_code="201", ok_desc="Perfil criado.",
-   rules=["O curso deve existir e estar ativo.", "registration_number é única.", "period deve estar entre 1 e course.period_count.",
+   rules=["O curso deve existir e estar ativo.", "registration_number é única.", "term deve estar entre 1 e course.term_count.",
           "Operação transacional; não retorna senha nem tokens do provedor."],
    conflicts=[("student_profile_exists", "O perfil de aluno já foi configurado."), ("registration_number_taken", "Matrícula já cadastrada.")],
    pend=["P-02"])
@@ -691,7 +691,7 @@ op("post", "/api/auth/external-evaluators", "accountsCreateExternalEvaluator", "
 
 for kind, plural, sch, upd, ptype, rfname, extra_rules in [
     ("aluno", "students", "StudentAdmin", "StudentAdminUpdate", PStudent, "RFXX — Atualizar cadastro de aluno",
-     ["registration_number continua única.", "period entre 1 e period_count do curso informado ou atual.", "Preserva vínculos com equipes, projetos, entregas e avaliações."]),
+     ["registration_number continua única.", "term entre 1 e term_count do curso informado ou atual.", "Preserva vínculos com equipes, projetos, entregas e avaliações."]),
     ("professor", "teachers", "TeacherAdmin", "TeacherAdminUpdate", PTeacher, "RFXX — Atualizar cadastro de professor",
      ["Cursos devem existir; vínculos duplicados não são criados.", "Inativar um vínculo (active=false) remove o escopo de avaliação naquele curso, preservando o histórico."]),
     ("avaliador externo", "external-evaluators", "ExternalEvaluatorAdmin", "ExternalEvaluatorAdminUpdate", PEval, "RFXX — Atualizar cadastro de avaliador externo",
@@ -723,11 +723,11 @@ op("get", "/api/admin/courses", "coreAdminListCourses", "core", "Listar cursos (
    "Lista todos os cursos, inclusive inativos.", params=["Search", "ActiveFilter"], ok=arr(ref("Course")))
 op("post", "/api/admin/courses", "coreCreateCourse", "core", "Cadastrar curso", ["RF03"], ["ADMIN"], "Cadastra um curso de graduação.",
    body=ref("CourseCreate"), ok=ref("Course"), ok_code="201", ok_desc="Curso criado.",
-   rules=["period_count > 0.", "Nome e slug (código/sigla) únicos."],
+   rules=["term_count > 0.", "Nome e slug (código/sigla) únicos."],
    conflicts=[("course_name_taken", "Já existe curso com este nome."), ("course_slug_taken", "Já existe curso com esta sigla.")], pend=["P-17"])
 op("patch", "/api/admin/courses/{course_id}", "coreUpdateCourse", "core", "Atualizar curso", ["RF03"], ["ADMIN"],
    "Edita dados e status de ativação do curso.", params=["CourseId"], body=ref("CourseUpdate"), ok=ref("Course"), errs=["404"],
-   rules=["Reduzir period_count abaixo do período de alunos vinculados é recusado (400)."],
+   rules=["Reduzir term_count abaixo do período de alunos vinculados é recusado (400)."],
    conflicts=[("course_name_taken", "Já existe curso com este nome."), ("course_slug_taken", "Já existe curso com esta sigla.")])
 op("delete", "/api/admin/courses/{course_id}", "coreDeleteCourse", "core", "Excluir curso sem vínculos", ["RF03"], ["ADMIN"],
    "Exclui fisicamente um curso apenas quando não há alunos, professores, desafios ou projetos vinculados em nenhuma edição.",
