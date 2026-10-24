@@ -3,7 +3,7 @@ from unittest.mock import patch
 from django.test import TestCase
 
 from apps.accounts.enums import UserRole
-from apps.accounts.models import EmailDomain, User
+from apps.accounts.models import EmailDomain, Student, User
 from apps.accounts.rules import (
     DomainRoleMismatch,
     InvalidEmailDomain,
@@ -13,12 +13,46 @@ from apps.accounts.use_cases.register_student import (
     RegistrationRejected,
     register_student,
 )
+from apps.core.models import Course
 
 
 class RegisterStudentTests(TestCase):
-    def test_cadastro_simultaneo_vira_rejeicao_e_nao_erro_500(self):
+    def setUp(self):
         EmailDomain.objects.create(name="aluno.edu.br", role=UserRole.STUDENT)
-        User.objects.create_user("ana@aluno.edu.br", "x", registration_number="1")
+        self.course = Course.objects.get(name="Engenharia de Software")  # 8 períodos
+
+    def register(self, **fields):
+        data = {
+            "email": "ana@aluno.edu.br",
+            "password": "TesteForte!2026x",
+            "registration_number": "1",
+            "course_id": self.course.pk,
+            "term": 1,
+            "confirmation_url": "http://testserver/confirm",
+        }
+        return register_student(**{**data, **fields})
+
+    def test_cria_usuario_inativo_e_perfil_de_aluno(self):
+        user = self.register(term=8)
+
+        self.assertFalse(user.is_active)
+        self.assertEqual(user.student.course, self.course)
+        self.assertEqual(user.student.term, 8)
+
+    def test_recusa_periodo_acima_do_curso(self):
+        with self.assertRaisesMessage(RegistrationRejected, "entre 1 e 8"):
+            self.register(term=9)
+        self.assertFalse(User.objects.exists())
+
+    def test_recusa_curso_inativo(self):
+        self.course.active = False
+        self.course.save()
+
+        with self.assertRaisesMessage(RegistrationRejected, "Curso inválido."):
+            self.register()
+
+    def test_cadastro_simultaneo_vira_rejeicao_e_nao_erro_500(self):
+        User.objects.create_user("ana@aluno.edu.br", "x")
 
         # Simula a corrida: a checagem de duplicidade não vê o outro cadastro.
         with (
@@ -26,16 +60,10 @@ class RegisterStudentTests(TestCase):
             self.assertRaises(RegistrationRejected),
         ):
             filter_.return_value.exists.return_value = False
-            register_student(
-                email="ana@aluno.edu.br",
-                password="TesteForte!2026x",
-                registration_number="2",
-                course="ES",
-                term=1,
-                confirmation_url="http://testserver/confirm",
-            )
+            self.register(registration_number="2")
 
         self.assertEqual(User.objects.count(), 1)
+        self.assertFalse(Student.objects.exists())
 
 
 class EnsureInstitutionalDomainTests(TestCase):

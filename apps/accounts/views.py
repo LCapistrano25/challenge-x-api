@@ -41,14 +41,19 @@ class RegisterView(APIView):
         email = str(data.get("email", "")).strip().lower()
         password = data.get("senha")
         registration_number = str(data.get("matricula", "")).strip()
-        course = str(data.get("curso", "")).strip()
+        course_id = data.get("curso")
         term = data.get("periodo")
 
-        if not all([email, password, registration_number, course, term]):
+        if not all([email, password, registration_number, course_id, term]):
             return error(
                 "Informe e-mail, senha, matrícula, curso e período.",
                 status.HTTP_400_BAD_REQUEST,
             )
+
+        try:
+            course_id = int(course_id)
+        except (TypeError, ValueError):
+            return error("Curso inválido.", status.HTTP_400_BAD_REQUEST)
 
         try:
             term = int(term)
@@ -65,7 +70,7 @@ class RegisterView(APIView):
                 email=email,
                 password=password,
                 registration_number=registration_number,
-                course=course,
+                course_id=course_id,
                 term=term,
                 confirmation_url=request.build_absolute_uri(reverse("confirm-email")),
             )
