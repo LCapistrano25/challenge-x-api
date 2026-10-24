@@ -14,13 +14,13 @@ from apps.accounts.models import (
 @admin.register(User)
 class CustomUserAdmin(UserAdmin):
     ordering = ("email",)
-    list_display = ("email", "role", "email_confirmed", "is_staff", "is_active")
+    list_display = ("email", "name", "role", "email_confirmed", "is_active")
     list_filter = ("role", "email_confirmed", "is_staff", "is_active")
-    search_fields = ("email", "first_name", "last_name")
+    search_fields = ("email", "name")
 
     fieldsets = (
         (None, {"fields": ("email", "password")}),
-        ("Dados pessoais", {"fields": ("first_name", "last_name")}),
+        ("Dados pessoais", {"fields": ("name",)}),
         ("Perfil", {"fields": ("role", "email_confirmed")}),
         (
             "Permissões",
@@ -44,6 +44,7 @@ class CustomUserAdmin(UserAdmin):
                 "classes": ("wide",),
                 "fields": (
                     "email",
+                    "name",
                     "role",
                     "password1",
                     "password2",

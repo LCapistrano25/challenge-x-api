@@ -36,11 +36,16 @@ class UserManager(BaseUserManager):
 class User(AbstractUser):
     """Usuário do sistema, autenticado por e-mail (RF01, RF18, RF19, RF36, RF41)."""
 
+    # O DBML tem um único "nome", no lugar de first_name/last_name do Django.
     username = None
+    first_name = None
+    last_name = None
 
+    name = models.CharField(max_length=150, blank=True)
     email = models.EmailField(unique=True)
     role = models.CharField(max_length=20, choices=UserRole)
     email_confirmed = models.BooleanField(default=False)
+    updated_at = models.DateTimeField(auto_now=True)
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = []
@@ -51,11 +56,17 @@ class User(AbstractUser):
         verbose_name = "usuário"
         verbose_name_plural = "usuários"
 
+    def get_full_name(self):
+        return self.name
 
-class EmailDomain(models.Model):
+    def get_short_name(self):
+        return self.name
+
+
+class EmailDomain(TimeStampedModel):
     """Domínio institucional de e-mail que define o perfil no cadastro (RF02)."""
 
-    name = models.CharField(max_length=255, unique=True)
+    name = models.CharField(max_length=100, unique=True)
     active = models.BooleanField(default=True)
     role = models.CharField(max_length=20, choices=UserRole)
 
@@ -161,7 +172,7 @@ class ExternalReviewer(TimeStampedModel):
         related_name="external_reviewer",
         limit_choices_to={"role": UserRole.EXTERNAL_REVIEWER},
     )
-    institution = models.CharField(max_length=200, blank=True)
+    institution = models.CharField(max_length=150, blank=True)
 
     class Meta:
         verbose_name = "avaliador externo"

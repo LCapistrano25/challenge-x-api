@@ -37,24 +37,31 @@ class Command(BaseCommand):
         )
         course = Course.objects.get(name="Engenharia de Software")
 
-        admin = self.user("admin@desafiox.local", password, UserRole.ADMIN)
+        admin = self.user(
+            "admin@desafiox.local", password, UserRole.ADMIN, "Administrador"
+        )
         admin.is_staff = admin.is_superuser = True
         admin.save(update_fields=["is_staff", "is_superuser"])
 
-        student = self.user(f"aluno@{STUDENT_DOMAIN}", password, UserRole.STUDENT)
+        student = self.user(
+            f"aluno@{STUDENT_DOMAIN}", password, UserRole.STUDENT, "Aluno Seed"
+        )
         Student.objects.get_or_create(
             user=student,
             defaults={"registration_number": "SEED001", "course": course, "term": 1},
         )
 
         teacher_user = self.user(
-            f"professor@{TEACHER_DOMAIN}", password, UserRole.TEACHER
+            f"professor@{TEACHER_DOMAIN}", password, UserRole.TEACHER, "Professor Seed"
         )
         teacher, _ = Teacher.objects.get_or_create(user=teacher_user)
         TeacherCourse.objects.get_or_create(teacher=teacher, course=course)
 
         reviewer = self.user(
-            "avaliador@empresa.local", password, UserRole.EXTERNAL_REVIEWER
+            "avaliador@empresa.local",
+            password,
+            UserRole.EXTERNAL_REVIEWER,
+            "Avaliador Seed",
         )
         ExternalReviewer.objects.get_or_create(
             user=reviewer, defaults={"institution": "Empresa Parceira"}
@@ -62,10 +69,15 @@ class Command(BaseCommand):
 
         self.stdout.write(self.style.SUCCESS("Usuários de desenvolvimento criados."))
 
-    def user(self, email, password, role):
+    def user(self, email, password, role, name):
         user, created = User.objects.get_or_create(
             email=email,
-            defaults={"role": role, "is_active": True, "email_confirmed": True},
+            defaults={
+                "name": name,
+                "role": role,
+                "is_active": True,
+                "email_confirmed": True,
+            },
         )
         if created:
             user.set_password(password)
