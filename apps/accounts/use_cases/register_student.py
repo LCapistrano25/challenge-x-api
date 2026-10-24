@@ -4,7 +4,7 @@ from django.conf import settings
 from django.contrib.auth.password_validation import validate_password
 from django.core import signing
 from django.core.mail import send_mail
-from django.db import transaction
+from django.db import IntegrityError, transaction
 
 from apps.accounts.enums import UserRole
 from apps.accounts.models import User
@@ -39,26 +39,29 @@ def register_student(
     ensure_institutional_domain(email, UserRole.STUDENT)
 
     # Mensagem genérica: não revela se o e-mail ou a matrícula já existem.
+    rejected = "Não foi possível realizar o cadastro com esses dados."
     if (
         User.objects.filter(email__iexact=email).exists()
         or User.objects.filter(registration_number=registration_number).exists()
     ):
-        raise RegistrationRejected(
-            "Não foi possível realizar o cadastro com esses dados."
-        )
+        raise RegistrationRejected(rejected)
 
     validate_password(password)
 
-    user = User.objects.create_user(
-        email=email,
-        password=password,
-        role=UserRole.STUDENT,
-        registration_number=registration_number,
-        course=course,
-        term=term,
-        is_active=False,
-        email_confirmed=False,
-    )
+    try:
+        user = User.objects.create_user(
+            email=email,
+            password=password,
+            role=UserRole.STUDENT,
+            registration_number=registration_number,
+            course=course,
+            term=term,
+            is_active=False,
+            email_confirmed=False,
+        )
+    except IntegrityError:
+        # Dois cadastros simultâneos passam pela checagem acima; o banco desempata.
+        raise RegistrationRejected(rejected) from None
 
     token = signing.dumps({"user_id": user.pk}, salt=EMAIL_CONFIRMATION_SALT)
 

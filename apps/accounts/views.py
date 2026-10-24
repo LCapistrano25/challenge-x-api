@@ -133,15 +133,20 @@ class LoginView(APIView):
         if not email or not password:
             return error("Informe e-mail e senha.", status.HTTP_400_BAD_REQUEST)
 
+        # authenticate() recusa usuário inativo, e o aluno recém-cadastrado é inativo
+        # até confirmar o e-mail: sem esta checagem ele veria "Credenciais inválidas".
+        pending = User.objects.filter(
+            email=email, role=UserRole.STUDENT, is_active=False, email_confirmed=False
+        ).first()
+        if pending and pending.check_password(password):
+            return error(
+                "Confirme seu e-mail antes de entrar.", status.HTTP_403_FORBIDDEN
+            )
+
         user = authenticate(request, username=email, password=password)
 
         if user is None:
             return error("Credenciais inválidas.", status.HTTP_401_UNAUTHORIZED)
-
-        if not user.is_active:
-            return error(
-                "Conta inativa ou e-mail não confirmado.", status.HTTP_403_FORBIDDEN
-            )
 
         if user.role == UserRole.STUDENT and not user.email_confirmed:
             return error(

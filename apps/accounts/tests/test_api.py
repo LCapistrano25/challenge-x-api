@@ -385,6 +385,35 @@ class RegisterTests(TestCase):
         self.assertEqual(resposta.status_code, 400)
         self.assertEqual(User.objects.count(), 1)
 
+    def test_login_logo_apos_cadastro_pede_confirmacao(self):
+        EmailDomain.objects.create(
+            name="aluno.unicatolica.edu.br",
+            active=True,
+            role=UserRole.STUDENT,
+        )
+        dados = {
+            "email": "novo@aluno.unicatolica.edu.br",
+            "senha": "TesteForte!2026x",
+        }
+        self.client.post(
+            "/api/auth/register",
+            {**dados, "matricula": "TESTE010", "curso": "ES", "periodo": 1},
+            format="json",
+        )
+
+        resposta = self.client.post("/api/auth/login", dados, format="json")
+
+        self.assertEqual(resposta.status_code, 403)
+        self.assertEqual(resposta.data["erro"], "Confirme seu e-mail antes de entrar.")
+        self.assertNotIn("_auth_user_id", self.client.session)
+
+        resposta = self.client.post(
+            "/api/auth/login",
+            {**dados, "senha": "SenhaErrada!2026"},
+            format="json",
+        )
+        self.assertEqual(resposta.status_code, 401)
+
 
 class PermissionTests(TestCase):
     def setUp(self):
