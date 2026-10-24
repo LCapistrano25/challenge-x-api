@@ -39,7 +39,7 @@ class Sdg(TimeStampedModel):
     """Objetivo de Desenvolvimento Sustentável, catálogo global (RF04)."""
 
     number = models.PositiveSmallIntegerField(unique=True)
-    title = models.CharField(max_length=150)
+    title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
     icon = models.CharField(max_length=100, blank=True)
     active = models.BooleanField(default=True)
