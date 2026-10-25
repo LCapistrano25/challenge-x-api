@@ -27,10 +27,10 @@ class TeamAdmin(admin.ModelAdmin):
 
 @admin.register(Invitation)
 class InvitationAdmin(admin.ModelAdmin):
-    list_display = ("team", "student", "invited_email", "status")
+    list_display = ("team", "student", "status")
     list_filter = ("status",)
     list_select_related = ("team", "student__user")
-    search_fields = ("team__name", "invited_email", "student__user__email")
+    search_fields = ("team__name", "student__user__email")
 
 
 @admin.register(JoinRequest)

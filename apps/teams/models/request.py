@@ -1,26 +1,19 @@
 from django.db import models
-from django.db.models import F, Q
-from django.db.models.functions import Lower
+from django.db.models import Q
 
 from apps.core.models import TimeStampedModel
 from apps.teams.enums import InvitationStatus, RequestStatus
 
 
 class Invitation(TimeStampedModel):
-    """Convite do líder para um aluno, com ou sem conta (RF22, RF23)."""
+    """Convite do líder para um aluno já cadastrado (RF22, RF23)."""
 
     team = models.ForeignKey(
         "teams.Team", on_delete=models.PROTECT, related_name="invitations"
     )
     student = models.ForeignKey(
-        "accounts.Student",
-        on_delete=models.PROTECT,
-        related_name="invitations",
-        null=True,
-        blank=True,
+        "accounts.Student", on_delete=models.PROTECT, related_name="invitations"
     )
-    # Usado quando o convidado ainda não tem conta.
-    invited_email = models.EmailField(blank=True)
     status = models.CharField(
         max_length=20, choices=InvitationStatus, default=InvitationStatus.PENDING
     )
@@ -30,26 +23,16 @@ class Invitation(TimeStampedModel):
         verbose_name = "convite"
         verbose_name_plural = "convites"
         constraints = [
-            models.CheckConstraint(
-                condition=Q(student__isnull=False) | ~Q(invited_email=""),
-                name="invitation_has_student_or_email",
-            ),
-            # Um convite pendente por pessoa; recusados e cancelados ficam no histórico.
+            # Um convite pendente por aluno; recusados e cancelados ficam no histórico.
             models.UniqueConstraint(
                 fields=["team", "student"],
-                condition=Q(status=InvitationStatus.PENDING, student__isnull=False),
+                condition=Q(status=InvitationStatus.PENDING),
                 name="unique_pending_invitation_per_student",
-            ),
-            models.UniqueConstraint(
-                F("team"),
-                Lower("invited_email"),
-                condition=Q(status=InvitationStatus.PENDING) & ~Q(invited_email=""),
-                name="unique_pending_invitation_per_email",
             ),
         ]
 
     def __str__(self):
-        return f"{self.team} -> {self.student or self.invited_email}"
+        return f"{self.team} -> {self.student}"
 
 
 class JoinRequest(TimeStampedModel):

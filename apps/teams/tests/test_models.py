@@ -72,13 +72,6 @@ def test_dois_convites_pendentes_para_o_mesmo_aluno_sao_recusados(edition):
         Invitation.objects.create(team=equipe, student=aluno)
 
 
-def test_dois_convites_pendentes_para_o_mesmo_email_sao_recusados(edition):
-    equipe = team(edition)
-    Invitation.objects.create(team=equipe, invited_email="ana@aluno.edu.br")
-    with pytest.raises(IntegrityError):
-        Invitation.objects.create(team=equipe, invited_email="ANA@aluno.edu.br")
-
-
 # Histórico preservado: as unicidades valem só para ativos ou pendentes
 
 
@@ -182,7 +175,7 @@ def test_saida_e_vinculo_inativo_andam_juntos(edition):
         member(team(edition), student(1), active=False)
 
 
-def test_convite_exige_aluno_ou_email(edition):
+def test_convite_exige_aluno_cadastrado(edition):
     with pytest.raises(IntegrityError):
         Invitation.objects.create(team=team(edition))
 
