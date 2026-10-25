@@ -5,9 +5,14 @@ from django.test import TestCase
 from rest_framework.test import APIClient, APIRequestFactory
 
 from apps.accounts.enums import UserRole
-from apps.accounts.models import EmailDomain, User
+from apps.accounts.models import EmailDomain, Student, User
 from apps.accounts.permissions import IsAdmin, IsStudent, IsTeacher
 from apps.accounts.use_cases.register_student import EMAIL_CONFIRMATION_SALT
+from apps.core.models import Course
+
+
+def es_id():
+    return Course.objects.get(name="Engenharia de Software").pk
 
 
 class LoginTests(TestCase):
@@ -22,9 +27,6 @@ class LoginTests(TestCase):
             email="aluno@aluno.unicatolica.edu.br",
             password="TesteForte!2026x",
             role=UserRole.STUDENT,
-            registration_number="LOGIN001",
-            course="Engenharia de Software",
-            term=6,
             is_active=True,
             email_confirmed=True,
         )
@@ -131,9 +133,6 @@ class LoginTests(TestCase):
             email="aluno@a.catolica-to.edu.br",
             password="TesteForte!2026x",
             role=UserRole.STUDENT,
-            registration_number="LOGIN002",
-            course="Engenharia de Software",
-            term=6,
             is_active=True,
             email_confirmed=False,
         )
@@ -195,7 +194,7 @@ class RegisterTests(TestCase):
                 "email": "aluno@gmail.com",
                 "senha": "TesteForte!2026x",
                 "matricula": "TESTE001",
-                "curso": "Engenharia de Software",
+                "curso": es_id(),
                 "periodo": 6,
             },
             format="json",
@@ -217,7 +216,7 @@ class RegisterTests(TestCase):
                 "email": "novo@aluno.unicatolica.edu.br",
                 "senha": "TesteForte!2026x",
                 "matricula": "TESTE002",
-                "curso": "Engenharia de Software",
+                "curso": es_id(),
                 "periodo": 6,
             },
             format="json",
@@ -233,16 +232,13 @@ class RegisterTests(TestCase):
         )
         usuario = User.objects.get(email="novo@aluno.unicatolica.edu.br")
         self.assertEqual(usuario.role, UserRole.STUDENT)
-        self.assertEqual(usuario.registration_number, "TESTE002")
+        self.assertEqual(usuario.student.registration_number, "TESTE002")
 
     def test_confirmacao_de_email_ativa_conta(self):
         usuario = User.objects.create_user(
             email="confirmar@aluno.unicatolica.edu.br",
             password="TesteForte!2026x",
             role=UserRole.STUDENT,
-            registration_number="TESTE003",
-            course="Engenharia de Software",
-            term=6,
             is_active=False,
             email_confirmed=False,
         )
@@ -288,7 +284,7 @@ class RegisterTests(TestCase):
                 "email": "bloqueado@aluno.unicatolica.edu.br",
                 "senha": "TesteForte!2026x",
                 "matricula": "TESTE004",
-                "curso": "Engenharia de Software",
+                "curso": es_id(),
                 "periodo": 6,
             },
             format="json",
@@ -306,13 +302,13 @@ class RegisterTests(TestCase):
             role=UserRole.STUDENT,
         )
 
-        User.objects.create_user(
+        existente = User.objects.create_user(
             email="existente@aluno.unicatolica.edu.br",
             password="TesteForte!2026x",
             role=UserRole.STUDENT,
-            registration_number="TESTE005",
-            course="Engenharia de Software",
-            term=6,
+        )
+        Student.objects.create(
+            user=existente, registration_number="TESTE005", course_id=es_id(), term=6
         )
 
         resposta = self.client.post(
@@ -321,7 +317,7 @@ class RegisterTests(TestCase):
                 "email": "outro@aluno.unicatolica.edu.br",
                 "senha": "TesteForte!2026x",
                 "matricula": "TESTE005",
-                "curso": "Engenharia de Software",
+                "curso": es_id(),
                 "periodo": 6,
             },
             format="json",
@@ -343,7 +339,7 @@ class RegisterTests(TestCase):
                 "email": "periodo@aluno.unicatolica.edu.br",
                 "senha": "TesteForte!2026x",
                 "matricula": "TESTE006",
-                "curso": "Engenharia de Software",
+                "curso": es_id(),
                 "periodo": 0,
             },
             format="json",
@@ -365,9 +361,6 @@ class RegisterTests(TestCase):
             email="existente@aluno.unicatolica.edu.br",
             password="TesteForte!2026x",
             role=UserRole.STUDENT,
-            registration_number="TESTE008",
-            course="Engenharia de Software",
-            term=6,
         )
 
         resposta = self.client.post(
@@ -376,7 +369,7 @@ class RegisterTests(TestCase):
                 "email": "EXISTENTE@aluno.unicatolica.edu.br",
                 "senha": "TesteForte!2026x",
                 "matricula": "TESTE009",
-                "curso": "Engenharia de Software",
+                "curso": es_id(),
                 "periodo": 6,
             },
             format="json",
@@ -397,7 +390,7 @@ class RegisterTests(TestCase):
         }
         self.client.post(
             "/api/auth/register",
-            {**dados, "matricula": "TESTE010", "curso": "ES", "periodo": 1},
+            {**dados, "matricula": "TESTE010", "curso": es_id(), "periodo": 1},
             format="json",
         )
 
@@ -545,9 +538,6 @@ class SessionTests(TestCase):
                     email="aluno@aluno.unicatolica.edu.br",
                     password="TesteForte!2026x",
                     role=UserRole.STUDENT,
-                    registration_number="TESTE001",
-                    course="Engenharia de Software",
-                    term=6,
                     is_active=True,
                     email_confirmed=True,
                 ),
@@ -693,9 +683,6 @@ class SessionTests(TestCase):
             email="expirado@aluno.unicatolica.edu.br",
             password="TesteForte!2026x",
             role=UserRole.STUDENT,
-            registration_number="TESTE007",
-            course="Engenharia de Software",
-            term=6,
             is_active=False,
             email_confirmed=False,
         )
@@ -729,9 +716,6 @@ class SessionTests(TestCase):
             email="confirmado@aluno.unicatolica.edu.br",
             password="TesteForte!2026x",
             role=UserRole.STUDENT,
-            registration_number="TESTE008",
-            course="Engenharia de Software",
-            term=6,
             is_active=True,
             email_confirmed=True,
         )
