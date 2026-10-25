@@ -7,6 +7,7 @@ from django.utils import timezone
 from rest_framework.test import APIClient, APIRequestFactory
 
 from apps.accounts.enums import UserRole
+from apps.accounts.factories import StudentFactory, TeacherFactory
 from apps.accounts.models import EmailDomain, Student, User
 from apps.accounts.permissions import IsAdmin, IsStudent, IsTeacher
 from apps.accounts.use_cases.register_student import EMAIL_CONFIRMATION_SALT
@@ -424,19 +425,9 @@ class PermissionTests(TestCase):
             is_active=True,
         )
 
-        self.academico = User.objects.create_user(
-            email="academico@teste.com",
-            password="TesteForte!2026x",
-            role=UserRole.STUDENT,
-            is_active=True,
-        )
-
-        self.professor = User.objects.create_user(
-            email="professor@teste.com",
-            password="TesteForte!2026x",
-            role=UserRole.TEACHER,
-            is_active=True,
-        )
+        # As permissões exigem o perfil, não só o papel.
+        self.academico = StudentFactory().user
+        self.professor = TeacherFactory().user
 
     def test_is_admin(self):
         factory = APIRequestFactory()
