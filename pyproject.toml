@@ -34,7 +34,7 @@ show_missing = true
 [tool.ruff]
 target-version = "py312"
 line-length = 88
-extend-exclude = ["*/migrations/*"]
+extend-exclude = ["*/migrations/*", "docs/"]
 
 [tool.ruff.lint]
 select = [

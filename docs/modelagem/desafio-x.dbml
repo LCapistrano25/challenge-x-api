@@ -1,0 +1,865 @@
+Table usuario [headercolor: #175e7a] {
+	id integer [ pk, increment ]
+	nome varchar(150) [ not null ]
+	email varchar(254) [ not null, unique ]
+	senha_hash varchar(255) [ note: 'nulo se a autenticação for delegada a um provedor externo' ]
+	perfil perfil_usuario [ not null ]
+	email_confirmado boolean [ not null, default: false ]
+	ativo boolean [ not null, default: true ]
+	criado_em timestamp [ not null ]
+	atualizado_em timestamp
+}
+
+Table dominio_email [headercolor: #175e7a] {
+	id integer [ pk, increment ]
+	dominio varchar(100) [ not null, unique, note: 'ex: catolica-to.edu.br — sem o @, sempre em minúsculas' ]
+	perfil perfil_dominio [ not null, note: 'define o perfil atribuído no autocadastro (RF02)' ]
+	ativo boolean [ not null, default: true ]
+	criado_em timestamp [ not null ]
+	atualizado_em timestamp
+}
+
+Table curso [headercolor: #175e7a] {
+	id integer [ pk, increment ]
+	nome varchar(150) [ not null, unique ]
+	qtd_periodos integer [ not null, note: '8 ou 10 — usado para identificar o último ano' ]
+	ativo boolean [ not null, default: true ]
+	criado_em timestamp [ not null ]
+	atualizado_em timestamp
+}
+
+Table aluno [headercolor: #175e7a] {
+	usuario_id integer [ pk ]
+	matricula varchar(30) [ not null, unique ]
+	curso_id integer [ not null ]
+	periodo integer [ not null, note: 'período atual; o valor usado no cálculo fica congelado em pontuacao_aluno' ]
+	criado_em timestamp [ not null ]
+	atualizado_em timestamp
+}
+
+Table professor [headercolor: #175e7a] {
+	usuario_id integer [ pk ]
+	criado_em timestamp [ not null ]
+	atualizado_em timestamp
+}
+
+Table professor_curso [headercolor: #175e7a] {
+	id integer [ pk, increment ]
+	professor_id integer [ not null ]
+	curso_id integer [ not null ]
+	ativo boolean [ not null, default: true ]
+	criado_em timestamp [ not null ]
+	atualizado_em timestamp
+
+	indexes {
+		(professor_id, curso_id) [ unique ]
+	}
+}
+
+Table avaliador_externo [headercolor: #175e7a] {
+	usuario_id integer [ pk ]
+	instituicao varchar(150) [ note: 'empresa ou instituição de origem (RF11)' ]
+	criado_em timestamp [ not null ]
+	atualizado_em timestamp
+}
+
+Table avaliador_edicao [headercolor: #175e7a] {
+	id integer [ pk, increment ]
+	avaliador_id integer [ not null ]
+	edicao_id integer [ not null ]
+	curso_id integer [ note: 'banca do avaliador: nulo = avalia os finalistas de todos os cursos' ]
+	criado_em timestamp [ not null ]
+	atualizado_em timestamp
+
+	indexes {
+		(avaliador_id, edicao_id) [ unique ]
+	}
+}
+
+Table edicao [headercolor: #175e7a] {
+	id integer [ pk, increment ]
+	ano integer [ not null ]
+	semestre integer [ not null, note: '1 ou 2' ]
+	nome varchar(100)
+	status status_edicao [ not null, default: CONFIGURACAO ]
+	edital_url varchar(500)
+	min_integrantes integer [ not null, default: 3 ]
+	max_integrantes integer [ not null, default: 5 ]
+	publicado_em timestamp
+	encerrado_em timestamp
+	criado_em timestamp [ not null ]
+	atualizado_em timestamp
+
+	indexes {
+		(ano, semestre) [ unique ]
+	}
+
+	Note: 'min_integrantes <= max_integrantes deve ser garantido por CHECK'
+}
+
+Table ods [headercolor: #175e7a] {
+	id integer [ pk, increment ]
+	numero integer [ not null, unique ]
+	titulo varchar(200) [ not null ]
+	descricao text
+	icone varchar(100) [ note: 'arquivo ou nome do ícone da ODS (RF04)' ]
+	ativo boolean [ not null, default: true ]
+	criado_em timestamp [ not null ]
+	atualizado_em timestamp
+
+	Note: 'catálogo global: cadastrado uma vez e reutilizado em todas as edições (RF04, RN09)'
+}
+
+Table edicao_ods [headercolor: #175e7a] {
+	id integer [ pk, increment ]
+	edicao_id integer [ not null ]
+	ods_id integer [ not null ]
+	criado_em timestamp [ not null ]
+	atualizado_em timestamp
+
+	indexes {
+		(edicao_id, ods_id) [ unique ]
+	}
+
+	Note: 'ODS aceitas na edição (2026: 1, 2, 3, 9 e 16) — RN09'
+}
+
+Table categoria [headercolor: #175e7a] {
+	id integer [ pk, increment ]
+	edicao_id integer [ not null ]
+	nome varchar(150) [ not null, note: 'padrão: A) Protótipos e Artefatos; B) Processos, Protocolos, Metodologias e Ferramentas' ]
+	descricao text
+	ativo boolean [ not null, default: true ]
+	criado_em timestamp [ not null ]
+	atualizado_em timestamp
+
+	indexes {
+		(edicao_id, nome) [ unique ]
+	}
+}
+
+Table desafio [headercolor: #175e7a] {
+	id integer [ pk, increment ]
+	edicao_id integer [ not null ]
+	curso_id integer [ not null, note: 'um desafio pertence a exatamente 1 curso' ]
+	ods_id integer [ not null, note: 'e a exatamente 1 ODS' ]
+	texto text [ not null ]
+	ativo boolean [ not null, default: true ]
+	criado_em timestamp [ not null ]
+	atualizado_em timestamp
+
+	Note: 'ATENÇÃO: não criar unique em (curso_id, ods_id). O mesmo curso pode ter vários desafios sob a mesma ODS (RF05 regra 2, RN11). O mesmo texto usado em dois cursos vira dois registros. A ODS escolhida precisa estar em edicao_ods.'
+}
+
+Table etapa [headercolor: #175e7a] {
+	id integer [ pk, increment ]
+	edicao_id integer [ not null ]
+	ordem integer [ not null ]
+	nome varchar(100) [ not null ]
+	tipo tipo_etapa [ not null, note: 'FORMACAO delimita o prazo de equipes; FINAL é a etapa dos avaliadores externos' ]
+	iniciado_em timestamp [ not null, note: 'início do prazo' ]
+	encerrado_em timestamp [ not null, note: 'fim do prazo' ]
+	pontuada boolean [ not null, default: true ]
+	valor_pontos "decimal(4,2)" [ note: 'obrigatório quando pontuada; a soma das etapas pontuadas da edição deve ser 10' ]
+	min_avaliadores integer [ not null, default: 1, note: 'CHECK >= 1' ]
+	criado_em timestamp [ not null ]
+	atualizado_em timestamp
+
+	indexes {
+		(edicao_id, ordem) [ unique ]
+	}
+
+	Note: 'encerrado_em > iniciado_em deve ser garantido por CHECK'
+}
+
+Table etapa_campo_entrega [headercolor: #175e7a] {
+	id integer [ pk, increment ]
+	etapa_id integer [ not null ]
+	tipo tipo_campo [ not null ]
+	rotulo varchar(150)
+	obrigatorio boolean [ not null, default: true ]
+	formatos varchar(200) [ note: 'ex: pdf, xlsx — aplicável quando tipo = ARQUIVO' ]
+	tamanho_max_mb integer
+	criado_em timestamp [ not null ]
+	atualizado_em timestamp
+}
+
+Table criterio [headercolor: #175e7a] {
+	id integer [ pk, increment ]
+	edicao_id integer [ not null ]
+	nome varchar(150) [ not null ]
+	descricao text [ note: 'descrição das faixas: insatisfatório, regular, bom, excelente' ]
+	ordem_desempate integer [ note: 'nulo = não desempata; 1 e 2 reproduzem o Art. 24' ]
+	criado_em timestamp [ not null ]
+	atualizado_em timestamp
+
+	indexes {
+		(edicao_id, ordem_desempate) [ unique ]
+	}
+}
+
+Table etapa_criterio [headercolor: #175e7a] {
+	id integer [ pk, increment ]
+	etapa_id integer [ not null ]
+	criterio_id integer [ not null ]
+	pontuacao_maxima "decimal(4,2)" [ not null, note: 'a soma dos critérios da etapa deve ser igual ao valor da etapa' ]
+	criado_em timestamp [ not null ]
+	atualizado_em timestamp
+
+	indexes {
+		(etapa_id, criterio_id) [ unique ]
+	}
+}
+
+Table formulario_final [headercolor: #175e7a] {
+	id integer [ pk, increment ]
+	edicao_id integer [ not null, unique ]
+	titulo varchar(150)
+	publicado boolean [ not null, default: false, note: 'depois de publicado não muda se já houver resposta' ]
+	criado_em timestamp [ not null ]
+	atualizado_em timestamp
+
+	Note: '[FASE 2] formulário usado pelo Avaliador Externo na etapa final (RF12)'
+}
+
+Table pergunta_final [headercolor: #175e7a] {
+	id integer [ pk, increment ]
+	formulario_id integer [ not null ]
+	ordem integer [ not null ]
+	enunciado text [ not null ]
+	tipo tipo_pergunta [ not null ]
+	pontuacao_maxima "decimal(4,2)" [ note: 'obrigatória quando tipo = NOTA, nula nos demais' ]
+	criado_em timestamp [ not null ]
+	atualizado_em timestamp
+
+	indexes {
+		(formulario_id, ordem) [ unique ]
+	}
+
+	Note: '[FASE 2]'
+}
+
+Table equipe [headercolor: #175e7a] {
+	id integer [ pk, increment ]
+	edicao_id integer [ not null ]
+	nome varchar(150) [ not null ]
+	codigo varchar(20) [ not null, unique, note: 'código/link de identificação usado nos convites (RF21)' ]
+	status status_equipe [ not null, default: ATIVA ]
+	situacao situacao_equipe [ note: 'apurada no encerramento do prazo de formação (RF51); nula antes disso' ]
+	motivo_desclassificacao text [ note: 'obrigatório quando status = DESCLASSIFICADA (RF13)' ]
+	criado_em timestamp [ not null ]
+	atualizado_em timestamp
+
+	indexes {
+		(edicao_id, nome) [ unique ]
+	}
+
+	Note: 'o líder não é coluna daqui: ele é a linha de equipe_membro com papel = LIDER'
+}
+
+Table equipe_membro [headercolor: #175e7a] {
+	id integer [ pk, increment ]
+	equipe_id integer [ not null ]
+	edicao_id integer [ not null, note: 'repetido da equipe só para viabilizar a unicidade abaixo; FK composta (equipe_id, edicao_id) -> equipe garante que não divergem' ]
+	aluno_id integer [ not null ]
+	papel papel_membro [ not null, default: MEMBRO ]
+	entrado_em timestamp [ not null ]
+	saido_em timestamp
+	ativo boolean [ not null, default: true ]
+	criado_em timestamp [ not null ]
+	atualizado_em timestamp
+
+	indexes {
+		(equipe_id, aluno_id)
+		(edicao_id, aluno_id)
+	}
+
+	Note: '''O histórico de saída e retorno é preservado: as unicidades valem só para registros ativos, por índices únicos parciais (ver fim do arquivo):
+1 participação ativa por aluno na edição, 1 vínculo ativo por equipe e aluno e no máximo 1 LIDER ativo por equipe.
+CHECK: saido_em nulo <=> ativo = true.'''
+}
+
+Table convite [headercolor: #175e7a] {
+	id integer [ pk, increment ]
+	equipe_id integer [ not null ]
+	aluno_id integer [ not null, note: 'só aluno já cadastrado pode ser convidado' ]
+	status status_convite [ not null, default: PENDENTE ]
+	criado_em timestamp [ not null ]
+	respondido_em timestamp
+	atualizado_em timestamp
+
+	indexes {
+		(equipe_id, aluno_id)
+	}
+
+	Note: 'Unicidade só entre convites PENDENTES (índice parcial por aluno), preservando o histórico de recusados e cancelados.'
+}
+
+Table solicitacao_entrada [headercolor: #175e7a] {
+	id integer [ pk, increment ]
+	equipe_id integer [ not null ]
+	aluno_id integer [ not null ]
+	status status_solicitacao [ not null, default: PENDENTE ]
+	criado_em timestamp [ not null ]
+	respondido_em timestamp
+	atualizado_em timestamp
+
+	indexes {
+		(equipe_id, aluno_id)
+	}
+
+	Note: 'Unicidade só entre solicitações PENDENTES (índice parcial), preservando o histórico.'
+}
+
+Table solicitacao_lideranca [headercolor: #175e7a] {
+	id integer [ pk, increment ]
+	equipe_id integer [ not null ]
+	solicitante_id integer [ not null ]
+	justificativa text [ not null ]
+	status status_solicitacao [ not null, default: PENDENTE ]
+	professor_id integer [ note: 'quem decidiu (RF40)' ]
+	justificativa_decisao text
+	criado_em timestamp [ not null ]
+	decidido_em timestamp
+	atualizado_em timestamp
+
+	indexes {
+		(equipe_id)
+	}
+
+	Note: '[FASE 2] liderança por abandono (RF28, RF40). No máximo uma solicitação PENDENTE por equipe (índice parcial); as decididas ficam no histórico.'
+}
+
+Table projeto [headercolor: #175e7a] {
+	id integer [ pk, increment ]
+	equipe_id integer [ not null, unique ]
+	edicao_id integer [ not null, note: 'repetido da equipe para viabilizar a unicidade do título; FK composta (equipe_id, edicao_id) -> equipe garante consistência' ]
+	titulo varchar(200) [ not null ]
+	resumo text [ not null ]
+	objetivo text
+	desafio_id integer [ not null, note: 'a ODS e o curso do projeto vêm do desafio: uma ODS por projeto (RF05, RF29)' ]
+	categoria_id integer
+	status status_projeto [ not null, default: EM_ANDAMENTO ]
+	criado_em timestamp [ not null ]
+	atualizado_em timestamp
+
+	indexes {
+		(edicao_id, titulo) [ unique ]
+	}
+
+	Note: 'desafio e categoria deixam de aceitar alteração no fim da etapa FORMACAO; o momento vem de etapa.encerrado_em, não de coluna aqui'
+}
+
+Table observacao_integrante [headercolor: #175e7a] {
+	id integer [ pk, increment ]
+	integrante_id integer [ not null, note: 'o integrante observado, já dentro da equipe certa' ]
+	autor_id integer [ not null, note: 'o líder que registrou' ]
+	texto text [ not null ]
+	criado_em timestamp [ not null ]
+	atualizado_em timestamp
+
+	Note: '[FASE 2] visível apenas para professores e administradores'
+}
+
+Table entrega [headercolor: #175e7a] {
+	id integer [ pk, increment ]
+	projeto_id integer [ not null ]
+	etapa_id integer [ not null ]
+	criado_em timestamp [ not null ]
+	atualizado_em timestamp
+
+	indexes {
+		(projeto_id, etapa_id) [ unique ]
+	}
+
+	Note: 'agrupa as versões. Sem versão = não enviada; a versão que vale é a de maior numero com enviado_em <= etapa.encerrado_em. Nada disso é coluna: o resultado congelado fica em nota_etapa.status.'
+}
+
+Table entrega_versao [headercolor: #175e7a] {
+	id integer [ pk, increment ]
+	entrega_id integer [ not null ]
+	numero integer [ not null, note: 'sequencial dentro da entrega: 1, 2, 3...' ]
+	enviado_por integer [ not null, note: 'o líder' ]
+	enviado_em timestamp [ not null ]
+	observacao text
+	criado_em timestamp [ not null ]
+	atualizado_em timestamp
+
+	indexes {
+		(entrega_id, numero) [ unique ]
+	}
+
+	Note: 'cada atualização gera uma versão nova; nenhuma versão é alterada depois de criada (RF31)'
+}
+
+Table entrega_item [headercolor: #175e7a] {
+	id integer [ pk, increment ]
+	versao_id integer [ not null ]
+	campo_id integer [ note: 'qual campo configurado na etapa este item responde' ]
+	tipo tipo_campo [ not null ]
+	link varchar(1000)
+	arquivo_url varchar(1000)
+	nome_arquivo varchar(255)
+	tamanho_bytes bigint
+	criado_em timestamp [ not null ]
+	atualizado_em timestamp
+
+	Note: 'CHECK: link preenchido quando tipo = LINK; arquivo_url quando tipo = ARQUIVO'
+}
+
+Table comprovante_entrega [headercolor: #175e7a] {
+	id integer [ pk, increment ]
+	versao_id integer [ not null, unique ]
+	codigo_verificacao varchar(50) [ not null, unique ]
+	arquivo_url varchar(1000) [ note: 'PDF com equipe, projeto, etapa, data/hora e versão registrada (RF31)' ]
+	gerado_em timestamp [ not null ]
+	criado_em timestamp [ not null ]
+	atualizado_em timestamp
+}
+
+Table avaliacao [headercolor: #175e7a] {
+	id integer [ pk, increment ]
+	projeto_id integer [ not null ]
+	etapa_id integer [ not null ]
+	professor_id integer [ not null ]
+	comentario text [ note: 'feedback geral da etapa' ]
+	status status_avaliacao [ not null, default: RASCUNHO ]
+	criado_em timestamp [ not null ]
+	finalizado_em timestamp
+	atualizado_em timestamp
+
+	indexes {
+		(projeto_id, etapa_id, professor_id) [ unique ]
+	}
+
+	Note: 'o professor precisa estar vinculado ao curso do desafio do projeto — regra da aplicação, não dá para expressar em FK'
+}
+
+Table avaliacao_item [headercolor: #175e7a] {
+	id integer [ pk, increment ]
+	avaliacao_id integer [ not null ]
+	etapa_criterio_id integer [ not null, note: 'aponta para o critério já vinculado àquela etapa, o que traz a pontuação máxima junto' ]
+	pontos "decimal(5,2)" [ not null, note: 'de 0 até etapa_criterio.pontuacao_maxima — CHECK no limite superior fica na aplicação' ]
+	comentario text
+	criado_em timestamp [ not null ]
+	atualizado_em timestamp
+
+	indexes {
+		(avaliacao_id, etapa_criterio_id) [ unique ]
+	}
+}
+
+Table nota_etapa [headercolor: #175e7a] {
+	id integer [ pk, increment ]
+	projeto_id integer [ not null ]
+	etapa_id integer [ not null ]
+	valor "decimal(5,2)" [ note: 'média das avaliações finalizadas; nulo enquanto PENDENTE' ]
+	qtd_avaliacoes integer [ not null, default: 0 ]
+	status status_nota [ not null, default: PENDENTE ]
+	calculado_em timestamp
+	criado_em timestamp [ not null ]
+	atualizado_em timestamp
+
+	indexes {
+		(projeto_id, etapa_id) [ unique ]
+	}
+
+	Note: 'valor consolidado de propósito: é o número que a equipe vê e que o resultado soma. Recalculado a cada avaliação finalizada.'
+}
+
+Table resultado_projeto [headercolor: #175e7a] {
+	id integer [ pk, increment ]
+	projeto_id integer [ not null, unique ]
+	nota_final "decimal(5,2)" [ note: 'soma das notas das etapas, de 0 a 10' ]
+	classificacao_curso integer [ note: 'posição dentro do curso, usada na seleção de finalistas' ]
+	classificacao_categoria integer [ note: 'posição na categoria dentro do curso, usada na premiação' ]
+	finalista boolean [ not null, default: false ]
+	premiacao integer [ note: '1, 2 ou 3 — colocação premiada; nulo quando não premiado' ]
+	homologado_em timestamp
+	criado_em timestamp [ not null ]
+	atualizado_em timestamp
+
+	Note: 'consolidado de propósito, como nota_etapa: é o resultado publicado e homologado'
+}
+
+Table pontuacao_aluno [headercolor: #175e7a] {
+	id integer [ pk, increment ]
+	projeto_id integer [ not null ]
+	aluno_id integer [ not null ]
+	periodo_considerado integer [ not null, note: 'congelado no cálculo: o aluno muda de período, a pontuação da edição não' ]
+	pontos "decimal(4,2)" [ not null, note: 'nota_final / 10 * 1,0 (1º período) ou * 2,0 (demais)' ]
+	calculado_em timestamp
+	criado_em timestamp [ not null ]
+	atualizado_em timestamp
+
+	indexes {
+		(projeto_id, aluno_id) [ unique ]
+	}
+}
+
+Table avaliacao_final [headercolor: #175e7a] {
+	id integer [ pk, increment ]
+	projeto_id integer [ not null ]
+	avaliador_id integer [ not null ]
+	formulario_id integer [ not null ]
+	comentario text
+	status status_avaliacao_final [ not null, default: PENDENTE ]
+	finalizado_em timestamp
+	criado_em timestamp [ not null ]
+	atualizado_em timestamp
+
+	indexes {
+		(projeto_id, avaliador_id) [ unique ]
+	}
+
+	Note: '[FASE 2] avaliação da etapa final; não entra na nota de 0 a 10 nem nos pontos das disciplinas (RN08 do Avaliador)'
+}
+
+Table resposta_final [headercolor: #175e7a] {
+	id integer [ pk, increment ]
+	avaliacao_id integer [ not null ]
+	pergunta_id integer [ not null ]
+	valor "decimal(5,2)"
+	texto text
+	criado_em timestamp [ not null ]
+	atualizado_em timestamp
+
+	indexes {
+		(avaliacao_id, pergunta_id) [ unique ]
+	}
+
+	Note: '[FASE 2] CHECK: valor preenchido quando a pergunta é NOTA, texto quando é TEXTO'
+}
+
+Table certificado_modelo [headercolor: #175e7a] {
+	id integer [ pk, increment ]
+	edicao_id integer [ not null ]
+	tipo tipo_certificado [ not null ]
+	template_url varchar(1000)
+	assinaturas text [ note: 'nomes, cargos e imagens das assinaturas digitais' ]
+	criado_em timestamp [ not null ]
+	atualizado_em timestamp
+
+	indexes {
+		(edicao_id, tipo) [ unique ]
+	}
+
+	Note: '[FASE 2]'
+}
+
+Table certificado [headercolor: #175e7a] {
+	id integer [ pk, increment ]
+	modelo_id integer [ not null, note: 'traz a edição e o tipo junto, sem repetir as duas colunas aqui' ]
+	usuario_id integer [ not null ]
+	carga_horaria integer [ note: '20h ou 40h, conforme o regulamento' ]
+	codigo_verificacao varchar(50) [ not null, unique ]
+	arquivo_url varchar(1000)
+	emitido_em timestamp [ not null ]
+	criado_em timestamp [ not null ]
+	atualizado_em timestamp
+
+	indexes {
+		(modelo_id, usuario_id) [ unique ]
+	}
+
+	Note: '[FASE 2]'
+}
+
+Table log_auditoria [headercolor: #175e7a] {
+	id integer [ pk, increment ]
+	usuario_id integer [ not null ]
+	acao varchar(100) [ not null ]
+	entidade varchar(100) [ not null ]
+	entidade_id integer
+	valor_anterior text
+	valor_novo text
+	justificativa text
+	criado_em timestamp [ not null ]
+
+	indexes {
+		(entidade, entidade_id)
+	}
+
+	Note: '[FASE 2] referência polimórfica de propósito: o log aponta para qualquer tabela e nunca é alterado nem apagado'
+}
+
+Ref fk_usuario_id_aluno {
+	usuario.id - aluno.usuario_id [ delete: no action, update: no action ]
+}
+
+Ref fk_curso_id_aluno {
+	curso.id < aluno.curso_id [ delete: no action, update: no action ]
+}
+
+Ref fk_usuario_id_professor {
+	usuario.id - professor.usuario_id [ delete: no action, update: no action ]
+}
+
+Ref fk_professor_usuario_id_professor_curso {
+	professor.usuario_id < professor_curso.professor_id [ delete: no action, update: no action ]
+}
+
+Ref fk_curso_id_professor_curso {
+	curso.id < professor_curso.curso_id [ delete: no action, update: no action ]
+}
+
+Ref fk_usuario_id_avaliador_externo {
+	usuario.id - avaliador_externo.usuario_id [ delete: no action, update: no action ]
+}
+
+Ref fk_avaliador_externo_usuario_id_avaliador_edicao {
+	avaliador_externo.usuario_id < avaliador_edicao.avaliador_id [ delete: no action, update: no action ]
+}
+
+Ref fk_edicao_id_avaliador_edicao {
+	edicao.id < avaliador_edicao.edicao_id [ delete: no action, update: no action ]
+}
+
+Ref fk_curso_id_avaliador_edicao {
+	curso.id < avaliador_edicao.curso_id [ delete: no action, update: no action ]
+}
+
+Ref fk_edicao_id_edicao_ods {
+	edicao.id < edicao_ods.edicao_id [ delete: no action, update: no action ]
+}
+
+Ref fk_ods_id_edicao_ods {
+	ods.id < edicao_ods.ods_id [ delete: no action, update: no action ]
+}
+
+Ref fk_edicao_id_categoria {
+	edicao.id < categoria.edicao_id [ delete: no action, update: no action ]
+}
+
+Ref fk_edicao_id_desafio {
+	edicao.id < desafio.edicao_id [ delete: no action, update: no action ]
+}
+
+Ref fk_curso_id_desafio {
+	curso.id < desafio.curso_id [ delete: no action, update: no action ]
+}
+
+Ref fk_ods_id_desafio {
+	ods.id < desafio.ods_id [ delete: no action, update: no action ]
+}
+
+Ref fk_edicao_id_etapa {
+	edicao.id < etapa.edicao_id [ delete: no action, update: no action ]
+}
+
+Ref fk_etapa_id_etapa_campo_entrega {
+	etapa.id < etapa_campo_entrega.etapa_id [ delete: no action, update: no action ]
+}
+
+Ref fk_edicao_id_criterio {
+	edicao.id < criterio.edicao_id [ delete: no action, update: no action ]
+}
+
+Ref fk_etapa_id_etapa_criterio {
+	etapa.id < etapa_criterio.etapa_id [ delete: no action, update: no action ]
+}
+
+Ref fk_criterio_id_etapa_criterio {
+	criterio.id < etapa_criterio.criterio_id [ delete: no action, update: no action ]
+}
+
+Ref fk_edicao_id_formulario_final {
+	edicao.id - formulario_final.edicao_id [ delete: no action, update: no action ]
+}
+
+Ref fk_formulario_final_id_pergunta_final {
+	formulario_final.id < pergunta_final.formulario_id [ delete: no action, update: no action ]
+}
+
+Ref fk_edicao_id_equipe {
+	edicao.id < equipe.edicao_id [ delete: no action, update: no action ]
+}
+
+Ref fk_equipe_id_equipe_membro {
+	equipe.id < equipe_membro.equipe_id [ delete: no action, update: no action ]
+}
+
+Ref fk_edicao_id_equipe_membro {
+	edicao.id < equipe_membro.edicao_id [ delete: no action, update: no action ]
+}
+
+Ref fk_aluno_usuario_id_equipe_membro {
+	aluno.usuario_id < equipe_membro.aluno_id [ delete: no action, update: no action ]
+}
+
+Ref fk_equipe_id_convite {
+	equipe.id < convite.equipe_id [ delete: no action, update: no action ]
+}
+
+Ref fk_aluno_usuario_id_convite {
+	aluno.usuario_id < convite.aluno_id [ delete: no action, update: no action ]
+}
+
+Ref fk_equipe_id_solicitacao_entrada {
+	equipe.id < solicitacao_entrada.equipe_id [ delete: no action, update: no action ]
+}
+
+Ref fk_aluno_usuario_id_solicitacao_entrada {
+	aluno.usuario_id < solicitacao_entrada.aluno_id [ delete: no action, update: no action ]
+}
+
+Ref fk_equipe_id_solicitacao_lideranca {
+	equipe.id < solicitacao_lideranca.equipe_id [ delete: no action, update: no action ]
+}
+
+Ref fk_aluno_usuario_id_solicitacao_lideranca {
+	aluno.usuario_id < solicitacao_lideranca.solicitante_id [ delete: no action, update: no action ]
+}
+
+Ref fk_professor_usuario_id_solicitacao_lideranca {
+	professor.usuario_id < solicitacao_lideranca.professor_id [ delete: no action, update: no action ]
+}
+
+Ref fk_equipe_id_projeto {
+	equipe.id - projeto.equipe_id [ delete: no action, update: no action ]
+}
+
+Ref fk_edicao_id_projeto {
+	edicao.id < projeto.edicao_id [ delete: no action, update: no action ]
+}
+
+Ref fk_desafio_id_projeto {
+	desafio.id < projeto.desafio_id [ delete: no action, update: no action ]
+}
+
+Ref fk_categoria_id_projeto {
+	categoria.id < projeto.categoria_id [ delete: no action, update: no action ]
+}
+
+Ref fk_equipe_membro_id_observacao_integrante {
+	equipe_membro.id < observacao_integrante.integrante_id [ delete: no action, update: no action ]
+}
+
+Ref fk_aluno_usuario_id_observacao_integrante {
+	aluno.usuario_id < observacao_integrante.autor_id [ delete: no action, update: no action ]
+}
+
+Ref fk_projeto_id_entrega {
+	projeto.id < entrega.projeto_id [ delete: no action, update: no action ]
+}
+
+Ref fk_etapa_id_entrega {
+	etapa.id < entrega.etapa_id [ delete: no action, update: no action ]
+}
+
+Ref fk_entrega_id_entrega_versao {
+	entrega.id < entrega_versao.entrega_id [ delete: no action, update: no action ]
+}
+
+Ref fk_aluno_usuario_id_entrega_versao {
+	aluno.usuario_id < entrega_versao.enviado_por [ delete: no action, update: no action ]
+}
+
+Ref fk_entrega_versao_id_entrega_item {
+	entrega_versao.id < entrega_item.versao_id [ delete: no action, update: no action ]
+}
+
+Ref fk_etapa_campo_entrega_id_entrega_item {
+	etapa_campo_entrega.id < entrega_item.campo_id [ delete: no action, update: no action ]
+}
+
+Ref fk_entrega_versao_id_comprovante_entrega {
+	entrega_versao.id - comprovante_entrega.versao_id [ delete: no action, update: no action ]
+}
+
+Ref fk_projeto_id_avaliacao {
+	projeto.id < avaliacao.projeto_id [ delete: no action, update: no action ]
+}
+
+Ref fk_etapa_id_avaliacao {
+	etapa.id < avaliacao.etapa_id [ delete: no action, update: no action ]
+}
+
+Ref fk_professor_usuario_id_avaliacao {
+	professor.usuario_id < avaliacao.professor_id [ delete: no action, update: no action ]
+}
+
+Ref fk_avaliacao_id_avaliacao_item {
+	avaliacao.id < avaliacao_item.avaliacao_id [ delete: no action, update: no action ]
+}
+
+Ref fk_etapa_criterio_id_avaliacao_item {
+	etapa_criterio.id < avaliacao_item.etapa_criterio_id [ delete: no action, update: no action ]
+}
+
+Ref fk_projeto_id_nota_etapa {
+	projeto.id < nota_etapa.projeto_id [ delete: no action, update: no action ]
+}
+
+Ref fk_etapa_id_nota_etapa {
+	etapa.id < nota_etapa.etapa_id [ delete: no action, update: no action ]
+}
+
+Ref fk_projeto_id_resultado_projeto {
+	projeto.id - resultado_projeto.projeto_id [ delete: no action, update: no action ]
+}
+
+Ref fk_projeto_id_pontuacao_aluno {
+	projeto.id < pontuacao_aluno.projeto_id [ delete: no action, update: no action ]
+}
+
+Ref fk_aluno_usuario_id_pontuacao_aluno {
+	aluno.usuario_id < pontuacao_aluno.aluno_id [ delete: no action, update: no action ]
+}
+
+Ref fk_projeto_id_avaliacao_final {
+	projeto.id < avaliacao_final.projeto_id [ delete: no action, update: no action ]
+}
+
+Ref fk_avaliador_externo_usuario_id_avaliacao_final {
+	avaliador_externo.usuario_id < avaliacao_final.avaliador_id [ delete: no action, update: no action ]
+}
+
+Ref fk_formulario_final_id_avaliacao_final {
+	formulario_final.id < avaliacao_final.formulario_id [ delete: no action, update: no action ]
+}
+
+Ref fk_avaliacao_final_id_resposta_final {
+	avaliacao_final.id < resposta_final.avaliacao_id [ delete: no action, update: no action ]
+}
+
+Ref fk_pergunta_final_id_resposta_final {
+	pergunta_final.id < resposta_final.pergunta_id [ delete: no action, update: no action ]
+}
+
+Ref fk_edicao_id_certificado_modelo {
+	edicao.id < certificado_modelo.edicao_id [ delete: no action, update: no action ]
+}
+
+Ref fk_certificado_modelo_id_certificado {
+	certificado_modelo.id < certificado.modelo_id [ delete: no action, update: no action ]
+}
+
+Ref fk_usuario_id_certificado {
+	usuario.id < certificado.usuario_id [ delete: no action, update: no action ]
+}
+
+Ref fk_usuario_id_log_auditoria {
+	usuario.id < log_auditoria.usuario_id [ delete: no action, update: no action ]
+}
+
+// ============================================================================
+// NÃO EXPRESSÁVEL EM DBML (aplicar como SQL / UniqueConstraint com condition)
+// ============================================================================
+//
+// Índices únicos parciais:
+//
+//   CREATE UNIQUE INDEX ux_equipe_membro_aluno_edicao_ativo
+//     ON equipe_membro (aluno_id, edicao_id) WHERE ativo;
+//   CREATE UNIQUE INDEX ux_equipe_membro_equipe_aluno_ativo
+//     ON equipe_membro (equipe_id, aluno_id) WHERE ativo;
+//   CREATE UNIQUE INDEX ux_equipe_membro_lider_ativo
+//     ON equipe_membro (equipe_id) WHERE ativo AND papel = 'LIDER';
+//
+//   CREATE UNIQUE INDEX ux_convite_pendente_aluno
+//     ON convite (equipe_id, aluno_id) WHERE status = 'PENDENTE';
+//
+//   CREATE UNIQUE INDEX ux_solicitacao_entrada_pendente
+//     ON solicitacao_entrada (equipe_id, aluno_id) WHERE status = 'PENDENTE';
+//   CREATE UNIQUE INDEX ux_solicitacao_lideranca_pendente
+//     ON solicitacao_lideranca (equipe_id) WHERE status = 'PENDENTE';
