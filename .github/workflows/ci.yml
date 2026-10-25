@@ -1,0 +1,135 @@
+
+name: CI
+
+on:
+  push:
+    branches: [main, developer]
+  pull_request:
+    branches: [main, developer]
+
+env:
+  DJANGO_SECRET_KEY: ci-insecure-secret-key
+  DJANGO_DEBUG: "False"
+  POSTGRES_DB: desafiox
+  POSTGRES_USER: desafiox
+  POSTGRES_PASSWORD: ci_password
+  POSTGRES_HOST: localhost
+  POSTGRES_PORT: "5432"
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: uv sync --locked
+
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Format check
+        run: uv run ruff format --check .
+
+      - name: Audit dependencies
+        run: |
+          uv export --frozen --format requirements-txt --no-emit-project -o requirements-audit.txt
+          uvx pip-audit -r requirements-audit.txt --disable-pip --require-hashes
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12", "3.13"]
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: desafiox
+          POSTGRES_USER: desafiox
+          POSTGRES_PASSWORD: ci_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U desafiox -d desafiox"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: uv sync --locked
+
+      - name: Display Python version
+        run: uv run python -c "import sys; print(sys.version)"
+
+      - name: Django system check
+        run: uv run python manage.py check
+
+      - name: Apply migrations
+        run: uv run python manage.py migrate --noinput
+
+      - name: Check missing migrations
+        run: uv run python manage.py makemigrations --check --dry-run
+
+      - name: Deploy checklist
+        continue-on-error: true
+        run: uv run python manage.py check --deploy --settings=config.settings.production
+
+      - name: Run tests
+        run: uv run pytest --cov
+
+  sonar:
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: desafiox
+          POSTGRES_USER: desafiox
+          POSTGRES_PASSWORD: ci_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U desafiox -d desafiox"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: uv sync --locked
+
+      - name: Apply migrations
+        run: uv run python manage.py migrate --noinput
+
+      - name: Testes com cobertura
+        run: uv run pytest --cov --cov-report=xml
+
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@v6
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
