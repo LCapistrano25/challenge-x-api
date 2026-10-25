@@ -282,8 +282,7 @@ CHECK: saido_em nulo <=> ativo = true.'''
 Table convite [headercolor: #175e7a] {
 	id integer [ pk, increment ]
 	equipe_id integer [ not null ]
-	aluno_id integer
-	email_convidado varchar(254) [ note: 'usado quando o convidado ainda não tem conta' ]
+	aluno_id integer [ not null, note: 'só aluno já cadastrado pode ser convidado' ]
 	status status_convite [ not null, default: PENDENTE ]
 	criado_em timestamp [ not null ]
 	respondido_em timestamp
@@ -293,7 +292,7 @@ Table convite [headercolor: #175e7a] {
 		(equipe_id, aluno_id)
 	}
 
-	Note: 'CHECK: aluno_id ou email_convidado preenchido, nunca os dois nulos. Unicidade só entre convites PENDENTES (por aluno e por e-mail, índices parciais), preservando o histórico de recusados e cancelados.'
+	Note: 'Unicidade só entre convites PENDENTES (índice parcial por aluno), preservando o histórico de recusados e cancelados.'
 }
 
 Table solicitacao_entrada [headercolor: #175e7a] {
@@ -858,9 +857,7 @@ Ref fk_usuario_id_log_auditoria {
 //     ON equipe_membro (equipe_id) WHERE ativo AND papel = 'LIDER';
 //
 //   CREATE UNIQUE INDEX ux_convite_pendente_aluno
-//     ON convite (equipe_id, aluno_id) WHERE status = 'PENDENTE' AND aluno_id IS NOT NULL;
-//   CREATE UNIQUE INDEX ux_convite_pendente_email
-//     ON convite (equipe_id, lower(email_convidado)) WHERE status = 'PENDENTE' AND email_convidado IS NOT NULL;
+//     ON convite (equipe_id, aluno_id) WHERE status = 'PENDENTE';
 //
 //   CREATE UNIQUE INDEX ux_solicitacao_entrada_pendente
 //     ON solicitacao_entrada (equipe_id, aluno_id) WHERE status = 'PENDENTE';
