@@ -4,6 +4,7 @@ from django.db import models
 from django.db.models import Q
 
 from apps.accounts.enums import UserRole
+from apps.accounts.rules import ensure_role_change_allowed
 from apps.core.models import TimeStampedModel
 
 
@@ -19,16 +20,12 @@ class UserManager(BaseUserManager):
         return user
 
     def create_superuser(self, email, password=None, **extra_fields):
-        extra_fields.setdefault("is_staff", True)
-        extra_fields.setdefault("is_superuser", True)
+        # is_staff e is_superuser vêm do papel ADMIN (ver User.save).
         extra_fields.setdefault("is_active", True)
         extra_fields.setdefault("role", UserRole.ADMIN)
 
-        if extra_fields.get("is_staff") is not True:
-            raise ValueError("Superusuário precisa ter is_staff=True.")
-
-        if extra_fields.get("is_superuser") is not True:
-            raise ValueError("Superusuário precisa ter is_superuser=True.")
+        if extra_fields["role"] != UserRole.ADMIN:
+            raise ValueError("Superusuário precisa ter o papel ADMIN.")
 
         return self.create_user(email, password, **extra_fields)
 
@@ -55,6 +52,22 @@ class User(AbstractUser):
     class Meta:
         verbose_name = "usuário"
         verbose_name_plural = "usuários"
+
+    def save(self, *args, **kwargs):
+        # Uma fonte só: o papel ADMIN é o que dá acesso ao painel /admin.
+        self.is_staff = self.is_superuser = self.role == UserRole.ADMIN
+        if kwargs.get("update_fields") is not None:
+            kwargs["update_fields"] = {
+                *kwargs["update_fields"],
+                "is_staff",
+                "is_superuser",
+            }
+        super().save(*args, **kwargs)
+
+    def clean(self):
+        super().clean()
+        if self.pk:
+            ensure_role_change_allowed(self)
 
     def get_full_name(self):
         return self.name

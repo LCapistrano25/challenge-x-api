@@ -23,6 +23,7 @@ class RegisterStudentTests(TestCase):
 
     def register(self, **fields):
         data = {
+            "actor": None,
             "email": "ana@aluno.edu.br",
             "password": "TesteForte!2026x",
             "registration_number": "1",

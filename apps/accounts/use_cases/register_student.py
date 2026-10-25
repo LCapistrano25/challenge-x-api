@@ -25,6 +25,7 @@ class ConfirmationEmailFailed(Exception):
 @transaction.atomic
 def register_student(
     *,
+    actor: User | None,
     email: str,
     password: str,
     registration_number: str,
@@ -33,6 +34,8 @@ def register_student(
     confirmation_url: str,
 ) -> User:
     """Cria o acadêmico inativo e envia o link de confirmação de e-mail.
+
+    actor é None no autocadastro (quem age ainda não tem conta).
 
     Levanta InvalidEmailDomain, DomainRoleMismatch, RegistrationRejected,
     ValidationError (senha fraca) ou ConfirmationEmailFailed.

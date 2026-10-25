@@ -37,11 +37,8 @@ class Command(BaseCommand):
         )
         course = Course.objects.get(name="Engenharia de Software")
 
-        admin = self.user(
-            "admin@desafiox.local", password, UserRole.ADMIN, "Administrador"
-        )
-        admin.is_staff = admin.is_superuser = True
-        admin.save(update_fields=["is_staff", "is_superuser"])
+        # O papel ADMIN já dá acesso ao painel (User.save).
+        self.user("admin@desafiox.local", password, UserRole.ADMIN, "Administrador")
 
         student = self.user(
             f"aluno@{STUDENT_DOMAIN}", password, UserRole.STUDENT, "Aluno Seed"

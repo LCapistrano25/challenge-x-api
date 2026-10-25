@@ -1,30 +1,35 @@
 from rest_framework.permissions import BasePermission
 
 from apps.accounts.enums import UserRole
+from apps.accounts.rules import has_role_profile
 
 
-class IsAdmin(BasePermission):
+class HasRole(BasePermission):
+    """Usuário autenticado com o papel da classe e o perfil que ele exige."""
+
+    role = None
+
     def has_permission(self, request, view):
-        return (
-            request.user
-            and request.user.is_authenticated
-            and request.user.role == UserRole.ADMIN
+        user = request.user
+        return bool(
+            user
+            and user.is_authenticated
+            and user.role == self.role
+            and has_role_profile(user)
         )
 
 
-class IsStudent(BasePermission):
-    def has_permission(self, request, view):
-        return (
-            request.user
-            and request.user.is_authenticated
-            and request.user.role == UserRole.STUDENT
-        )
+class IsAdmin(HasRole):
+    role = UserRole.ADMIN
 
 
-class IsTeacher(BasePermission):
-    def has_permission(self, request, view):
-        return (
-            request.user
-            and request.user.is_authenticated
-            and request.user.role == UserRole.TEACHER
-        )
+class IsStudent(HasRole):
+    role = UserRole.STUDENT
+
+
+class IsTeacher(HasRole):
+    role = UserRole.TEACHER
+
+
+class IsExternalReviewer(HasRole):
+    role = UserRole.EXTERNAL_REVIEWER

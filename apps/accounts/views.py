@@ -67,6 +67,7 @@ class RegisterView(APIView):
 
         try:
             register_student(
+                actor=None,
                 email=email,
                 password=password,
                 registration_number=registration_number,

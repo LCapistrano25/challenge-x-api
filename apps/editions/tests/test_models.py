@@ -10,6 +10,7 @@ from apps.accounts.enums import UserRole
 from apps.accounts.models import ExternalReviewer, User
 from apps.core.models import Course, Sdg
 from apps.editions.enums import StageKind
+from apps.editions.factories import EditionFactory, StageFactory
 from apps.editions.models import (
     Category,
     Challenge,
@@ -26,21 +27,7 @@ pytestmark = pytest.mark.django_db
 
 @pytest.fixture
 def edition():
-    return Edition.objects.create(year=2026, semester=2)
-
-
-def stage(edition, order=1, **fields):
-    start = timezone.now()
-    data = {
-        "edition": edition,
-        "order": order,
-        "name": f"Etapa {order}",
-        "kind": StageKind.SUBMISSION,
-        "starts_at": start,
-        "ends_at": start + timedelta(days=7),
-        "max_score": Decimal("3.00"),
-    }
-    return Stage.objects.create(**{**data, **fields})
+    return EditionFactory()
 
 
 # Unicidades exigidas pela issue BM3
@@ -48,7 +35,7 @@ def stage(edition, order=1, **fields):
 
 def test_edicao_unica_por_ano_e_semestre(edition):
     with pytest.raises(IntegrityError):
-        Edition.objects.create(year=2026, semester=2)
+        Edition.objects.create(year=edition.year, semester=edition.semester)
 
 
 def test_ods_unica_por_edicao(edition):
@@ -59,13 +46,13 @@ def test_ods_unica_por_edicao(edition):
 
 
 def test_ordem_da_etapa_unica_por_edicao(edition):
-    stage(edition, order=1)
+    StageFactory(edition=edition, order=1)
     with pytest.raises(IntegrityError):
-        stage(edition, order=1)
+        StageFactory(edition=edition, order=1)
 
 
 def test_criterio_unico_por_etapa(edition):
-    etapa = stage(edition)
+    etapa = StageFactory(edition=edition)
     criterio = Criterion.objects.create(edition=edition, name="Inovação")
     StageCriterion.objects.create(stage=etapa, criterion=criterio, max_score=1)
     with pytest.raises(IntegrityError):
@@ -108,41 +95,43 @@ def test_avaliador_entra_uma_vez_por_edicao(edition):
 
 def test_etapa_exige_ao_menos_uma_avaliacao(edition):
     with pytest.raises(IntegrityError):
-        stage(edition, min_evaluations=0)
+        StageFactory(edition=edition, min_evaluations=0)
 
 
 def test_criterio_da_etapa_vale_mais_que_zero(edition):
     criterio = Criterion.objects.create(edition=edition, name="Inovação")
     with pytest.raises(IntegrityError):
         StageCriterion.objects.create(
-            stage=stage(edition), criterion=criterio, max_score=0
+            stage=StageFactory(edition=edition), criterion=criterio, max_score=0
         )
 
 
 @pytest.mark.parametrize("semester", [0, 3])
 def test_semestre_so_1_ou_2(semester):
     with pytest.raises(IntegrityError):
-        Edition.objects.create(year=2027, semester=semester)
+        Edition.objects.create(year=1999, semester=semester)
 
 
 def test_maximo_de_integrantes_nao_fica_abaixo_do_minimo():
     with pytest.raises(IntegrityError):
-        Edition.objects.create(year=2027, semester=1, min_members=5, max_members=3)
+        Edition.objects.create(year=1999, semester=1, min_members=5, max_members=3)
 
 
 def test_etapa_termina_depois_de_comecar(edition):
     agora = timezone.now()
     with pytest.raises(IntegrityError):
-        stage(edition, starts_at=agora, ends_at=agora)
+        StageFactory(edition=edition, starts_at=agora, ends_at=agora)
 
 
 def test_etapa_pontuada_exige_valor(edition):
     with pytest.raises(IntegrityError):
-        stage(edition, scored=True, max_score=None)
+        StageFactory(edition=edition, scored=True, max_score=None)
 
 
 def test_etapa_de_formacao_sem_pontuacao(edition):
-    assert stage(edition, kind=StageKind.FORMATION, scored=False, max_score=None).pk
+    assert StageFactory(
+        edition=edition, kind=StageKind.FORMATION, scored=False, max_score=None
+    ).pk
 
 
 def test_curso_pode_ter_varios_desafios_na_mesma_ods(edition):
@@ -170,16 +159,18 @@ def test_desafio_exige_ods_habilitada_na_edicao(edition):
 
 
 def test_criterio_da_etapa_e_da_mesma_edicao(edition):
-    outra = Edition.objects.create(year=2027, semester=1)
+    outra = EditionFactory()
     criterio = Criterion.objects.create(edition=outra, name="Inovação")
-    vinculo = StageCriterion(stage=stage(edition), criterion=criterio, max_score=1)
+    vinculo = StageCriterion(
+        stage=StageFactory(edition=edition), criterion=criterio, max_score=1
+    )
     with pytest.raises(ValidationError, match="outra edição"):
         vinculo.full_clean()
 
 
 def test_etapa_nova_recusa_criterio_de_outra_edicao(edition):
     # Como no admin: a etapa ainda não foi salva quando os critérios são validados.
-    outra = Edition.objects.create(year=2027, semester=1)
+    outra = EditionFactory()
     criterio = Criterion.objects.create(edition=outra, name="Inovação")
     agora = timezone.now()
     nova = Stage(
