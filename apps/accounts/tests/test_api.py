@@ -1,7 +1,9 @@
+from datetime import timedelta
 from unittest.mock import patch
 
 from django.core import signing
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework.test import APIClient, APIRequestFactory
 
 from apps.accounts.enums import UserRole
@@ -242,6 +244,8 @@ class RegisterTests(TestCase):
             is_active=False,
             email_confirmed=False,
         )
+        cadastro = timezone.now() - timedelta(days=1)
+        User.objects.filter(pk=usuario.pk).update(updated_at=cadastro)
 
         token = signing.dumps(
             {"user_id": usuario.pk},
@@ -258,6 +262,7 @@ class RegisterTests(TestCase):
         usuario.refresh_from_db()
         self.assertTrue(usuario.email_confirmed)
         self.assertTrue(usuario.is_active)
+        self.assertGreater(usuario.updated_at, cadastro)
 
     def test_confirmacao_com_token_invalido(self):
         resposta = self.client.get(

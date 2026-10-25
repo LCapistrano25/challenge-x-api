@@ -138,3 +138,20 @@ class AdminListQueriesTests(TestCase):
         add_students(1, 10)
 
         self.assertEqual(list_queries(), one)
+
+
+class UserAdminPagesTests(TestCase):
+    def test_telas_de_usuario_abrem_com_nome_unico(self):
+        admin = User.objects.create_superuser("admin@teste.com", "x", name="Admin")
+        self.client.force_login(admin)
+
+        for url in (
+            "/admin/accounts/user/",
+            "/admin/accounts/user/add/",
+            f"/admin/accounts/user/{admin.pk}/change/",
+        ):
+            with self.subTest(url=url):
+                response = self.client.get(url, HTTP_HOST="localhost")
+                self.assertEqual(response.status_code, 200)
+
+        self.assertEqual(admin.get_full_name(), "Admin")

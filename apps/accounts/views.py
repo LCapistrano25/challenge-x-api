@@ -121,7 +121,7 @@ class ConfirmEmailView(APIView):
 
         user.email_confirmed = True
         user.is_active = True
-        user.save(update_fields=["email_confirmed", "is_active"])
+        user.save(update_fields=["email_confirmed", "is_active", "updated_at"])
 
         return Response({"mensagem": "E-mail confirmado com sucesso."})
 

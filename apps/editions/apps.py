@@ -5,3 +5,4 @@ class EditionsConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
     name = "apps.editions"
     label = "editions"
+    verbose_name = "Edições"
