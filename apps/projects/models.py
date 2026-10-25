@@ -9,6 +9,7 @@ from apps.core.models import TimeStampedModel
 from apps.editions.enums import FieldKind
 from apps.projects.enums import ProjectStatus
 from apps.projects.rules import (
+    ensure_item_matches_field,
     ensure_project_in_team_edition,
     ensure_stage_in_project_edition,
 )
@@ -49,11 +50,16 @@ class Project(TimeStampedModel):
         verbose_name = "projeto"
         verbose_name_plural = "projetos"
         constraints = [
-            # Título único na edição sem diferenciar maiúsculas (RN03).
+            # Título único na edição sem diferenciar maiúsculas (RN03); os
+            # espaços extras saem no save, antes de chegar ao banco.
             models.UniqueConstraint(
                 "edition", Lower("title"), name="unique_project_title_per_edition"
             ),
         ]
+
+    def save(self, *args, **kwargs):
+        self.title = " ".join(self.title.split())
+        super().save(*args, **kwargs)
 
     def clean(self):
         if self.team_id and self.edition_id and self.challenge_id:
@@ -157,6 +163,10 @@ class SubmissionItem(TimeStampedModel):
                 name="submission_item_matches_kind",
             ),
         ]
+
+    def clean(self):
+        if self.version_id and self.field_id:
+            ensure_item_matches_field(self)
 
     def __str__(self):
         return self.link or self.file_name or f"Item #{self.pk}"

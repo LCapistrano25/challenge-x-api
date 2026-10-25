@@ -12,6 +12,14 @@ def ensure_project_in_team_edition(project) -> None:
         raise ValidationError({"category": "A categoria é de outra edição."})
 
 
+def ensure_item_matches_field(item) -> None:
+    """O item responde a um campo da etapa da entrega, com o mesmo tipo (RF31)."""
+    if item.field.stage_id != item.version.submission.stage_id:
+        raise ValidationError({"field": "O campo é de outra etapa."})
+    if item.field.kind != item.kind:
+        raise ValidationError({"kind": "O tipo do item não é o tipo do campo."})
+
+
 def ensure_stage_in_project_edition(submission) -> None:
     """A entrega só pode ser de uma etapa da edição do projeto (RF31)."""
     if submission.stage.edition_id != submission.project.edition_id:

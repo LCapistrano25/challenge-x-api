@@ -2,12 +2,15 @@ import pytest
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError
 
+from apps.accounts.enums import UserRole
+from apps.accounts.factories import UserFactory
 from apps.editions.enums import FieldKind
 from apps.editions.factories import (
     CategoryFactory,
     ChallengeFactory,
     EditionFactory,
     StageFactory,
+    StageSubmissionFieldFactory,
 )
 from apps.projects.factories import (
     ProjectFactory,
@@ -143,3 +146,54 @@ def test_entrega_recusa_etapa_de_outra_edicao():
 )
 def test_factory_gera_registro_valido(factory):
     factory().full_clean()
+
+
+# Revisão: título, item x campo e histórico só leitura
+
+
+def test_titulo_ignora_espacos_extras():
+    projeto = ProjectFactory(title="  Água   Limpa ")
+    assert projeto.title == "Água Limpa"
+    with pytest.raises(IntegrityError):
+        ProjectFactory(team=TeamFactory(edition=projeto.edition), title="Água  Limpa ")
+
+
+def test_item_responde_a_campo_da_propria_etapa():
+    item = SubmissionItemFactory()
+    item.field = StageSubmissionFieldFactory(
+        stage=item.version.submission.stage, kind=FieldKind.LINK
+    )
+    item.full_clean()
+
+
+def test_item_recusa_campo_de_outra_etapa():
+    item = SubmissionItemFactory()
+    item.field = StageSubmissionFieldFactory(kind=FieldKind.LINK)
+    with pytest.raises(ValidationError, match="outra etapa"):
+        item.full_clean()
+
+
+def test_item_recusa_tipo_diferente_do_campo():
+    item = SubmissionItemFactory(kind=FieldKind.LINK)
+    item.field = StageSubmissionFieldFactory(
+        stage=item.version.submission.stage, kind=FieldKind.FILE
+    )
+    with pytest.raises(ValidationError, match="tipo"):
+        item.full_clean()
+
+
+def test_admin_nao_altera_nem_apaga_versao_enviada(client):
+    client.force_login(UserFactory(role=UserRole.ADMIN))
+    versao = SubmissionVersionFactory()
+    url = f"/admin/projects/submissionversion/{versao.pk}/"
+
+    tela = client.get(url + "change/", HTTP_HOST="localhost")
+    assert tela.status_code == 200
+    assert b'name="_save"' not in tela.content
+
+    alterar = client.post(url + "change/", {"number": 9}, HTTP_HOST="localhost")
+    apagar = client.post(url + "delete/", {"post": "yes"}, HTTP_HOST="localhost")
+    assert alterar.status_code == 403
+    assert apagar.status_code == 403
+    versao.refresh_from_db()
+    assert versao.number != 9

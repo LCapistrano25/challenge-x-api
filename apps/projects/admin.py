@@ -17,15 +17,22 @@ class ProjectAdmin(admin.ModelAdmin):
     search_fields = ("title", "team__name")
 
 
-class SubmissionVersionInline(admin.TabularInline):
-    # Versões são histórico: só leitura no admin (RF31).
-    model = SubmissionVersion
-    extra = 0
-    can_delete = False
-    readonly_fields = ("number", "submitted_by", "submitted_at", "notes")
+class ReadOnlyMixin:
+    """Versões e itens enviados são histórico: o admin só consulta (RF31)."""
 
     def has_add_permission(self, request, obj=None):
         return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+class SubmissionVersionInline(ReadOnlyMixin, admin.TabularInline):
+    model = SubmissionVersion
+    extra = 0
 
 
 @admin.register(Submission)
@@ -36,13 +43,13 @@ class SubmissionAdmin(admin.ModelAdmin):
     inlines = (SubmissionVersionInline,)
 
 
-class SubmissionItemInline(admin.TabularInline):
+class SubmissionItemInline(ReadOnlyMixin, admin.TabularInline):
     model = SubmissionItem
     extra = 0
 
 
 @admin.register(SubmissionVersion)
-class SubmissionVersionAdmin(admin.ModelAdmin):
+class SubmissionVersionAdmin(ReadOnlyMixin, admin.ModelAdmin):
     list_display = ("submission", "number", "submitted_by", "submitted_at")
     list_select_related = ("submission__project", "submitted_by__user")
     inlines = (SubmissionItemInline,)
