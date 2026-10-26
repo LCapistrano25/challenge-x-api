@@ -5,3 +5,4 @@ class ResultsConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
     name = "apps.results"
     label = "results"
+    verbose_name = "Resultados"
