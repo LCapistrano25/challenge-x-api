@@ -40,7 +40,7 @@
 | P-22 | Desclassificação sem data e responsável | Média | `teams` |
 | P-23 | Equipe incompleta (RF51) × `team_qualification` | Alta | `teams`, `projects` |
 | P-24 | RF28 × RF40 sobre o ex-líder | Baixa | `teams` |
-| P-25 | `project` com campos NOT NULL × fluxo RF29/RF30 | Alta | `projects` |
+| P-25 | `project` com campos NOT NULL × fluxo RF29/RF30 — **resolvida** | Alta | `projects` |
 | P-26 | Transições de `project_status` | Média | `projects` |
 | P-27 | Status de entrega e nota zero automática | Média | `projects`, `evaluations` |
 | P-28 | Visibilidade pública do acervo | Baixa | `results` |
@@ -207,6 +207,7 @@
 - O RF29 seleciona o desafio **antes** do RF30 (título e resumo), então a seleção do desafio não pode ser gravada sozinha.
 - O RF26 (regra 5) e o RF29 exigem **invalidar** o desafio quando o curso perde representante, o que é impossível com `challenge_id` NOT NULL.
 - **Decidir:** tornar esses campos anuláveis ou adotar um fluxo único (desafio + categoria + título + resumo numa só requisição), com outra forma de marcar a invalidação.
+- **Resolvida (25/10/2026):** `challenge` anulável e `title`/`summary` em branco até o RF30. O RF26 invalida o desafio gravando nulo. A entrega (RF31) exige os três preenchidos (`ensure_project_complete`), e o título único na edição ignora título em branco. Falta dividir `PUT /api/teams/{team_id}/project` em RF29 e RF30 no `gen_openapi.py`.
 
 ### P-26 — Transições de `project_status` · Média
 - `project_status` tem `IN_PROGRESS`, `SUBMITTED`, `UNDER_EVALUATION`, `APPROVED` e `REJECTED`, mas nenhum requisito define quando o projeto é aprovado ou reprovado, nem quem faz cada transição.

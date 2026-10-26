@@ -334,17 +334,17 @@ Table projeto [headercolor: #175e7a] {
 	id integer [ pk, increment ]
 	equipe_id integer [ not null, unique ]
 	edicao_id integer [ not null, note: 'repetido da equipe para viabilizar a unicidade do título; FK composta (equipe_id, edicao_id) -> equipe garante consistência' ]
-	titulo varchar(200) [ not null ]
-	resumo text [ not null ]
+	titulo varchar(200) [ not null, default: '', note: 'em branco até o RF30; obrigatório para enviar entrega (P-25)' ]
+	resumo text [ not null, default: '', note: 'em branco até o RF30; obrigatório para enviar entrega (P-25)' ]
 	objetivo text
-	desafio_id integer [ not null, note: 'a ODS e o curso do projeto vêm do desafio: uma ODS por projeto (RF05, RF29)' ]
+	desafio_id integer [ note: 'a ODS e o curso do projeto vêm do desafio: uma ODS por projeto (RF05, RF29). Nulo antes da escolha ou quando o RF26 invalida; obrigatório para enviar entrega (P-25)' ]
 	categoria_id integer
 	status status_projeto [ not null, default: EM_ANDAMENTO ]
 	criado_em timestamp [ not null ]
 	atualizado_em timestamp
 
 	indexes {
-		(edicao_id, titulo) [ unique ]
+		(edicao_id, titulo) [ unique, note: 'sem diferenciar maiúsculas e ignorando título em branco: ver SQL no fim' ]
 	}
 
 	Note: 'desafio e categoria deixam de aceitar alteração no fim da etapa FORMACAO; o momento vem de etapa.encerrado_em, não de coluna aqui'
@@ -863,3 +863,6 @@ Ref fk_usuario_id_log_auditoria {
 //     ON solicitacao_entrada (equipe_id, aluno_id) WHERE status = 'PENDENTE';
 //   CREATE UNIQUE INDEX ux_solicitacao_lideranca_pendente
 //     ON solicitacao_lideranca (equipe_id) WHERE status = 'PENDENTE';
+//
+//   CREATE UNIQUE INDEX ux_projeto_titulo_edicao
+//     ON projeto (edicao_id, lower(titulo)) WHERE titulo <> '';

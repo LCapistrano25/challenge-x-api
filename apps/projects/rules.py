@@ -6,10 +6,24 @@ def ensure_project_in_team_edition(project) -> None:
     edition_id = project.edition_id
     if project.team.edition_id != edition_id:
         raise ValidationError({"edition": "A edição não é a da equipe."})
-    if project.challenge.edition_id != edition_id:
+    if project.challenge_id and project.challenge.edition_id != edition_id:
         raise ValidationError({"challenge": "O desafio é de outra edição."})
     if project.category_id and project.category.edition_id != edition_id:
         raise ValidationError({"category": "A categoria é de outra edição."})
+
+
+def ensure_project_complete(project) -> None:
+    """Só entrega projeto com desafio, título e resumo (RF30, RF31, RF51)."""
+    filled = {
+        "challenge": project.challenge_id,
+        "title": project.title,
+        "summary": project.summary,
+    }
+    missing = {
+        f: "Obrigatório para enviar a entrega." for f, v in filled.items() if not v
+    }
+    if missing:
+        raise ValidationError(missing)
 
 
 def ensure_item_matches_field(item) -> None:
