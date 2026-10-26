@@ -34,7 +34,15 @@ def ensure_item_matches_field(item) -> None:
         raise ValidationError({"kind": "O tipo do item não é o tipo do campo."})
 
 
-def ensure_stage_in_project_edition(submission) -> None:
-    """A entrega só pode ser de uma etapa da edição do projeto (RF31)."""
-    if submission.stage.edition_id != submission.project.edition_id:
+def ensure_stage_in_project_edition(record) -> None:
+    """Entrega ou prorrogação só de etapa da edição do projeto (RF14, RF31)."""
+    if record.stage.edition_id != record.project.edition_id:
         raise ValidationError({"stage": "A etapa é de outra edição."})
+
+
+def ensure_extension_after_stage_end(extension) -> None:
+    """A prorrogação só estende o prazo da etapa, nunca encurta (RF14)."""
+    if extension.ends_at <= extension.stage.ends_at:
+        raise ValidationError(
+            {"ends_at": "O novo prazo precisa ser depois do fim da etapa."}
+        )

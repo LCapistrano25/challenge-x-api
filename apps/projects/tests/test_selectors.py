@@ -2,7 +2,11 @@ from datetime import timedelta
 
 import pytest
 
-from apps.projects.factories import SubmissionFactory, SubmissionVersionFactory
+from apps.projects.factories import (
+    DeadlineExtensionFactory,
+    SubmissionFactory,
+    SubmissionVersionFactory,
+)
 from apps.projects.selectors import get_valid_version
 
 pytestmark = pytest.mark.django_db
@@ -63,3 +67,29 @@ def test_envio_exatamente_no_fim_do_prazo_vale(submission):
         submission=submission, number=1, submitted_at=submission.stage.ends_at
     )
     assert get_valid_version(submission) == version
+
+
+# Prorrogação por equipe (RF14, P-21)
+
+
+def test_prorrogacao_faz_valer_envio_depois_do_prazo_da_etapa(submission):
+    extensao = DeadlineExtensionFactory(
+        project=submission.project, stage=submission.stage
+    )
+    version = SubmissionVersionFactory(
+        submission=submission,
+        number=1,
+        submitted_at=at(submission, timedelta(days=1)),
+    )
+    assert extensao.ends_at > version.submitted_at
+    assert get_valid_version(submission) == version
+
+
+def test_prorrogacao_de_outra_equipe_nao_vale(submission):
+    DeadlineExtensionFactory(stage=submission.stage)
+    SubmissionVersionFactory(
+        submission=submission,
+        number=1,
+        submitted_at=at(submission, timedelta(days=1)),
+    )
+    assert get_valid_version(submission) is None
