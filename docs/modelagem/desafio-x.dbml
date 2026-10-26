@@ -245,8 +245,10 @@ Table equipe [headercolor: #175e7a] {
 	nome varchar(150) [ not null ]
 	codigo varchar(20) [ not null, unique, note: 'código/link de identificação usado nos convites (RF21)' ]
 	status status_equipe [ not null, default: ATIVA ]
-	situacao situacao_equipe [ note: 'apurada no encerramento do prazo de formação (RF51); nula antes disso' ]
-	motivo_desclassificacao text [ note: 'obrigatório quando status = DESCLASSIFICADA (RF13)' ]
+	situacao situacao_equipe [ note: 'apurada no encerramento do prazo de formação (RF51); nula antes disso. Os motivos não são coluna: saem de compute_unmet_requirements (P-23)' ]
+	motivo_desclassificacao text [ note: 'obrigatório quando status = DESCLASSIFICADA (RF13); vazio nos demais' ]
+	desclassificado_em timestamp [ note: 'obrigatório quando status = DESCLASSIFICADA (RF13, P-22)' ]
+	desclassificado_por integer [ note: 'usuário ADMIN que desclassificou; obrigatório quando status = DESCLASSIFICADA (RF13, P-22)' ]
 	criado_em timestamp [ not null ]
 	atualizado_em timestamp
 
@@ -793,6 +795,10 @@ Ref fk_projeto_id_nota_etapa {
 
 Ref fk_etapa_id_nota_etapa {
 	etapa.id < nota_etapa.etapa_id [ delete: no action, update: no action ]
+}
+
+Ref fk_usuario_id_equipe_desclassificado_por {
+	usuario.id < equipe.desclassificado_por [ delete: no action, update: no action ]
 }
 
 Ref fk_projeto_id_resultado_projeto {
