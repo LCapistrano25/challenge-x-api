@@ -468,6 +468,20 @@ Table avaliacao_item [headercolor: #175e7a] {
 	}
 }
 
+Table retificacao_nota [headercolor: #175e7a] {
+	id integer [ pk, increment ]
+	avaliacao_item_id integer [ not null ]
+	pontos_anteriores "decimal(5,2)" [ not null ]
+	pontos_novos "decimal(5,2)" [ not null, note: 'CHECK: >= 0 e diferente de pontos_anteriores; até etapa_criterio.pontuacao_maxima (aplicação)' ]
+	justificativa text [ not null, note: 'CHECK: não vazia' ]
+	retificado_por integer [ not null, note: 'usuário ADMIN' ]
+	retificado_em timestamp [ not null ]
+	criado_em timestamp [ not null ]
+	atualizado_em timestamp
+
+	Note: 'ajuste do RF14 (P-21): troca os pontos do item mesmo com a avaliação finalizada e fora do prazo; é o próprio histórico, nunca alterado nem apagado'
+}
+
 Table nota_etapa [headercolor: #175e7a] {
 	id integer [ pk, increment ]
 	projeto_id integer [ not null ]
@@ -808,6 +822,14 @@ Ref fk_etapa_id_avaliacao {
 
 Ref fk_professor_usuario_id_avaliacao {
 	professor.usuario_id < avaliacao.professor_id [ delete: no action, update: no action ]
+}
+
+Ref fk_avaliacao_item_id_retificacao_nota {
+	avaliacao_item.id < retificacao_nota.avaliacao_item_id [ delete: no action, update: no action ]
+}
+
+Ref fk_usuario_id_retificacao_nota {
+	usuario.id < retificacao_nota.retificado_por [ delete: no action, update: no action ]
 }
 
 Ref fk_avaliacao_id_avaliacao_item {

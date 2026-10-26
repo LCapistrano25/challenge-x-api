@@ -36,7 +36,7 @@
 | P-18 | Conteúdo da pré-carga da edição | Média | `editions` (seed) |
 | P-19 | Prazo de avaliação dos professores — **resolvida** | Alta | `editions`, `evaluations` |
 | P-20 | Etapa `FINAL` pontuada — **resolvida** | Baixa | `editions` |
-| P-21 | Ajustes pontuais (RF14) sem persistência — **parcial** | Alta | `editions`, `evaluations` |
+| P-21 | Ajustes pontuais (RF14) sem persistência — **resolvida** | Alta | `editions`, `evaluations` |
 | P-22 | Desclassificação sem data e responsável | Média | `teams` |
 | P-23 | Equipe incompleta (RF51) × `team_qualification` | Alta | `teams`, `projects` |
 | P-24 | RF28 × RF40 sobre o ex-líder | Baixa | `teams` |
@@ -182,7 +182,7 @@
 - O RF14 exige um histórico **imutável** de cada ajuste (responsável, data/hora, valor anterior, valor novo, justificativa), mas não existe tabela para isso. A arquitetura também proíbe criar auditoria sem decisão.
 - A prorrogação de prazo **para uma equipe específica** não tem onde ser gravada, porque `stage` só tem prazo global.
 - Não está definido se uma `evaluation` em `FINALIZED` pode ser alterada. A retificação de nota do RF14 pressupõe que sim, mas apenas pelo Admin.
-- **Parcial (26/10/2026):** uma tabela por tipo de ajuste, cada uma sendo o próprio histórico imutável. A prorrogação por equipe é `DeadlineExtension` (projeto, etapa, novo prazo, justificativa, admin), e `get_valid_version` usa esse prazo. Falta a retificação de nota (`ScoreRectification`, app `evaluations`).
+- **Parcial (26/10/2026):** uma tabela por tipo de ajuste, cada uma sendo o próprio histórico imutável. A prorrogação por equipe é `DeadlineExtension` (projeto, etapa, novo prazo, justificativa, admin), e `get_valid_version` usa esse prazo. A retificação de nota é `ScoreRectification` (item, pontos anteriores e novos, justificativa, admin), gravada pelo caso de uso `rectify_score`, que troca os pontos do item mesmo com a avaliação finalizada. O prazo do professor (`ensure_within_evaluation_deadline`) não vale para a retificação.
 
 ---
 

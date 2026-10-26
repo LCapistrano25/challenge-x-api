@@ -3,7 +3,11 @@ from django.db.models import Q
 
 from apps.core.models import TimeStampedModel
 from apps.evaluations.enums import EvaluationStatus, ScoreStatus
-from apps.evaluations.rules import ensure_item_within_criterion, ensure_same_edition
+from apps.evaluations.rules import (
+    ensure_item_within_criterion,
+    ensure_same_edition,
+    ensure_within_evaluation_deadline,
+)
 
 
 class Evaluation(TimeStampedModel):
@@ -45,6 +49,7 @@ class Evaluation(TimeStampedModel):
     def clean(self):
         if self.project_id and self.stage_id:
             ensure_same_edition(self.project, self.stage.edition_id, "stage")
+            ensure_within_evaluation_deadline(self)
 
     def __str__(self):
         return f"{self.project} — {self.stage} ({self.teacher})"
