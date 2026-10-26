@@ -54,6 +54,8 @@ class User(AbstractUser):
         verbose_name_plural = "usuários"
 
     def save(self, *args, **kwargs):
+        # O login compara o e-mail em minúsculas; o admin grava como foi digitado.
+        self.email = self.email.lower()
         # Uma fonte só: o papel ADMIN é o que dá acesso ao painel /admin.
         self.is_staff = self.is_superuser = self.role == UserRole.ADMIN
         if kwargs.get("update_fields") is not None:

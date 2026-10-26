@@ -107,4 +107,6 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework.authentication.SessionAuthentication",
     ],
+    # Login e cadastro por e-mail: barra força bruta numa conta (EmailRateThrottle).
+    "DEFAULT_THROTTLE_RATES": {"auth": "5/min"},
 }

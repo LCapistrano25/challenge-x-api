@@ -50,6 +50,15 @@ def register_student(
             f"O período deve estar entre 1 e {course.term_count}."
         )
 
+    # Conta pendente (link perdido ou expirado) é refeita: senão o aluno não
+    # consegue nem cadastrar de novo nem entrar. O Student some junto (CASCADE).
+    User.objects.filter(
+        email__iexact=email,
+        role=UserRole.STUDENT,
+        is_active=False,
+        email_confirmed=False,
+    ).delete()
+
     # Mensagem genérica: não revela se o e-mail ou a matrícula já existem.
     rejected = "Não foi possível realizar o cadastro com esses dados."
     if (

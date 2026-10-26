@@ -8,7 +8,7 @@ from rest_framework.test import APIClient, APIRequestFactory
 
 from apps.accounts.enums import UserRole
 from apps.accounts.factories import StudentFactory, TeacherFactory
-from apps.accounts.models import EmailDomain, Student, User
+from apps.accounts.models import EmailDomain, ExternalReviewer, Student, User
 from apps.accounts.permissions import IsAdmin, IsStudent, IsTeacher
 from apps.accounts.use_cases.register_student import EMAIL_CONFIRMATION_SALT
 from apps.core.models import Course
@@ -778,3 +778,82 @@ class AdminAccessTests(TestCase):
     def test_usuario_nao_autenticado_nao_pode_acessar_rota(self):
         resposta = self.client.get("/api/admin/teste-acesso")
         self.assertIn(resposta.status_code, [401, 403])
+
+
+class LoginAuditTests(TestCase):
+    """Correções da auditoria: e-mail, avaliador, conta pendente e força bruta."""
+
+    def setUp(self):
+        self.client = APIClient(enforce_csrf_checks=False)
+
+    def login(self, email, senha="TesteForte!2026x"):
+        return self.client.post(
+            "/api/auth/login", {"email": email, "senha": senha}, format="json"
+        )
+
+    def test_email_com_maiuscula_do_admin_entra(self):
+        EmailDomain.objects.create(name="prof.edu.br", role=UserRole.TEACHER)
+        # O formulário do admin grava pelo save(), sem passar pelo create_user.
+        user = User(email="Joao.Silva@Prof.edu.br", role=UserRole.TEACHER)
+        user.set_password("TesteForte!2026x")
+        user.save()
+        TeacherFactory(user=user)
+
+        self.assertEqual(user.email, "joao.silva@prof.edu.br")
+        self.assertEqual(self.login("JOAO.SILVA@prof.edu.br").status_code, 200)
+
+    def test_avaliador_externo_entra_sem_dominio_cadastrado(self):
+        user = User.objects.create_user(
+            "avaliador@empresa.com",
+            "TesteForte!2026x",
+            role=UserRole.EXTERNAL_REVIEWER,
+        )
+        ExternalReviewer.objects.create(user=user)
+
+        self.assertEqual(self.login("avaliador@empresa.com").status_code, 200)
+
+    def test_conta_pendente_pode_cadastrar_de_novo(self):
+        EmailDomain.objects.create(name="aluno.edu.br", role=UserRole.STUDENT)
+        dados = {
+            "email": "ana@aluno.edu.br",
+            "senha": "TesteForte!2026x",
+            "curso": es_id(),
+            "periodo": 1,
+        }
+        self.client.post(
+            "/api/auth/register", {**dados, "matricula": "A1"}, format="json"
+        )
+
+        resposta = self.client.post(
+            "/api/auth/register", {**dados, "matricula": "A2"}, format="json"
+        )
+
+        self.assertEqual(resposta.status_code, 201)
+        self.assertEqual(User.objects.filter(email="ana@aluno.edu.br").count(), 1)
+        self.assertEqual(Student.objects.get().registration_number, "A2")
+
+    def test_conta_confirmada_continua_recusada(self):
+        EmailDomain.objects.create(name="aluno.edu.br", role=UserRole.STUDENT)
+        StudentFactory(user__email="ana@aluno.edu.br", user__email_confirmed=True)
+
+        resposta = self.client.post(
+            "/api/auth/register",
+            {
+                "email": "ana@aluno.edu.br",
+                "senha": "TesteForte!2026x",
+                "matricula": "A3",
+                "curso": es_id(),
+                "periodo": 1,
+            },
+            format="json",
+        )
+
+        self.assertEqual(resposta.status_code, 400)
+
+    def test_login_limita_tentativas_por_email(self):
+        for _ in range(5):
+            self.assertEqual(self.login("alvo@teste.com", "errada").status_code, 401)
+
+        self.assertEqual(self.login("alvo@teste.com", "errada").status_code, 429)
+        # Outro e-mail, mesmo IP: não é barrado (o campus sai por um IP só).
+        self.assertEqual(self.login("outro@teste.com", "errada").status_code, 401)

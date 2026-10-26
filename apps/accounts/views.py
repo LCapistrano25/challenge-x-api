@@ -9,6 +9,7 @@ from django.views.decorators.csrf import csrf_protect
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.throttling import SimpleRateThrottle
 from rest_framework.views import APIView
 
 from apps.accounts.enums import UserRole
@@ -31,9 +32,26 @@ def error(message, status_code):
     return Response({"erro": message}, status=status_code)
 
 
+class EmailRateThrottle(SimpleRateThrottle):
+    """Limita tentativas por e-mail, não por IP: o campus sai por um IP só.
+
+    shortcut: o cache padrão é por processo, então o limite vale por worker;
+    trocar por cache compartilhado (Redis) quando houver mais de um worker.
+    """
+
+    scope = "auth"
+
+    def get_cache_key(self, request, view):
+        email = str(request.data.get("email", "")).strip().lower()
+        return (
+            self.cache_format % {"scope": self.scope, "ident": email} if email else None
+        )
+
+
 class RegisterView(APIView):
     permission_classes = [AllowAny]
     authentication_classes = []
+    throttle_classes = [EmailRateThrottle]
 
     def post(self, request):
         data = request.data
@@ -131,6 +149,7 @@ class ConfirmEmailView(APIView):
 class LoginView(APIView):
     permission_classes = [AllowAny]
     authentication_classes = []
+    throttle_classes = [EmailRateThrottle]
 
     def post(self, request):
         email = str(request.data.get("email", "")).strip().lower()
@@ -159,8 +178,9 @@ class LoginView(APIView):
                 "Confirme seu e-mail antes de entrar.", status.HTTP_403_FORBIDDEN
             )
 
-        # Revalida o domínio institucional, exceto para administradores.
-        if user.role != UserRole.ADMIN:
+        # Revalida o domínio institucional. Admin e avaliador externo ficam de fora:
+        # o avaliador vem de empresa, e o acesso dele depende da edição (RF41).
+        if user.role not in (UserRole.ADMIN, UserRole.EXTERNAL_REVIEWER):
             try:
                 ensure_institutional_domain(user.email, user.role)
             except InvalidEmailDomain:
