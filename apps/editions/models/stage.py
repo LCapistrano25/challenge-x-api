@@ -17,6 +17,8 @@ class Stage(TimeStampedModel):
     kind = models.CharField(max_length=20, choices=StageKind)
     starts_at = models.DateTimeField()
     ends_at = models.DateTimeField()
+    # Prazo dos professores, depois do fim das entregas (RF38, P-19).
+    evaluation_ends_at = models.DateTimeField(null=True, blank=True)
     scored = models.BooleanField(default=True)
     # Parte da nota de 0 a 10 que a etapa vale; a soma das etapas fecha em 10.
     max_score = models.DecimalField(
@@ -42,6 +44,20 @@ class Stage(TimeStampedModel):
             ),
             models.CheckConstraint(
                 condition=Q(min_evaluations__gte=1), name="stage_min_evaluations_gte_1"
+            ),
+            models.CheckConstraint(
+                condition=Q(scored=False) | Q(evaluation_ends_at__isnull=False),
+                name="stage_scored_has_evaluation_deadline",
+            ),
+            models.CheckConstraint(
+                condition=Q(evaluation_ends_at__isnull=True)
+                | Q(evaluation_ends_at__gt=F("ends_at")),
+                name="stage_evaluation_after_submission",
+            ),
+            # A etapa final não compõe a nota de 0 a 10 (RF07, P-20).
+            models.CheckConstraint(
+                condition=~Q(kind=StageKind.FINAL) | Q(scored=False),
+                name="stage_final_not_scored",
             ),
         ]
 
