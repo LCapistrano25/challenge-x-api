@@ -34,11 +34,11 @@
 | P-16 | Transição para `IN_PROGRESS` da edição | Média | `editions` |
 | P-17 | "Código/sigla" do curso × `slug` | Baixa | `core` |
 | P-18 | Conteúdo da pré-carga da edição | Média | `editions` (seed) |
-| P-19 | Prazo de avaliação dos professores — **resolvida** | Alta | `editions`, `evaluations` |
-| P-20 | Etapa `FINAL` pontuada — **resolvida** | Baixa | `editions` |
-| P-21 | Ajustes pontuais (RF14) sem persistência — **resolvida** | Alta | `editions`, `evaluations` |
-| P-22 | Desclassificação sem data e responsável | Média | `teams` |
-| P-23 | Equipe incompleta (RF51) × `team_qualification` | Alta | `teams`, `projects` |
+| P-19 | Prazo de avaliação dos professores | Alta | `editions`, `evaluations` |
+| P-20 | Etapa `FINAL` pontuada | Baixa | `editions` |
+| P-21 | Ajustes pontuais (RF14) sem persistência | Alta | `editions`, `evaluations` |
+| P-22 | Desclassificação sem data e responsável — **resolvida** | Média | `teams` |
+| P-23 | Equipe incompleta (RF51) × `team_qualification` — **resolvida** | Alta | `teams`, `projects` |
 | P-24 | RF28 × RF40 sobre o ex-líder | Baixa | `teams` |
 | P-25 | `project` com campos NOT NULL × fluxo RF29/RF30 — **resolvida** | Alta | `projects` |
 | P-26 | Transições de `project_status` | Média | `projects` |
@@ -190,12 +190,14 @@
 
 ### P-22 — Desclassificação sem data e responsável · Média
 - O RF13 exige registrar a justificativa **com data e responsável**. `team` só tem `disqualification_reason`.
+- **Resolvida (26/10/2026):** `disqualified_at` e `disqualified_by` (usuário ADMIN) na `Team`. Um CHECK exige motivo, data e responsável quando a equipe está desclassificada e proíbe os três nos demais status.
 
 ### P-23 — Equipe incompleta (RF51) × `team_qualification` · Alta
 - O RF51 exige registrar a equipe como "incompleta" **e** os requisitos não atendidos (número de integrantes, desafio, dados do projeto).
 - `team_qualification` só tem `QUALIFIED`/`NOT_QUALIFIED` e não há campo para os motivos.
 - A semântica do campo também é ambígua: `NOT_QUALIFIED` significa "incompleta" ou "não classificada para a final"?
 - **Impacto:** bloqueia o painel do RF20 e o bloqueio de entregas do RF31/RF51.
+- **Resolvida (26/10/2026):** a BM4 trocou o campo por `TeamSituation` (completa, incompleta, requisitos não atendidos), apurada no fim do prazo de formação. Os motivos são calculados na hora por `compute_unmet_requirements(team)`: integrantes ativos fora do mínimo/máximo da edição, desafio não escolhido e projeto sem título ou resumo. Nada é gravado além da `situation`.
 
 ### P-24 — RF28 × RF40 sobre o ex-líder · Baixa
 - O RF40 diz que, ao aprovar a solicitação, o ex-líder passa a "Membro". Mas o RF28 só permite a solicitação quando **não existe** líder ativo, ou seja, quando o líder já saiu ou perdeu o acesso.

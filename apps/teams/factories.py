@@ -1,7 +1,9 @@
 import factory
+from django.utils import timezone
 from factory.django import DjangoModelFactory
 
-from apps.accounts.factories import StudentFactory
+from apps.accounts.enums import UserRole
+from apps.accounts.factories import StudentFactory, UserFactory
 from apps.editions.factories import EditionFactory
 from apps.teams.enums import MemberRole, TeamSituation, TeamStatus
 from apps.teams.models import (
@@ -40,6 +42,8 @@ class TeamFactory(DjangoModelFactory):
         disqualified = factory.Trait(
             status=TeamStatus.DISQUALIFIED,
             disqualification_reason="Desclassificada no teste.",
+            disqualified_at=factory.LazyFunction(timezone.now),
+            disqualified_by=factory.SubFactory(UserFactory, role=UserRole.ADMIN),
         )
 
     @factory.post_generation
