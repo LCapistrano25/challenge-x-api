@@ -19,7 +19,7 @@ from apps.projects.factories import (
     SubmissionReceiptFactory,
     SubmissionVersionFactory,
 )
-from apps.projects.models import Project, Submission
+from apps.projects.models import Project, Submission, SubmissionVersion
 from apps.teams.factories import TeamFactory
 
 pytestmark = pytest.mark.django_db
@@ -197,3 +197,39 @@ def test_admin_nao_altera_nem_apaga_versao_enviada(client):
     assert apagar.status_code == 403
     versao.refresh_from_db()
     assert versao.number != 9
+
+
+# Projeto em preenchimento (P-25)
+
+
+def test_projeto_nasce_so_com_o_desafio():
+    projeto = ProjectFactory(title="", summary="")
+    projeto.full_clean()
+    assert str(projeto).startswith("Projeto de")
+
+
+def test_desafio_pode_ser_invalidado():
+    projeto = ProjectFactory()
+    projeto.challenge = None
+    projeto.save()
+    projeto.full_clean()
+
+
+def test_titulos_em_branco_nao_conflitam():
+    projeto = ProjectFactory(title="")
+    assert ProjectFactory(team=TeamFactory(edition=projeto.edition), title="").pk
+
+
+@pytest.mark.parametrize(
+    "faltando", [{"challenge": None}, {"title": ""}, {"summary": ""}]
+)
+def test_entrega_exige_projeto_completo(faltando):
+    projeto = ProjectFactory(**faltando)
+    entrega = SubmissionFactory(project=projeto)
+    versao = SubmissionVersion(
+        submission=entrega,
+        number=1,
+        submitted_by=projeto.team.members.get().student,
+    )
+    with pytest.raises(ValidationError, match="Obrigatório para enviar"):
+        versao.full_clean()
