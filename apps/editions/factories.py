@@ -72,11 +72,15 @@ class StageFactory(DjangoModelFactory):
     kind = StageKind.SUBMISSION
     starts_at = factory.LazyFunction(timezone.now)
     ends_at = factory.LazyAttribute(lambda o: o.starts_at + timedelta(days=14))
+    evaluation_ends_at = factory.LazyAttribute(lambda o: o.ends_at + timedelta(days=7))
     max_score = Decimal("3.00")
 
     class Params:
         formation = factory.Trait(
-            kind=StageKind.FORMATION, scored=False, max_score=None
+            kind=StageKind.FORMATION,
+            scored=False,
+            max_score=None,
+            evaluation_ends_at=None,
         )
 
 

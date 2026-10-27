@@ -5,6 +5,7 @@ from apps.evaluations.models.final import (
     FinalForm,
     FinalQuestion,
 )
+from apps.evaluations.models.rectification import ScoreRectification
 
 __all__ = [
     "Evaluation",
@@ -13,5 +14,6 @@ __all__ = [
     "FinalEvaluation",
     "FinalForm",
     "FinalQuestion",
+    "ScoreRectification",
     "StageScore",
 ]

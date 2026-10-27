@@ -1,9 +1,14 @@
+from datetime import timedelta
+
 import factory
 from factory.django import DjangoModelFactory
 
+from apps.accounts.enums import UserRole
+from apps.accounts.factories import UserFactory
 from apps.editions.enums import FieldKind
 from apps.editions.factories import ChallengeFactory, StageFactory
 from apps.projects.models import (
+    DeadlineExtension,
     Project,
     Submission,
     SubmissionItem,
@@ -68,3 +73,16 @@ class SubmissionReceiptFactory(DjangoModelFactory):
         model = SubmissionReceipt
 
     version = factory.SubFactory(SubmissionVersionFactory)
+
+
+class DeadlineExtensionFactory(DjangoModelFactory):
+    class Meta:
+        model = DeadlineExtension
+
+    project = factory.SubFactory(ProjectFactory)
+    stage = factory.SubFactory(
+        StageFactory, edition=factory.SelfAttribute("..project.edition")
+    )
+    ends_at = factory.LazyAttribute(lambda o: o.stage.ends_at + timedelta(days=2))
+    reason = "Atestado médico do líder."
+    granted_by = factory.SubFactory(UserFactory, role=UserRole.ADMIN)

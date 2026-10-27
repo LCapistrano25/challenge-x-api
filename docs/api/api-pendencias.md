@@ -171,15 +171,18 @@
 - O RF38 diz que a avaliação deve respeitar o "prazo limite de avaliação definido no cronograma da etapa".
 - `stage` só tem `starts_at`/`ends_at`, que são o período de submissão das equipes. Não há prazo de avaliação.
 - **Decidir:** se o prazo de avaliação é o mesmo `ends_at`, uma janela posterior (o que exige campo novo) ou se não existe limite.
+- **Resolvida (26/10/2026):** campo `Stage.evaluation_ends_at`, obrigatório em etapa pontuada e depois de `ends_at` (CHECKs no banco).
 
 ### P-20 — Etapa `FINAL` pontuada · Baixa
 - O RF07 diz que a etapa `FINAL` não compõe a nota acadêmica, mas não há CHECK impedindo `type = FINAL` com `scored = true`.
 - **Suposição:** validar na aplicação.
+- **Resolvida (26/10/2026):** CHECK `stage_final_not_scored` no banco.
 
 ### P-21 — Ajustes pontuais (RF14) sem persistência · Alta
 - O RF14 exige um histórico **imutável** de cada ajuste (responsável, data/hora, valor anterior, valor novo, justificativa), mas não existe tabela para isso. A arquitetura também proíbe criar auditoria sem decisão.
 - A prorrogação de prazo **para uma equipe específica** não tem onde ser gravada, porque `stage` só tem prazo global.
 - Não está definido se uma `evaluation` em `FINALIZED` pode ser alterada. A retificação de nota do RF14 pressupõe que sim, mas apenas pelo Admin.
+- **Parcial (26/10/2026):** uma tabela por tipo de ajuste, cada uma sendo o próprio histórico imutável. A prorrogação por equipe é `DeadlineExtension` (projeto, etapa, novo prazo, justificativa, admin), e `get_valid_version` usa esse prazo. A retificação de nota é `ScoreRectification` (item, pontos anteriores e novos, justificativa, admin), gravada pelo caso de uso `rectify_score`, que troca os pontos do item mesmo com a avaliação finalizada. O prazo do professor (`ensure_within_evaluation_deadline`) não vale para a retificação.
 
 ---
 
