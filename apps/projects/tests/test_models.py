@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 import pytest
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError
@@ -13,6 +15,7 @@ from apps.editions.factories import (
     StageSubmissionFieldFactory,
 )
 from apps.projects.factories import (
+    DeadlineExtensionFactory,
     ProjectFactory,
     SubmissionFactory,
     SubmissionItemFactory,
@@ -233,3 +236,39 @@ def test_entrega_exige_projeto_completo(faltando):
     )
     with pytest.raises(ValidationError, match="Obrigatório para enviar"):
         versao.full_clean()
+
+
+# Prorrogação de prazo (RF14, P-21)
+
+
+def test_uma_prorrogacao_por_projeto_e_etapa():
+    extensao = DeadlineExtensionFactory()
+    with pytest.raises(IntegrityError):
+        DeadlineExtensionFactory(project=extensao.project, stage=extensao.stage)
+
+
+def test_prorrogacao_exige_justificativa():
+    with pytest.raises(IntegrityError):
+        DeadlineExtensionFactory(reason="")
+
+
+def test_prorrogacao_nao_encurta_o_prazo():
+    extensao = DeadlineExtensionFactory.build(project=ProjectFactory())
+    extensao.stage = StageFactory(edition=extensao.project.edition)
+    extensao.granted_by = UserFactory(role=UserRole.ADMIN)
+    extensao.ends_at = extensao.stage.ends_at
+    with pytest.raises(ValidationError, match="depois do fim da etapa"):
+        extensao.full_clean()
+
+
+def test_prorrogacao_de_etapa_de_outra_edicao():
+    extensao = DeadlineExtensionFactory.build(project=ProjectFactory())
+    extensao.stage = StageFactory()
+    extensao.granted_by = UserFactory(role=UserRole.ADMIN)
+    extensao.ends_at = extensao.stage.ends_at + timedelta(days=1)
+    with pytest.raises(ValidationError, match="outra edição"):
+        extensao.full_clean()
+
+
+def test_factory_de_prorrogacao_valida():
+    DeadlineExtensionFactory().full_clean()

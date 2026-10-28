@@ -134,6 +134,32 @@ def test_etapa_de_formacao_sem_pontuacao(edition):
     ).pk
 
 
+def test_etapa_pontuada_exige_prazo_de_avaliacao(edition):
+    with pytest.raises(IntegrityError):
+        StageFactory(edition=edition, evaluation_ends_at=None)
+
+
+def test_prazo_de_avaliacao_depois_do_fim_das_entregas(edition):
+    etapa = StageFactory.build(edition=edition)
+    with pytest.raises(IntegrityError):
+        StageFactory(edition=edition, evaluation_ends_at=etapa.ends_at)
+
+
+def test_etapa_final_nao_e_pontuada(edition):
+    with pytest.raises(IntegrityError):
+        StageFactory(edition=edition, kind=StageKind.FINAL)
+
+
+def test_etapa_final_sem_pontuacao_vale(edition):
+    assert StageFactory(
+        edition=edition,
+        kind=StageKind.FINAL,
+        scored=False,
+        max_score=None,
+        evaluation_ends_at=None,
+    ).pk
+
+
 def test_curso_pode_ter_varios_desafios_na_mesma_ods(edition):
     curso = Course.objects.get(name="Agronomia")
     sdg = Sdg.objects.get(number=9)

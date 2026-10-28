@@ -116,9 +116,22 @@ def test_codigo_da_equipe_unico():
         TeamFactory(code=equipe.code, leader=False)
 
 
-def test_desclassificacao_exige_motivo():
+@pytest.mark.parametrize(
+    "faltando",
+    [
+        {"disqualification_reason": ""},
+        {"disqualified_at": None},
+        {"disqualified_by": None},
+    ],
+)
+def test_desclassificacao_exige_motivo_data_e_responsavel(faltando):
     with pytest.raises(IntegrityError):
-        TeamFactory(disqualified=True, disqualification_reason="", leader=False)
+        TeamFactory(disqualified=True, leader=False, **faltando)
+
+
+def test_equipe_ativa_nao_tem_dados_de_desclassificacao():
+    with pytest.raises(IntegrityError):
+        TeamFactory(disqualification_reason="Motivo solto.", leader=False)
 
 
 def test_saida_e_vinculo_inativo_andam_juntos():
@@ -152,7 +165,9 @@ def test_equipe_da_factory_nasce_com_um_lider_ativo():
 
 def test_traits_da_equipe():
     assert TeamFactory(incomplete=True).situation == "INCOMPLETE"
-    assert TeamFactory(disqualified=True).disqualification_reason
+    desclassificada = TeamFactory(disqualified=True)
+    assert desclassificada.disqualified_by.role == "ADMIN"
+    desclassificada.full_clean()
 
 
 @pytest.mark.parametrize(

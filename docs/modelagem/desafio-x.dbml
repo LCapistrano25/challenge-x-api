@@ -159,6 +159,7 @@ Table etapa [headercolor: #175e7a] {
 	tipo tipo_etapa [ not null, note: 'FORMACAO delimita o prazo de equipes; FINAL é a etapa dos avaliadores externos' ]
 	iniciado_em timestamp [ not null, note: 'início do prazo' ]
 	encerrado_em timestamp [ not null, note: 'fim do prazo' ]
+	avaliacao_encerrada_em timestamp [ note: 'prazo dos professores (RF38, P-19); obrigatório quando pontuada e depois de encerrado_em' ]
 	pontuada boolean [ not null, default: true ]
 	valor_pontos "decimal(4,2)" [ note: 'obrigatório quando pontuada; a soma das etapas pontuadas da edição deve ser 10' ]
 	min_avaliadores integer [ not null, default: 1, note: 'CHECK >= 1' ]
@@ -169,7 +170,7 @@ Table etapa [headercolor: #175e7a] {
 		(edicao_id, ordem) [ unique ]
 	}
 
-	Note: 'encerrado_em > iniciado_em deve ser garantido por CHECK'
+	Note: 'CHECKs: encerrado_em > iniciado_em; pontuada exige avaliacao_encerrada_em > encerrado_em; tipo FINAL não é pontuada (RF07, P-20)'
 }
 
 Table etapa_campo_entrega [headercolor: #175e7a] {
@@ -245,8 +246,10 @@ Table equipe [headercolor: #175e7a] {
 	nome varchar(150) [ not null ]
 	codigo varchar(20) [ not null, unique, note: 'código/link de identificação usado nos convites (RF21)' ]
 	status status_equipe [ not null, default: ATIVA ]
-	situacao situacao_equipe [ note: 'apurada no encerramento do prazo de formação (RF51); nula antes disso' ]
-	motivo_desclassificacao text [ note: 'obrigatório quando status = DESCLASSIFICADA (RF13)' ]
+	situacao situacao_equipe [ note: 'apurada no encerramento do prazo de formação (RF51); nula antes disso. Os motivos não são coluna: saem de compute_unmet_requirements (P-23)' ]
+	motivo_desclassificacao text [ note: 'obrigatório quando status = DESCLASSIFICADA (RF13); vazio nos demais' ]
+	desclassificado_em timestamp [ note: 'obrigatório quando status = DESCLASSIFICADA (RF13, P-22)' ]
+	desclassificado_por integer [ note: 'usuário ADMIN que desclassificou; obrigatório quando status = DESCLASSIFICADA (RF13, P-22)' ]
 	criado_em timestamp [ not null ]
 	atualizado_em timestamp
 
@@ -361,6 +364,24 @@ Table observacao_integrante [headercolor: #175e7a] {
 	Note: '[FASE 2] visível apenas para professores e administradores'
 }
 
+Table prorrogacao_prazo [headercolor: #175e7a] {
+	id integer [ pk, increment ]
+	projeto_id integer [ not null ]
+	etapa_id integer [ not null ]
+	encerrado_em timestamp [ not null, note: 'novo prazo de entrega da equipe; depois de etapa.encerrado_em' ]
+	justificativa text [ not null, note: 'CHECK: não vazia' ]
+	concedido_por integer [ not null, note: 'usuário ADMIN' ]
+	concedido_em timestamp [ not null ]
+	criado_em timestamp [ not null ]
+	atualizado_em timestamp
+
+	indexes {
+		(projeto_id, etapa_id) [ unique ]
+	}
+
+	Note: 'ajuste do RF14 (P-21): é o próprio histórico, nunca alterado nem apagado. A versão válida da entrega usa este prazo quando existe'
+}
+
 Table entrega [headercolor: #175e7a] {
 	id integer [ pk, increment ]
 	projeto_id integer [ not null ]
@@ -447,6 +468,20 @@ Table avaliacao_item [headercolor: #175e7a] {
 	indexes {
 		(avaliacao_id, etapa_criterio_id) [ unique ]
 	}
+}
+
+Table retificacao_nota [headercolor: #175e7a] {
+	id integer [ pk, increment ]
+	avaliacao_item_id integer [ not null ]
+	pontos_anteriores "decimal(5,2)" [ not null ]
+	pontos_novos "decimal(5,2)" [ not null, note: 'CHECK: >= 0 e diferente de pontos_anteriores; até etapa_criterio.pontuacao_maxima (aplicação)' ]
+	justificativa text [ not null, note: 'CHECK: não vazia' ]
+	retificado_por integer [ not null, note: 'usuário ADMIN' ]
+	retificado_em timestamp [ not null ]
+	criado_em timestamp [ not null ]
+	atualizado_em timestamp
+
+	Note: 'ajuste do RF14 (P-21): troca os pontos do item mesmo com a avaliação finalizada e fora do prazo; é o próprio histórico, nunca alterado nem apagado'
 }
 
 Table nota_etapa [headercolor: #175e7a] {
@@ -739,6 +774,18 @@ Ref fk_aluno_usuario_id_observacao_integrante {
 	aluno.usuario_id < observacao_integrante.autor_id [ delete: no action, update: no action ]
 }
 
+Ref fk_projeto_id_prorrogacao_prazo {
+	projeto.id < prorrogacao_prazo.projeto_id [ delete: no action, update: no action ]
+}
+
+Ref fk_etapa_id_prorrogacao_prazo {
+	etapa.id < prorrogacao_prazo.etapa_id [ delete: no action, update: no action ]
+}
+
+Ref fk_usuario_id_prorrogacao_prazo {
+	usuario.id < prorrogacao_prazo.concedido_por [ delete: no action, update: no action ]
+}
+
 Ref fk_projeto_id_entrega {
 	projeto.id < entrega.projeto_id [ delete: no action, update: no action ]
 }
@@ -779,6 +826,14 @@ Ref fk_professor_usuario_id_avaliacao {
 	professor.usuario_id < avaliacao.professor_id [ delete: no action, update: no action ]
 }
 
+Ref fk_avaliacao_item_id_retificacao_nota {
+	avaliacao_item.id < retificacao_nota.avaliacao_item_id [ delete: no action, update: no action ]
+}
+
+Ref fk_usuario_id_retificacao_nota {
+	usuario.id < retificacao_nota.retificado_por [ delete: no action, update: no action ]
+}
+
 Ref fk_avaliacao_id_avaliacao_item {
 	avaliacao.id < avaliacao_item.avaliacao_id [ delete: no action, update: no action ]
 }
@@ -793,6 +848,10 @@ Ref fk_projeto_id_nota_etapa {
 
 Ref fk_etapa_id_nota_etapa {
 	etapa.id < nota_etapa.etapa_id [ delete: no action, update: no action ]
+}
+
+Ref fk_usuario_id_equipe_desclassificado_por {
+	usuario.id < equipe.desclassificado_por [ delete: no action, update: no action ]
 }
 
 Ref fk_projeto_id_resultado_projeto {

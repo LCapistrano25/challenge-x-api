@@ -23,6 +23,26 @@ def ensure_item_within_criterion(item) -> None:
         )
 
 
+def ensure_rectification_within_criterion(rectification) -> None:
+    """A nota retificada também respeita o máximo do critério (RF14)."""
+    max_score = rectification.item.stage_criterion.max_score
+    if rectification.new_points > max_score:
+        raise ValidationError({"new_points": f"Máximo do critério: {max_score}."})
+
+
+def ensure_within_evaluation_deadline(evaluation) -> None:
+    """O professor finaliza até o prazo de avaliação da etapa (RF38, P-19).
+
+    A retificação do admin (RF14) não passa por aqui: ela muda o item, não a
+    avaliação.
+    """
+    deadline = evaluation.stage.evaluation_ends_at
+    if evaluation.finalized_at and deadline and evaluation.finalized_at > deadline:
+        raise ValidationError(
+            {"finalized_at": "O prazo de avaliação da etapa já terminou."}
+        )
+
+
 def ensure_reviewer_in_edition(evaluation) -> None:
     """Só avalia quem foi convidado para a edição do projeto (RF11, RF43)."""
     reviewers = apps.get_model("editions", "EditionReviewer").objects

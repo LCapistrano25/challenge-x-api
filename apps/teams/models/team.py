@@ -2,6 +2,7 @@ from django.db import models
 from django.db.models import Q
 from django.utils import timezone
 
+from apps.accounts.enums import UserRole
 from apps.core.models import TimeStampedModel
 from apps.teams.enums import MemberRole, TeamSituation, TeamStatus
 from apps.teams.rules import ensure_member_edition_matches_team
@@ -22,7 +23,17 @@ class Team(TimeStampedModel):
     situation = models.CharField(
         max_length=30, choices=TeamSituation, null=True, blank=True
     )
+    # Motivo, data e responsável da desclassificação andam juntos (RF13, P-22).
     disqualification_reason = models.TextField(blank=True)
+    disqualified_at = models.DateTimeField(null=True, blank=True)
+    disqualified_by = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.PROTECT,
+        related_name="disqualified_teams",
+        limit_choices_to={"role": UserRole.ADMIN},
+        null=True,
+        blank=True,
+    )
 
     class Meta:
         verbose_name = "equipe"
@@ -32,9 +43,20 @@ class Team(TimeStampedModel):
                 fields=["edition", "name"], name="unique_team_name_per_edition"
             ),
             models.CheckConstraint(
-                condition=~Q(status=TeamStatus.DISQUALIFIED)
-                | ~Q(disqualification_reason=""),
-                name="team_disqualified_has_reason",
+                condition=(
+                    Q(status=TeamStatus.DISQUALIFIED)
+                    & ~Q(disqualification_reason="")
+                    & Q(disqualified_at__isnull=False, disqualified_by__isnull=False)
+                )
+                | (
+                    ~Q(status=TeamStatus.DISQUALIFIED)
+                    & Q(
+                        disqualification_reason="",
+                        disqualified_at__isnull=True,
+                        disqualified_by__isnull=True,
+                    )
+                ),
+                name="team_disqualification_matches_status",
             ),
         ]
 

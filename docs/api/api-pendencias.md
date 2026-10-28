@@ -37,8 +37,8 @@
 | P-19 | Prazo de avaliação dos professores | Alta | `editions`, `evaluations` |
 | P-20 | Etapa `FINAL` pontuada | Baixa | `editions` |
 | P-21 | Ajustes pontuais (RF14) sem persistência | Alta | `editions`, `evaluations` |
-| P-22 | Desclassificação sem data e responsável | Média | `teams` |
-| P-23 | Equipe incompleta (RF51) × `team_qualification` | Alta | `teams`, `projects` |
+| P-22 | Desclassificação sem data e responsável — **resolvida** | Média | `teams` |
+| P-23 | Equipe incompleta (RF51) × `team_qualification` — **resolvida** | Alta | `teams`, `projects` |
 | P-24 | RF28 × RF40 sobre o ex-líder | Baixa | `teams` |
 | P-25 | `project` com campos NOT NULL × fluxo RF29/RF30 — **resolvida** | Alta | `projects` |
 | P-26 | Transições de `project_status` | Média | `projects` |
@@ -171,15 +171,18 @@
 - O RF38 diz que a avaliação deve respeitar o "prazo limite de avaliação definido no cronograma da etapa".
 - `stage` só tem `starts_at`/`ends_at`, que são o período de submissão das equipes. Não há prazo de avaliação.
 - **Decidir:** se o prazo de avaliação é o mesmo `ends_at`, uma janela posterior (o que exige campo novo) ou se não existe limite.
+- **Resolvida (26/10/2026):** campo `Stage.evaluation_ends_at`, obrigatório em etapa pontuada e depois de `ends_at` (CHECKs no banco).
 
 ### P-20 — Etapa `FINAL` pontuada · Baixa
 - O RF07 diz que a etapa `FINAL` não compõe a nota acadêmica, mas não há CHECK impedindo `type = FINAL` com `scored = true`.
 - **Suposição:** validar na aplicação.
+- **Resolvida (26/10/2026):** CHECK `stage_final_not_scored` no banco.
 
 ### P-21 — Ajustes pontuais (RF14) sem persistência · Alta
 - O RF14 exige um histórico **imutável** de cada ajuste (responsável, data/hora, valor anterior, valor novo, justificativa), mas não existe tabela para isso. A arquitetura também proíbe criar auditoria sem decisão.
 - A prorrogação de prazo **para uma equipe específica** não tem onde ser gravada, porque `stage` só tem prazo global.
 - Não está definido se uma `evaluation` em `FINALIZED` pode ser alterada. A retificação de nota do RF14 pressupõe que sim, mas apenas pelo Admin.
+- **Parcial (26/10/2026):** uma tabela por tipo de ajuste, cada uma sendo o próprio histórico imutável. A prorrogação por equipe é `DeadlineExtension` (projeto, etapa, novo prazo, justificativa, admin), e `get_valid_version` usa esse prazo. A retificação de nota é `ScoreRectification` (item, pontos anteriores e novos, justificativa, admin), gravada pelo caso de uso `rectify_score`, que troca os pontos do item mesmo com a avaliação finalizada. O prazo do professor (`ensure_within_evaluation_deadline`) não vale para a retificação.
 
 ---
 
@@ -187,12 +190,14 @@
 
 ### P-22 — Desclassificação sem data e responsável · Média
 - O RF13 exige registrar a justificativa **com data e responsável**. `team` só tem `disqualification_reason`.
+- **Resolvida (26/10/2026):** `disqualified_at` e `disqualified_by` (usuário ADMIN) na `Team`. Um CHECK exige motivo, data e responsável quando a equipe está desclassificada e proíbe os três nos demais status.
 
 ### P-23 — Equipe incompleta (RF51) × `team_qualification` · Alta
 - O RF51 exige registrar a equipe como "incompleta" **e** os requisitos não atendidos (número de integrantes, desafio, dados do projeto).
 - `team_qualification` só tem `QUALIFIED`/`NOT_QUALIFIED` e não há campo para os motivos.
 - A semântica do campo também é ambígua: `NOT_QUALIFIED` significa "incompleta" ou "não classificada para a final"?
 - **Impacto:** bloqueia o painel do RF20 e o bloqueio de entregas do RF31/RF51.
+- **Resolvida (26/10/2026):** a BM4 trocou o campo por `TeamSituation` (completa, incompleta, requisitos não atendidos), apurada no fim do prazo de formação. Os motivos são calculados na hora por `compute_unmet_requirements(team)`: integrantes ativos fora do mínimo/máximo da edição, desafio não escolhido e projeto sem título ou resumo. Nada é gravado além da `situation`.
 
 ### P-24 — RF28 × RF40 sobre o ex-líder · Baixa
 - O RF40 diz que, ao aprovar a solicitação, o ex-líder passa a "Membro". Mas o RF28 só permite a solicitação quando **não existe** líder ativo, ou seja, quando o líder já saiu ou perdeu o acesso.
