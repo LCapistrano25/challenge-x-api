@@ -2,7 +2,6 @@
 import secrets
 import string
 
-from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
@@ -85,20 +84,21 @@ def create_team(
         )
 
     try:
-        team = Team.objects.create(
-            edition=edition,
-            name=name,
-            code=code,
-        )
-        TeamMember.objects.create(
-            team=team,
-            edition=edition,
-            student=student,
-            role=MemberRole.LEADER,
-        )
+        with transaction.atomic():
+            team = Team.objects.create(
+                edition=edition,
+                name=name,
+                code=code,
+            )
+            TeamMember.objects.create(
+                team=team,
+                edition=edition,
+                student=student,
+                role=MemberRole.LEADER,
+            )
     except IntegrityError as error:
         raise TeamCreationRejected(
-            "Não foi possível criar a equipe. Verifique se o nome ou o vínculo já existe."
+            "Não foi possível criar a equipe. "
+            "Verifique se o nome ou o vínculo já existe."
         ) from error
-
     return team
