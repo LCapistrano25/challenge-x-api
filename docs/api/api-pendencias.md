@@ -443,3 +443,4 @@ O validador oficial (`openapi-spec-validator`) **não pôde ser instalado**, por
 | Data | Alteração | Motivo |
 | :- | :- | :- |
 | 24/10/2026 | `Course.period_count` → `term_count`; campo `period` do aluno → `term` (cadastro, perfil e atualização de aluno). | Glossário do guia de implementação: período do aluno é `term`. Alinha com `User.term` e `Course.term_count` no código. |
+| 08/11/2026 | Ids de usuário (`user_id`, `evaluator_id`, `student_id`, `assigned_to` e os parâmetros `UserId`, `EvaluatorId` e `assigned_to`) passam de UUID para inteiro; `registration_number` com no máximo 30 caracteres. | `User.id` é inteiro no código e no DBML (`usuario.id integer`), e a matrícula é `varchar(30)`. Ids de chamado e notificação continuam UUID. |

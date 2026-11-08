@@ -1499,7 +1499,7 @@ paths:
               - id: 5
                 edition_id: 3
                 evaluator:
-                  user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                  user_id: 42
                   name: Ana Ribeiro
                   email: avaliador@instituicao.com
                   institution: Instituto Tecnológico do Tocantins
@@ -1550,7 +1550,7 @@ paths:
             schema:
               $ref: '#/components/schemas/EditionEvaluatorCreate'
             example:
-              evaluator_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+              evaluator_id: 42
               course_id: null
       responses:
         '201':
@@ -1563,7 +1563,7 @@ paths:
                 id: 5
                 edition_id: 3
                 evaluator:
-                  user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                  user_id: 42
                   name: Ana Ribeiro
                   email: avaliador@instituicao.com
                   institution: Instituto Tecnológico do Tocantins
@@ -1644,7 +1644,7 @@ paths:
                 id: 5
                 edition_id: 3
                 evaluator:
-                  user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                  user_id: 42
                   name: Ana Ribeiro
                   email: avaliador@instituicao.com
                   institution: Instituto Tecnológico do Tocantins
@@ -2308,7 +2308,7 @@ paths:
                 next: null
                 previous: null
                 results:
-                - user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                - user_id: 42
                   name: Ana Ribeiro
                   email: avaliador@instituicao.com
                   active: true
@@ -2359,7 +2359,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ExternalEvaluatorAdmin'
               example:
-                user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                user_id: 42
                 name: Ana Ribeiro
                 email: avaliador@instituicao.com
                 active: true
@@ -2424,7 +2424,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ExternalEvaluatorAdmin'
               example:
-                user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                user_id: 42
                 name: Ana Ribeiro
                 email: avaliador@instituicao.com
                 active: true
@@ -2492,7 +2492,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/UserStatus'
               example:
-                user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                user_id: 42
                 active: false
         '400':
           $ref: '#/components/responses/BadRequest'
@@ -3045,7 +3045,7 @@ paths:
                 next: null
                 previous: null
                 results:
-                - user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                - user_id: 42
                   name: Maria Souza
                   email: maria.souza@a.catolica-to.edu.br
                   active: true
@@ -3090,7 +3090,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/StudentAdmin'
               example:
-                user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                user_id: 42
                 name: Maria Souza
                 email: maria.souza@a.catolica-to.edu.br
                 active: true
@@ -3152,7 +3152,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/StudentAdmin'
               example:
-                user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                user_id: 42
                 name: Maria Souza
                 email: maria.souza@a.catolica-to.edu.br
                 active: true
@@ -3228,7 +3228,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/UserStatus'
               example:
-                user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                user_id: 42
                 active: false
         '400':
           $ref: '#/components/responses/BadRequest'
@@ -3286,12 +3286,12 @@ paths:
                   updated_at: '2026-10-22T16:00:00Z'
                   resolved_at: null
                   requester:
-                    user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                    user_id: 42
                     name: Maria Souza
                     email: maria.souza@a.catolica-to.edu.br
                     role: STUDENT
                   assigned_to:
-                    user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                    user_id: 42
                     name: Maria Souza
         '401':
           $ref: '#/components/responses/Unauthorized'
@@ -3336,12 +3336,12 @@ paths:
                 updated_at: '2026-10-22T16:00:00Z'
                 resolved_at: null
                 requester:
-                  user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                  user_id: 42
                   name: Maria Souza
                   email: maria.souza@a.catolica-to.edu.br
                   role: STUDENT
                 assigned_to:
-                  user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                  user_id: 42
                   name: Maria Souza
         '401':
           $ref: '#/components/responses/Unauthorized'
@@ -3395,7 +3395,7 @@ paths:
               status: OPEN
               priority: LOW
               support_response: A matrícula foi corrigida conforme solicitado.
-              assigned_to: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+              assigned_to: 42
       responses:
         '200':
           description: Operação concluída.
@@ -3414,12 +3414,12 @@ paths:
                 updated_at: '2026-10-22T16:00:00Z'
                 resolved_at: null
                 requester:
-                  user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                  user_id: 42
                   name: Maria Souza
                   email: maria.souza@a.catolica-to.edu.br
                   role: STUDENT
                 assigned_to:
-                  user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                  user_id: 42
                   name: Maria Souza
         '400':
           $ref: '#/components/responses/BadRequest'
@@ -3480,7 +3480,7 @@ paths:
                 next: null
                 previous: null
                 results:
-                - user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                - user_id: 42
                   name: João Pereira
                   email: joao.pereira@p.catolica-to.edu.br
                   active: true
@@ -3525,7 +3525,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/TeacherAdmin'
               example:
-                user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                user_id: 42
                 name: João Pereira
                 email: joao.pereira@p.catolica-to.edu.br
                 active: true
@@ -3586,7 +3586,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/TeacherAdmin'
               example:
-                user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                user_id: 42
                 name: João Pereira
                 email: joao.pereira@p.catolica-to.edu.br
                 active: true
@@ -3648,7 +3648,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/UserStatus'
               example:
-                user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                user_id: 42
                 active: false
         '400':
           $ref: '#/components/responses/BadRequest'
@@ -3764,7 +3764,7 @@ paths:
                 members:
                 - id: 101
                   student:
-                    user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                    user_id: 42
                     name: Maria Souza
                     course:
                       id: 1
@@ -3852,7 +3852,7 @@ paths:
                 $ref: '#/components/schemas/ExternalEvaluatorCreated'
               example:
                 external_evaluator:
-                  user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                  user_id: 42
                   email: avaliador@instituicao.com
         '400':
           $ref: '#/components/responses/BadRequest'
@@ -4051,7 +4051,7 @@ paths:
                 $ref: '#/components/schemas/StudentProfileCreated'
               example:
                 student:
-                  user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                  user_id: 42
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -4130,7 +4130,7 @@ paths:
                 $ref: '#/components/schemas/TeacherProfileCreated'
               example:
                 teacher:
-                  user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                  user_id: 42
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -4567,7 +4567,7 @@ paths:
                   name: Equipe Aurora
                   code: DXA7K2
                 student:
-                  user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                  user_id: 42
                   name: Maria Souza
                 invited_email: null
                 status: PENDING
@@ -4666,7 +4666,7 @@ paths:
                   name: Equipe Aurora
                   code: DXA7K2
                 student:
-                  user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                  user_id: 42
                   name: Pedro Alves
                   course:
                     id: 1
@@ -4774,12 +4774,12 @@ paths:
                   name: Equipe Aurora
                   code: DXA7K2
                 requester:
-                  user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                  user_id: 42
                   name: Maria Souza
                 justification: O líder anterior deixou a instituição sem transferir a liderança.
                 status: PENDING
                 teacher:
-                  user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                  user_id: 42
                   name: Maria Souza
                 decision_justification: null
                 created_at: '2026-10-22T16:00:00Z'
@@ -4924,7 +4924,7 @@ paths:
                   members:
                   - id: 101
                     student:
-                      user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                      user_id: 42
                       name: Maria Souza
                       course:
                         id: 1
@@ -5027,7 +5027,7 @@ paths:
                   name: Equipe Aurora
                   code: DXA7K2
                 student:
-                  user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                  user_id: 42
                   name: Maria Souza
                 invited_email: null
                 status: PENDING
@@ -5076,7 +5076,7 @@ paths:
                   name: Equipe Aurora
                   code: DXA7K2
                 student:
-                  user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                  user_id: 42
                   name: Pedro Alves
                   course:
                     id: 1
@@ -5260,7 +5260,7 @@ paths:
                 - id: 77
                   version_number: 2
                   submitted_by:
-                    user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                    user_id: 42
                     name: Maria Souza
                   submitted_at: '2026-10-22T16:00:00Z'
                   notes: Correção do relatório.
@@ -5585,7 +5585,7 @@ paths:
                 id: 77
                 version_number: 2
                 submitted_by:
-                  user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                  user_id: 42
                   name: Maria Souza
                 submitted_at: '2026-10-22T16:00:00Z'
                 notes: Correção do relatório.
@@ -6200,12 +6200,12 @@ paths:
                     name: Equipe Aurora
                     code: DXA7K2
                   requester:
-                    user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                    user_id: 42
                     name: Maria Souza
                   justification: O líder anterior deixou a instituição sem transferir a liderança.
                   status: PENDING
                   teacher:
-                    user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                    user_id: 42
                     name: Maria Souza
                   decision_justification: null
                   created_at: '2026-10-22T16:00:00Z'
@@ -6331,7 +6331,7 @@ paths:
                 members:
                 - id: 101
                   student:
-                    user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                    user_id: 42
                     name: Maria Souza
                     course:
                       id: 1
@@ -6476,7 +6476,7 @@ paths:
                 members:
                 - id: 101
                   student:
-                    user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                    user_id: 42
                     name: Maria Souza
                     course:
                       id: 1
@@ -6533,7 +6533,7 @@ paths:
             schema:
               $ref: '#/components/schemas/InvitationCreate'
             example:
-              student_id: 5a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d
+              student_id: 42
       responses:
         '201':
           description: Convite enviado.
@@ -6548,7 +6548,7 @@ paths:
                   name: Equipe Aurora
                   code: DXA7K2
                 student:
-                  user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                  user_id: 42
                   name: Maria Souza
                 invited_email: null
                 status: PENDING
@@ -6636,7 +6636,7 @@ paths:
                   name: Equipe Aurora
                   code: DXA7K2
                 student:
-                  user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                  user_id: 42
                   name: Maria Souza
                 invited_email: null
                 status: PENDING
@@ -6691,7 +6691,7 @@ paths:
                   name: Equipe Aurora
                   code: DXA7K2
                 student:
-                  user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                  user_id: 42
                   name: Pedro Alves
                   course:
                     id: 1
@@ -6780,7 +6780,7 @@ paths:
                   name: Equipe Aurora
                   code: DXA7K2
                 student:
-                  user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                  user_id: 42
                   name: Pedro Alves
                   course:
                     id: 1
@@ -6849,12 +6849,12 @@ paths:
                   name: Equipe Aurora
                   code: DXA7K2
                 requester:
-                  user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                  user_id: 42
                   name: Maria Souza
                 justification: O líder anterior deixou a instituição sem transferir a liderança.
                 status: PENDING
                 teacher:
-                  user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                  user_id: 42
                   name: Maria Souza
                 decision_justification: null
                 created_at: '2026-10-22T16:00:00Z'
@@ -6933,12 +6933,12 @@ paths:
                   name: Equipe Aurora
                   code: DXA7K2
                 requester:
-                  user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                  user_id: 42
                   name: Maria Souza
                 justification: O líder anterior deixou a instituição sem transferir a liderança.
                 status: PENDING
                 teacher:
-                  user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                  user_id: 42
                   name: Maria Souza
                 decision_justification: null
                 created_at: '2026-10-22T16:00:00Z'
@@ -7002,7 +7002,7 @@ paths:
                 members:
                 - id: 101
                   student:
-                    user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                    user_id: 42
                     name: Maria Souza
                     course:
                       id: 1
@@ -7194,10 +7194,10 @@ paths:
               example:
               - id: 17
                 member:
-                  user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                  user_id: 42
                   name: Maria Souza
                 author:
-                  user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                  user_id: 42
                   name: Maria Souza
                 content: Não participou das duas últimas reuniões.
                 created_at: '2026-10-22T16:00:00Z'
@@ -7461,8 +7461,8 @@ components:
       required: true
       description: Identificador do usuário.
       schema:
-        type: string
-        format: uuid
+        type: integer
+        minimum: 1
     CourseId:
       name: course_id
       in: path
@@ -7518,8 +7518,8 @@ components:
       required: true
       description: Identificador do avaliador externo (user_id).
       schema:
-        type: string
-        format: uuid
+        type: integer
+        minimum: 1
     TeamId:
       name: team_id
       in: path
@@ -7694,8 +7694,8 @@ components:
       required: false
       description: Filtra pelo responsável.
       schema:
-        type: string
-        format: uuid
+        type: integer
+        minimum: 1
     PendingOnly:
       name: pending_only
       in: query
@@ -8039,10 +8039,10 @@ components:
       type: object
       properties:
         user_id:
-          type: string
-          format: uuid
+          type: integer
+          minimum: 1
           examples:
-          - 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+          - 42
         name:
           type: string
           examples:
@@ -8219,7 +8219,7 @@ components:
         registration_number:
           type: string
           description: Matrícula (única).
-          maxLength: 50
+          maxLength: 30
           examples:
           - '202600123'
         term:
@@ -8240,10 +8240,10 @@ components:
           type: object
           properties:
             user_id:
-              type: string
-              format: uuid
+              type: integer
+              minimum: 1
               examples:
-              - 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+              - 42
           required:
           - user_id
       required:
@@ -8270,10 +8270,10 @@ components:
           type: object
           properties:
             user_id:
-              type: string
-              format: uuid
+              type: integer
+              minimum: 1
               examples:
-              - 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+              - 42
           required:
           - user_id
       required:
@@ -8293,10 +8293,10 @@ components:
       type: object
       properties:
         user_id:
-          type: string
-          format: uuid
+          type: integer
+          minimum: 1
           examples:
-          - 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+          - 42
         active:
           type: boolean
           examples:
@@ -8308,10 +8308,10 @@ components:
       type: object
       properties:
         user_id:
-          type: string
-          format: uuid
+          type: integer
+          minimum: 1
           examples:
-          - 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+          - 42
         name:
           type: string
           examples:
@@ -8367,7 +8367,7 @@ components:
           - Maria Souza Lima
         registration_number:
           type: string
-          maxLength: 50
+          maxLength: 30
           examples:
           - '202600124'
         course_id:
@@ -8397,10 +8397,10 @@ components:
       type: object
       properties:
         user_id:
-          type: string
-          format: uuid
+          type: integer
+          minimum: 1
           examples:
-          - 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+          - 42
         name:
           type: string
           examples:
@@ -8485,10 +8485,10 @@ components:
       type: object
       properties:
         user_id:
-          type: string
-          format: uuid
+          type: integer
+          minimum: 1
           examples:
-          - 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+          - 42
         name:
           type: string
           examples:
@@ -8589,10 +8589,10 @@ components:
           type: object
           properties:
             user_id:
-              type: string
-              format: uuid
+              type: integer
+              minimum: 1
               examples:
-              - 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+              - 42
             email:
               type: string
               format: email
@@ -9752,10 +9752,10 @@ components:
           type: object
           properties:
             user_id:
-              type: string
-              format: uuid
+              type: integer
+              minimum: 1
               examples:
-              - 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+              - 42
             name:
               type: string
               examples:
@@ -9802,10 +9802,10 @@ components:
       type: object
       properties:
         evaluator_id:
-          type: string
-          format: uuid
+          type: integer
+          minimum: 1
           examples:
-          - 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+          - 42
         course_id:
           type:
           - integer
@@ -10032,10 +10032,10 @@ components:
           type: object
           properties:
             user_id:
-              type: string
-              format: uuid
+              type: integer
+              minimum: 1
               examples:
-              - 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+              - 42
             name:
               type: string
               examples:
@@ -10220,10 +10220,10 @@ components:
       - type: object
         properties:
           student_id:
-            type: string
-            format: uuid
+            type: integer
+            minimum: 1
             examples:
-            - 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+            - 42
         required:
         - student_id
         additionalProperties: false
@@ -10308,10 +10308,10 @@ components:
           type: object
           properties:
             user_id:
-              type: string
-              format: uuid
+              type: integer
+              minimum: 1
               examples:
-              - 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+              - 42
             name:
               type: string
               examples:
@@ -11643,10 +11643,10 @@ components:
             type: object
             properties:
               user_id:
-                type: string
-                format: uuid
+                type: integer
+                minimum: 1
                 examples:
-                - 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                - 42
               name:
                 type: string
                 examples:
@@ -11687,12 +11687,12 @@ components:
           - A matrícula foi corrigida conforme solicitado.
         assigned_to:
           type:
-          - string
+          - integer
           - 'null'
           description: Usuário ADMIN responsável (P-10).
-          format: uuid
+          minimum: 1
           examples:
-          - 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+          - 42
       additionalProperties: false
       minProperties: 1
     Notification:
