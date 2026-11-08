@@ -8,13 +8,8 @@ from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
-from apps.accounts.enums import UserRole
-from apps.accounts.exceptions import InvalidCredentials
-from apps.accounts.rules import ensure_reviewer_in_current_edition
+from apps.accounts.rules import ensure_password_login_allowed
 from apps.accounts.serializers import LoginSerializer
-
-# Aluno e professor entram pela Microsoft (RF18, RF36).
-PASSWORD_ROLES = {UserRole.ADMIN, UserRole.EXTERNAL_REVIEWER}
 
 
 def user_data(user):
@@ -41,18 +36,12 @@ class LoginView(APIView):
         serializer = LoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        # authenticate() já recusa usuário inativo. Todo motivo sai como o mesmo 401,
-        # sem dizer qual campo está errado.
         user = authenticate(
             request,
             username=serializer.validated_data["email"],
             password=serializer.validated_data["password"],
         )
-        if user is None or user.role not in PASSWORD_ROLES:
-            raise InvalidCredentials()
-        if user.role == UserRole.EXTERNAL_REVIEWER:
-            ensure_reviewer_in_current_edition(user)
-
+        ensure_password_login_allowed(user)
         login(request, user)
 
         return Response(user_data(user))

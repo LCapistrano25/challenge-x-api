@@ -1,8 +1,17 @@
 import pytest
 
-from apps.accounts.exceptions import ReviewerNotInCurrentEdition
-from apps.accounts.factories import ExternalReviewerFactory
-from apps.accounts.rules import ensure_reviewer_in_current_edition
+from apps.accounts.enums import UserRole
+from apps.accounts.exceptions import InvalidCredentials, ReviewerNotInCurrentEdition
+from apps.accounts.factories import (
+    ExternalReviewerFactory,
+    StudentFactory,
+    TeacherFactory,
+    UserFactory,
+)
+from apps.accounts.rules import (
+    ensure_password_login_allowed,
+    ensure_reviewer_in_current_edition,
+)
 from apps.editions.enums import EditionStatus
 from apps.editions.factories import EditionFactory
 from apps.editions.models import EditionReviewer
@@ -44,3 +53,33 @@ def test_vinculo_de_outro_avaliador_nao_conta():
 
     with pytest.raises(ReviewerNotInCurrentEdition):
         ensure_reviewer_in_current_edition(ExternalReviewerFactory().user)
+
+
+# Quem entra com senha (RF01, RF41)
+
+
+def test_admin_entra_com_senha():
+    ensure_password_login_allowed(UserFactory(role=UserRole.ADMIN))
+
+
+def test_avaliador_vinculado_entra_com_senha():
+    reviewer = ExternalReviewerFactory()
+    link(reviewer, EditionStatus.PUBLISHED)
+
+    ensure_password_login_allowed(reviewer.user)
+
+
+def test_avaliador_sem_vinculo_nao_entra_com_senha():
+    with pytest.raises(ReviewerNotInCurrentEdition):
+        ensure_password_login_allowed(ExternalReviewerFactory().user)
+
+
+@pytest.mark.parametrize("factory", [StudentFactory, TeacherFactory])
+def test_aluno_e_professor_nao_entram_com_senha(factory):
+    with pytest.raises(InvalidCredentials):
+        ensure_password_login_allowed(factory().user)
+
+
+def test_credencial_recusada_pelo_authenticate_nao_entra():
+    with pytest.raises(InvalidCredentials):
+        ensure_password_login_allowed(None)
