@@ -16,6 +16,16 @@ from apps.accounts.serializers import LoginSerializer
 PASSWORD_ROLES = {UserRole.ADMIN, UserRole.EXTERNAL_REVIEWER}
 
 
+def user_data(user):
+    """Corpo do login e do /me: a sessão vai no cookie, não na resposta."""
+    return {
+        "user_id": user.pk,
+        "name": user.name,
+        "email": user.email,
+        "role": user.role,
+    }
+
+
 @method_decorator(csrf_protect, name="dispatch")
 class LoginView(APIView):
     """Sessão com e-mail e senha para administrador e avaliador externo (RF01, RF41)."""
@@ -41,13 +51,7 @@ class LoginView(APIView):
 
         login(request, user)
 
-        return Response(
-            {
-                "mensagem": "Login realizado com sucesso.",
-                "email": user.email,
-                "perfil": user.role,
-            }
-        )
+        return Response(user_data(user))
 
 
 class LogoutView(APIView):
@@ -62,13 +66,7 @@ class MeView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        return Response(
-            {
-                "email": request.user.email,
-                "perfil": request.user.role,
-                "email_confirmado": request.user.email_confirmed,
-            }
-        )
+        return Response(user_data(request.user))
 
 
 class CsrfView(APIView):

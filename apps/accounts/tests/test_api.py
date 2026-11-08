@@ -46,6 +46,12 @@ def test_admin_entra_com_senha():
     client, resposta = login(admin.email)
 
     assert resposta.status_code == 200
+    assert resposta.data == {
+        "user_id": admin.pk,
+        "name": admin.name,
+        "email": admin.email,
+        "role": UserRole.ADMIN,
+    }
     assert "_auth_user_id" in client.session
 
 
@@ -205,12 +211,12 @@ class SessionTests(TestCase):
         )
 
         self.assertEqual(resposta.status_code, 200)
-        self.assertEqual(resposta.data["perfil"], UserRole.ADMIN)
+        self.assertEqual(resposta.data["role"], UserRole.ADMIN)
         self.assertIn("_auth_user_id", self.client.session)
 
         resposta_me = self.client.get("/api/auth/me")
         self.assertEqual(resposta_me.status_code, 200)
-        self.assertEqual(resposta_me.data["perfil"], UserRole.ADMIN)
+        self.assertEqual(resposta_me.data["role"], UserRole.ADMIN)
 
     def test_login_logout_nos_perfis_com_senha(self):
         usuarios = [
@@ -231,12 +237,12 @@ class SessionTests(TestCase):
                 )
 
                 self.assertEqual(resposta_login.status_code, 200)
-                self.assertEqual(resposta_login.data["perfil"], perfil)
+                self.assertEqual(resposta_login.data["role"], perfil)
                 self.assertIn("_auth_user_id", self.client.session)
 
                 resposta_me = self.client.get("/api/auth/me")
                 self.assertEqual(resposta_me.status_code, 200)
-                self.assertEqual(resposta_me.data["perfil"], perfil)
+                self.assertEqual(resposta_me.data["role"], perfil)
 
                 resposta_csrf = self.client.get("/api/auth/csrf")
                 token = resposta_csrf.data["csrfToken"]
