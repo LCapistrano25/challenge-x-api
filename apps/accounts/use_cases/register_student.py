@@ -11,13 +11,13 @@ from django.db import IntegrityError, transaction
 from apps.accounts.enums import UserRole
 from apps.accounts.models import Student, User
 from apps.accounts.rules import ensure_institutional_domain
-from apps.core.exceptions import DomainError, ExternalServiceError
+from apps.core.exceptions import BusinessRuleViolation, ExternalServiceError
 from apps.core.models import Course
 
 EMAIL_CONFIRMATION_SALT = "email-confirmation"
 
 
-class RegistrationRejected(DomainError):
+class RegistrationRejected(BusinessRuleViolation):
     code = "registration_rejected"
     default_message = "Não foi possível realizar o cadastro com esses dados."
     http_status = HTTPStatus.BAD_REQUEST

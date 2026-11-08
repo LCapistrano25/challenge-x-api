@@ -1,9 +1,9 @@
 from http import HTTPStatus
 
-from apps.core.exceptions import DomainError
+from apps.core.exceptions import BusinessRuleViolation
 
 
-class EditionError(DomainError):
+class EditionError(BusinessRuleViolation):
     """Base das violações de regra de negócio do app editions."""
 
     code = "edition_error"

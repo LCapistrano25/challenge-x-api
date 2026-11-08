@@ -16,10 +16,10 @@ class AppError(Exception):
         super().__init__(message or self.default_message)
 
 
-class DomainError(AppError):
+class BusinessRuleViolation(AppError):
     """Violação de regra de negócio."""
 
-    code = "domain_error"
+    code = "business_rule_violation"
     default_message = "Operação não permitida."
     http_status = HTTPStatus.CONFLICT
 
