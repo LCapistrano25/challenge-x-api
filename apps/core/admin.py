@@ -5,7 +5,7 @@ from apps.core.models import Course, Sdg
 
 @admin.register(Course)
 class CourseAdmin(admin.ModelAdmin):
-    list_display = ("name", "term_count", "active")
+    list_display = ("id", "name", "term_count", "active")
     list_filter = ("active", "term_count")
     search_fields = ("name",)
 
