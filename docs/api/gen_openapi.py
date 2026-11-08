@@ -162,9 +162,9 @@ SC["Error"] = obj({
     "error": obj({
         "code": STR("Código estável do erro, em snake_case.", "validation_error"),
         "message": STR("Mensagem legível para o usuário.", "Dados inválidos."),
-        "details": nul(obj({}, desc="Detalhes adicionais. Em erros de validação: campo -> lista de mensagens.", additionalProperties=True)),
+        "details": nul(obj({}, desc="Detalhes adicionais. Em erros de validação: campo -> lista de mensagens; erro sem campo vai em non_field_errors.", additionalProperties=True)),
     }, ["code", "message", "details"]),
-}, ["error"], "Formato padrão de erro proposto (P-37).")
+}, ["error"], "Formato padrão de erro (P-37).")
 
 # ---------------------------------------------------------------- refs compactas
 SC["CourseSummary"] = obj({"id": INT(ex=1), "name": STR(ex="Engenharia de Software"), "slug": STR(ex="ES")}, ["id", "name", "slug"])
@@ -1100,7 +1100,9 @@ spec = {
             "",
             "**Autenticação:** alunos e professores entram com a Microsoft; administradores e avaliadores externos, com e-mail e senha. Rotas protegidas usam Bearer JWT.",
             "",
-            "**Convenções propostas (pendentes de aprovação):** formato de erro `Error` (P-37), paginação `page`/`page_size` (P-38), decimais como string (P-39).",
+            "**Convenções adotadas:** formato de erro `Error` (P-37) e paginação `page`/`page_size` (P-38). Regra de negócio violada responde 409 com `code` estável.",
+            "",
+            "**Convenção proposta (pendente de aprovação):** decimais como string (P-39).",
             "",
             "Cada operação informa o status (`x-status`: `confirmed` ou `proposed`), os requisitos (`x-requirements`), os perfis (`x-roles`) e as pendências (`x-pendencias`) registradas em api-pendencias.md. Operações `proposed` dependem de uma pendência de severidade alta.",
         ]),

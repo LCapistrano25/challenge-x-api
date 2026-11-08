@@ -286,9 +286,11 @@ Estas são convenções que a especificação adota para ficar completa. Cada um
 - Nenhuma fonte define o corpo dos erros.
 - **Proposta:** `{"error": {"code": "<snake_case>", "message": "<texto>", "details": <objeto|null>}}` (schema `Error`). Em erros de validação, `details` é um mapa campo → lista de mensagens. Os conflitos de negócio (409) têm um `code` estável por regra (ex.: `formation_closed`, `team_full`).
 - **Impacto na implementação:** exige um `EXCEPTION_HANDLER` customizado no DRF, porque o formato padrão do DRF é diferente.
+- **Adotada (#90):** `config/exception.py`. Erro de validação sem campo vai em `details.non_field_errors`. As exceções da aplicação herdam de `AppError` (`apps/core/exceptions.py`) e trazem `code`, `default_message` e `http_status`; `BusinessRuleViolation` responde 409 e `ExternalServiceError`, 503.
 
 ### P-38 — Paginação · Baixa
 - **Proposta:** `page` e `page_size` (padrão 20, máximo 100), resposta `{count, next, previous, results}`, que é o `PageNumberPagination` do DRF. Só as listagens que podem crescer são paginadas. Listas curtas e de configuração (cursos, etapas, critérios) retornam um array simples.
+- **Adotada (#90):** `config/pagination.py`, padrão no `REST_FRAMEWORK`. A listagem curta desliga com `pagination_class = None`.
 
 ### P-39 — Decimais como string · Baixa
 - Campos `decimal(4,2)` (notas, pontos, `points_value`, `max_score`) são serializados como string (`"2.50"`), que é o padrão do `DecimalField` do DRF e evita erro de ponto flutuante. Confirmar com o frontend.
@@ -422,7 +424,7 @@ O validador oficial (`openapi-spec-validator`) **não pôde ser instalado**, por
 ## 14. O que impede considerar a especificação definitiva
 
 1. **Pendências altas que mudam contratos:** P-01, P-04, P-06, P-19, P-21, P-23, P-25, P-29, P-30 e P-31 (afetam as 14 operações propostas e a ausência de RF14 e de parte do RF17).
-2. **Convenções transversais ainda não aprovadas:** formato de erro (P-37), paginação (P-38), decimais (P-39) e multipart (P-43).
+2. **Convenções transversais ainda não aprovadas:** decimais (P-39) e multipart (P-43). Formato de erro (P-37) e paginação (P-38) foram adotados.
 3. **Contrato de auth:** nomes e valores alinhados ao DBML (P-02) e a ausência de definição para expiração, refresh e logout (P-03, P-42).
 4. **Validação oficial e importação no Apidog** ainda não executadas (seção 13).
 
