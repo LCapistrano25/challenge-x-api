@@ -1,6 +1,5 @@
 from django.contrib.auth import authenticate, login, logout
 from django.core import signing
-from django.core.exceptions import ValidationError
 from django.middleware.csrf import get_token
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
@@ -19,16 +18,15 @@ from apps.accounts.rules import (
     InvalidEmailDomain,
     ensure_institutional_domain,
 )
+from apps.accounts.serializers import RegisterSerializer
 from apps.accounts.use_cases.register_student import (
     EMAIL_CONFIRMATION_SALT,
-    ConfirmationEmailFailed,
-    RegistrationRejected,
     register_student,
 )
 
 
 def error(message, status_code):
-    return Response({"erro": message}, status=status_code)
+    return Response({"mensagem": message}, status=status_code)
 
 
 class RegisterView(APIView):
@@ -36,58 +34,13 @@ class RegisterView(APIView):
     authentication_classes = []
 
     def post(self, request):
-        data = request.data
-
-        email = str(data.get("email", "")).strip().lower()
-        password = data.get("senha")
-        registration_number = str(data.get("matricula", "")).strip()
-        course_id = data.get("curso")
-        term = data.get("periodo")
-
-        if not all([email, password, registration_number, course_id, term]):
-            return error(
-                "Informe e-mail, senha, matrícula, curso e período.",
-                status.HTTP_400_BAD_REQUEST,
-            )
-
-        try:
-            course_id = int(course_id)
-        except (TypeError, ValueError):
-            return error("Curso inválido.", status.HTTP_400_BAD_REQUEST)
-
-        try:
-            term = int(term)
-            if term < 1:
-                raise ValueError
-        except (TypeError, ValueError):
-            return error(
-                "O período deve ser um número inteiro positivo.",
-                status.HTTP_400_BAD_REQUEST,
-            )
-
-        try:
-            register_student(
-                actor=None,
-                email=email,
-                password=password,
-                registration_number=registration_number,
-                course_id=course_id,
-                term=term,
-                confirmation_url=request.build_absolute_uri(reverse("confirm-email")),
-            )
-        except (InvalidEmailDomain, RegistrationRejected) as exc:
-            return error(str(exc), status.HTTP_400_BAD_REQUEST)
-        except DomainRoleMismatch:
-            # O cadastro público é exclusivo para acadêmicos.
-            return error(
-                "Este perfil não pode realizar cadastro público.",
-                status.HTTP_403_FORBIDDEN,
-            )
-        except ValidationError as exc:
-            return error(list(exc.messages), status.HTTP_400_BAD_REQUEST)
-        except ConfirmationEmailFailed as exc:
-            return error(str(exc), status.HTTP_503_SERVICE_UNAVAILABLE)
-
+        serializer = RegisterSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        register_student(
+            actor=None,
+            **serializer.validated_data,
+            confirmation_url=request.build_absolute_uri(reverse("confirm-email")),
+        )
         return Response(
             {"mensagem": "Cadastro iniciado. Confira o e-mail para confirmar a conta."},
             status=status.HTTP_201_CREATED,
