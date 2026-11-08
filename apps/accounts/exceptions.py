@@ -15,8 +15,6 @@ class DomainRoleMismatch(BusinessRuleViolation):
     http_status = HTTPStatus.FORBIDDEN
 
 
-# As falhas do login são exceções da aplicação, e não AuthenticationFailed do DRF:
-# sem authentication_classes, o DRF troca o 401 por 403.
 class InvalidCredentials(BusinessRuleViolation):
     code = "invalid_credentials"
     default_message = "Credenciais inválidas."
@@ -33,3 +31,27 @@ class InstitutionalDomainDenied(BusinessRuleViolation):
     code = "institutional_domain_denied"
     default_message = "Domínio institucional não autorizado."
     http_status = HTTPStatus.FORBIDDEN
+
+
+class NotStudentActor(BusinessRuleViolation):
+    code = "not_student_actor"
+    default_message = "Apenas alunos podem realizar o autocadastro."
+    http_status = HTTPStatus.FORBIDDEN
+
+
+class RegistrationRejected(BusinessRuleViolation):
+    code = "registration_rejected"
+    default_message = "Não foi possível realizar o cadastro com esses dados."
+    http_status = HTTPStatus.BAD_REQUEST
+
+
+class StudentProfileExists(BusinessRuleViolation):
+    code = "student_profile_exists"
+    default_message = "Já existe um perfil de aluno associado a este usuário."
+    http_status = HTTPStatus.CONFLICT
+
+
+class RegistrationNumberTaken(BusinessRuleViolation):
+    code = "registration_number_taken"
+    default_message = "Número de matrícula já está em uso."
+    http_status = HTTPStatus.CONFLICT

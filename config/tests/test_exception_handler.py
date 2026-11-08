@@ -7,12 +7,17 @@ from rest_framework.permissions import AllowAny
 from rest_framework.test import APIRequestFactory
 from rest_framework.views import APIView
 
-from apps.accounts.use_cases.register_student import ConfirmationEmailFailed
+from apps.core.exceptions import ExternalServiceError
 from apps.editions.exceptions import (
     EditionAlreadyExists,
     NotAdminActor,
     TeamLimitsLocked,
 )
+
+
+class StorageUnavailable(ExternalServiceError):
+    code = "storage_unavailable"
+    default_message = "Armazenamento indisponível."
 
 
 class Payload(serializers.Serializer):
@@ -96,7 +101,7 @@ def test_filha_usa_o_proprio_http_status():
 
 
 def test_servico_externo_vira_503():
-    assert_error(respond(ConfirmationEmailFailed()), 503, "confirmation_email_failed")
+    assert_error(respond(StorageUnavailable()), 503, "storage_unavailable")
 
 
 def test_mensagem_personalizada_substitui_a_padrao():
