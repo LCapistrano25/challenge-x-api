@@ -21,18 +21,6 @@ class InvalidCredentials(BusinessRuleViolation):
     http_status = HTTPStatus.UNAUTHORIZED
 
 
-class EmailNotConfirmed(BusinessRuleViolation):
-    code = "email_not_confirmed"
-    default_message = "Confirme seu e-mail antes de entrar."
-    http_status = HTTPStatus.FORBIDDEN
-
-
-class InstitutionalDomainDenied(BusinessRuleViolation):
-    code = "institutional_domain_denied"
-    default_message = "Domínio institucional não autorizado."
-    http_status = HTTPStatus.FORBIDDEN
-
-
 class NotStudentActor(BusinessRuleViolation):
     code = "not_student_actor"
     default_message = "Apenas alunos podem realizar o autocadastro."
@@ -55,3 +43,9 @@ class RegistrationNumberTaken(BusinessRuleViolation):
     code = "registration_number_taken"
     default_message = "Número de matrícula já está em uso."
     http_status = HTTPStatus.CONFLICT
+
+
+class ReviewerNotInCurrentEdition(BusinessRuleViolation):
+    code = "reviewer_not_in_current_edition"
+    default_message = "O avaliador não está vinculado à edição vigente."
+    http_status = HTTPStatus.FORBIDDEN

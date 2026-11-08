@@ -5,64 +5,46 @@ from django.views.decorators.csrf import csrf_protect
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
-from apps.accounts.enums import UserRole
-from apps.accounts.exceptions import (
-    EmailNotConfirmed,
-    InstitutionalDomainDenied,
-    InvalidCredentials,
-    InvalidEmailDomain,
-)
-from apps.accounts.models import User
-from apps.accounts.rules import ensure_institutional_domain
+from apps.accounts.rules import ensure_password_login_allowed
 from apps.accounts.serializers import LoginSerializer
+
+
+def user_data(user):
+    """Corpo do login e do /me: a sessão vai no cookie, não na resposta."""
+    return {
+        "user_id": user.pk,
+        "name": user.name,
+        "email": user.email,
+        "role": user.role,
+    }
 
 
 @method_decorator(csrf_protect, name="dispatch")
 class LoginView(APIView):
+    """Sessão com e-mail e senha para administrador e avaliador externo (RF01, RF41)."""
+
     permission_classes = [AllowAny]
     authentication_classes = []
+    # Limita tentativas por IP contra força bruta na senha (taxa em REST_FRAMEWORK).
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "login"
 
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        email = serializer.validated_data["email"]
-        password = serializer.validated_data["senha"]
 
-        # authenticate() recusa usuário inativo, e o aluno recém-cadastrado é inativo
-        # até confirmar o e-mail: sem esta checagem ele veria "Credenciais inválidas".
-        pending = User.objects.filter(
-            email=email, role=UserRole.STUDENT, is_active=False, email_confirmed=False
-        ).first()
-        if pending and pending.check_password(password):
-            raise EmailNotConfirmed()
-
-        user = authenticate(request, username=email, password=password)
-
-        if user is None:
-            raise InvalidCredentials()
-
-        if user.role == UserRole.STUDENT and not user.email_confirmed:
-            raise EmailNotConfirmed()
-
-        # Revalida o domínio institucional, exceto para administradores.
-        # DomainRoleMismatch já sai como 403; o domínio inativo, no login, também.
-        if user.role != UserRole.ADMIN:
-            try:
-                ensure_institutional_domain(user.email, user.role)
-            except InvalidEmailDomain:
-                raise InstitutionalDomainDenied() from None
-
+        user = authenticate(
+            request,
+            username=serializer.validated_data["email"],
+            password=serializer.validated_data["password"],
+        )
+        ensure_password_login_allowed(user)
         login(request, user)
 
-        return Response(
-            {
-                "mensagem": "Login realizado com sucesso.",
-                "email": user.email,
-                "perfil": user.role,
-            }
-        )
+        return Response(user_data(user))
 
 
 class LogoutView(APIView):
@@ -77,13 +59,7 @@ class MeView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        return Response(
-            {
-                "email": request.user.email,
-                "perfil": request.user.role,
-                "email_confirmado": request.user.email_confirmed,
-            }
-        )
+        return Response(user_data(request.user))
 
 
 class CsrfView(APIView):

@@ -2,7 +2,12 @@ from django.apps import apps
 from django.core.exceptions import ValidationError
 
 from apps.accounts.enums import UserRole
-from apps.accounts.exceptions import DomainRoleMismatch, InvalidEmailDomain
+from apps.accounts.exceptions import (
+    DomainRoleMismatch,
+    InvalidCredentials,
+    InvalidEmailDomain,
+    ReviewerNotInCurrentEdition,
+)
 
 # Os models importam estas regras; por isso elas pegam os models pelo registro
 # do Django (como a FK por string), sem import que fecharia o ciclo.
@@ -13,6 +18,9 @@ PROFILE_BY_ROLE = {
     UserRole.TEACHER: "teacher",
     UserRole.EXTERNAL_REVIEWER: "external_reviewer",
 }
+
+# Aluno e professor entram pela Microsoft (RF18, RF36).
+PASSWORD_ROLES = {UserRole.ADMIN, UserRole.EXTERNAL_REVIEWER}
 
 
 def ensure_institutional_domain(email: str, role: str) -> None:
@@ -58,3 +66,26 @@ def ensure_role_change_allowed(user) -> None:
         raise ValidationError(
             {"role": "O usuário já tem perfil; o papel não pode ser trocado."}
         )
+
+
+def ensure_reviewer_in_current_edition(user) -> None:
+    """Exige o avaliador externo vinculado à edição vigente, não encerrada (RF41).
+
+    Edição vigente é a publicada (P-41): EditionStatus.PUBLISHED.
+    """
+    # editions fica acima de accounts: lê pelo registro, sem importar o app.
+    links = apps.get_model("editions", "EditionReviewer").objects
+    if not links.filter(reviewer__user=user, edition__status="PUBLISHED").exists():
+        raise ReviewerNotInCurrentEdition()
+
+
+def ensure_password_login_allowed(user) -> None:
+    """Só administrador e avaliador entram com senha (RF01, RF41).
+
+    user é o resultado do authenticate(): None para credencial errada ou conta
+    inativa. Todo motivo sai como o mesmo InvalidCredentials, sem revelar qual.
+    """
+    if user is None or user.role not in PASSWORD_ROLES:
+        raise InvalidCredentials()
+    if user.role == UserRole.EXTERNAL_REVIEWER:
+        ensure_reviewer_in_current_edition(user)

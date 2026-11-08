@@ -114,4 +114,7 @@ REST_FRAMEWORK = {
     ],
     "EXCEPTION_HANDLER": "config.exception.custom_exception_handler",
     "DEFAULT_PAGINATION_CLASS": "config.pagination.DefaultPagination",
+    # shortcut: o cache padrão é por processo, então o limite vale por processo;
+    # com mais de um processo em produção, apontar CACHES para um cache compartilhado.
+    "DEFAULT_THROTTLE_RATES": {"login": "5/min"},
 }
