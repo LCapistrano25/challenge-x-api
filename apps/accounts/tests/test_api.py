@@ -1,21 +1,17 @@
-from datetime import timedelta
-from unittest.mock import patch
-
-from django.core import signing
+import pytest
 from django.test import TestCase
-from django.utils import timezone
 from rest_framework.test import APIClient, APIRequestFactory
 
 from apps.accounts.enums import UserRole
-from apps.accounts.factories import StudentFactory, TeacherFactory
+from apps.accounts.factories import (
+    EmailDomainFactory,
+    StudentFactory,
+    TeacherFactory,
+    UserFactory,
+)
 from apps.accounts.models import EmailDomain, Student, User
 from apps.accounts.permissions import IsAdmin, IsStudent, IsTeacher
-from apps.accounts.use_cases.register_student import EMAIL_CONFIRMATION_SALT
 from apps.core.models import Course
-
-
-def es_id():
-    return Course.objects.get(name="Engenharia de Software").pk
 
 
 class LoginTests(TestCase):
@@ -182,242 +178,6 @@ class LoginTests(TestCase):
             "teste@login.com",
         )
         self.assertTrue("_auth_user_id" in self.client.session)
-
-
-class RegisterTests(TestCase):
-    def setUp(self):
-        self.client = APIClient()
-
-    def test_cadastro_com_dominio_nao_autorizado(self):
-        resposta = self.client.post(
-            "/api/auth/register",
-            {
-                "email": "aluno@gmail.com",
-                "password": "TesteForte!2026x",
-                "registration_number": "TESTE001",
-                "course_id": es_id(),
-                "term": 6,
-            },
-            format="json",
-        )
-
-        self.assertEqual(resposta.status_code, 400)
-        self.assertEqual(resposta.data["error"]["code"], "invalid_email_domain")
-
-    def test_cadastro_com_dominio_autorizado(self):
-        EmailDomain.objects.create(
-            name="aluno.unicatolica.edu.br",
-            active=True,
-            role=UserRole.STUDENT,
-        )
-
-        resposta = self.client.post(
-            "/api/auth/register",
-            {
-                "email": "novo@aluno.unicatolica.edu.br",
-                "password": "TesteForte!2026x",
-                "registration_number": "TESTE002",
-                "course_id": es_id(),
-                "term": 6,
-            },
-            format="json",
-        )
-
-        self.assertEqual(resposta.status_code, 201)
-        self.assertTrue(
-            User.objects.filter(
-                email="novo@aluno.unicatolica.edu.br",
-                email_confirmed=False,
-                is_active=False,
-            ).exists()
-        )
-        usuario = User.objects.get(email="novo@aluno.unicatolica.edu.br")
-        self.assertEqual(usuario.role, UserRole.STUDENT)
-        self.assertEqual(usuario.student.registration_number, "TESTE002")
-
-    def test_confirmacao_de_email_ativa_conta(self):
-        usuario = User.objects.create_user(
-            email="confirmar@aluno.unicatolica.edu.br",
-            password="TesteForte!2026x",
-            role=UserRole.STUDENT,
-            is_active=False,
-            email_confirmed=False,
-        )
-        cadastro = timezone.now() - timedelta(days=1)
-        User.objects.filter(pk=usuario.pk).update(updated_at=cadastro)
-
-        token = signing.dumps(
-            {"user_id": usuario.pk},
-            salt=EMAIL_CONFIRMATION_SALT,
-        )
-
-        resposta = self.client.get(
-            "/api/auth/confirm-email",
-            {"token": token},
-        )
-
-        self.assertEqual(resposta.status_code, 200)
-
-        usuario.refresh_from_db()
-        self.assertTrue(usuario.email_confirmed)
-        self.assertTrue(usuario.is_active)
-        self.assertGreater(usuario.updated_at, cadastro)
-
-    def test_confirmacao_com_token_invalido(self):
-        resposta = self.client.get(
-            "/api/auth/confirm-email",
-            {"token": "token-invalido"},
-        )
-
-        self.assertEqual(resposta.status_code, 400)
-        self.assertEqual(
-            resposta.data["error"]["message"],
-            "Token de confirmação inválido.",
-        )
-
-    def test_cadastro_com_dominio_desativado(self):
-        EmailDomain.objects.create(
-            name="aluno.unicatolica.edu.br",
-            active=False,
-            role=UserRole.STUDENT,
-        )
-
-        resposta = self.client.post(
-            "/api/auth/register",
-            {
-                "email": "bloqueado@aluno.unicatolica.edu.br",
-                "password": "TesteForte!2026x",
-                "registration_number": "TESTE004",
-                "course_id": es_id(),
-                "term": 6,
-            },
-            format="json",
-        )
-
-        self.assertEqual(resposta.status_code, 400)
-        self.assertFalse(
-            User.objects.filter(email="bloqueado@aluno.unicatolica.edu.br").exists()
-        )
-
-    def test_cadastro_com_matricula_duplicada(self):
-        EmailDomain.objects.create(
-            name="aluno.unicatolica.edu.br",
-            active=True,
-            role=UserRole.STUDENT,
-        )
-
-        existente = User.objects.create_user(
-            email="existente@aluno.unicatolica.edu.br",
-            password="TesteForte!2026x",
-            role=UserRole.STUDENT,
-        )
-        Student.objects.create(
-            user=existente, registration_number="TESTE005", course_id=es_id(), term=6
-        )
-
-        resposta = self.client.post(
-            "/api/auth/register",
-            {
-                "email": "outro@aluno.unicatolica.edu.br",
-                "password": "TesteForte!2026x",
-                "registration_number": "TESTE005",
-                "course_id": es_id(),
-                "term": 6,
-            },
-            format="json",
-        )
-
-        self.assertEqual(resposta.status_code, 400)
-        self.assertEqual(User.objects.count(), 1)
-
-    def test_cadastro_com_periodo_invalido(self):
-        EmailDomain.objects.create(
-            name="aluno.unicatolica.edu.br",
-            active=True,
-            role=UserRole.STUDENT,
-        )
-
-        resposta = self.client.post(
-            "/api/auth/register",
-            {
-                "email": "periodo@aluno.unicatolica.edu.br",
-                "password": "TesteForte!2026x",
-                "registration_number": "TESTE006",
-                "course_id": es_id(),
-                "term": 0,
-            },
-            format="json",
-        )
-
-        self.assertEqual(resposta.status_code, 400)
-        self.assertFalse(
-            User.objects.filter(email="periodo@aluno.unicatolica.edu.br").exists()
-        )
-
-    def test_cadastro_com_email_duplicado(self):
-        EmailDomain.objects.create(
-            name="aluno.unicatolica.edu.br",
-            active=True,
-            role=UserRole.STUDENT,
-        )
-
-        User.objects.create_user(
-            email="existente@aluno.unicatolica.edu.br",
-            password="TesteForte!2026x",
-            role=UserRole.STUDENT,
-        )
-
-        resposta = self.client.post(
-            "/api/auth/register",
-            {
-                "email": "EXISTENTE@aluno.unicatolica.edu.br",
-                "password": "TesteForte!2026x",
-                "registration_number": "TESTE009",
-                "course_id": es_id(),
-                "term": 6,
-            },
-            format="json",
-        )
-
-        self.assertEqual(resposta.status_code, 400)
-        self.assertEqual(User.objects.count(), 1)
-
-    def test_login_logo_apos_cadastro_pede_confirmacao(self):
-        EmailDomain.objects.create(
-            name="aluno.unicatolica.edu.br",
-            active=True,
-            role=UserRole.STUDENT,
-        )
-        dados = {
-            "email": "novo@aluno.unicatolica.edu.br",
-            "senha": "TesteForte!2026x",
-        }
-        self.client.post(
-            "/api/auth/register",
-            {
-                "email": dados["email"],
-                "password": dados["senha"],
-                "registration_number": "TESTE010",
-                "course_id": es_id(),
-                "term": 1,
-            },
-            format="json",
-        )
-
-        resposta = self.client.post("/api/auth/login", dados, format="json")
-
-        self.assertEqual(resposta.status_code, 403)
-        self.assertEqual(
-            resposta.data["error"]["message"], "Confirme seu e-mail antes de entrar."
-        )
-        self.assertNotIn("_auth_user_id", self.client.session)
-
-        resposta = self.client.post(
-            "/api/auth/login",
-            {**dados, "senha": "SenhaErrada!2026"},
-            format="json",
-        )
-        self.assertEqual(resposta.status_code, 401)
 
 
 class PermissionTests(TestCase):
@@ -680,107 +440,116 @@ class SessionTests(TestCase):
         self.assertEqual(idade_antes, 1800)
         self.assertEqual(idade_depois, 1800)
 
-    def test_confirmacao_com_token_expirado(self):
-        usuario = User.objects.create_user(
-            email="expirado@aluno.unicatolica.edu.br",
-            password="TesteForte!2026x",
-            role=UserRole.STUDENT,
-            is_active=False,
-            email_confirmed=False,
-        )
 
-        token = signing.dumps(
-            {"user_id": usuario.pk},
-            salt=EMAIL_CONFIRMATION_SALT,
-        )
+# POST /api/auth/students: autocadastro do aluno autenticado (RF19)
 
-        # Simula um token com mais de 24 horas.
-        with patch("apps.accounts.views.signing.loads") as mock_loads:
-            mock_loads.side_effect = signing.SignatureExpired
-
-            resposta = self.client.get(
-                "/api/auth/confirm-email",
-                {"token": token},
-            )
-
-        self.assertEqual(resposta.status_code, 400)
-        self.assertEqual(
-            resposta.data["error"]["message"],
-            "O link de confirmação expirou.",
-        )
-
-        usuario.refresh_from_db()
-        self.assertFalse(usuario.email_confirmed)
-        self.assertFalse(usuario.is_active)
-
-    def test_confirmacao_de_email_ja_confirmado(self):
-        usuario = User.objects.create_user(
-            email="confirmado@aluno.unicatolica.edu.br",
-            password="TesteForte!2026x",
-            role=UserRole.STUDENT,
-            is_active=True,
-            email_confirmed=True,
-        )
-
-        token = signing.dumps(
-            {"user_id": usuario.pk},
-            salt=EMAIL_CONFIRMATION_SALT,
-        )
-
-        resposta = self.client.get(
-            "/api/auth/confirm-email",
-            {"token": token},
-        )
-
-        self.assertEqual(resposta.status_code, 200)
-        self.assertEqual(
-            resposta.data["mensagem"],
-            "E-mail já confirmado.",
-        )
+STUDENTS_URL = "/api/auth/students"
 
 
-class AdminAccessTests(TestCase):
-    def setUp(self):
-        self.client = APIClient()
-        self.admin = User.objects.create_user(
-            email="admin@teste.com",
-            password="TesteForte!2026x",
-            role=UserRole.ADMIN,
-            is_active=True,
-            is_staff=True,
-            is_superuser=True,
-            email_confirmed=True,
-        )
-        self.academico = User.objects.create_user(
-            email="aluno@teste.com",
-            password="TesteForte!2026x",
-            role=UserRole.STUDENT,
-            is_active=True,
-            email_confirmed=True,
-        )
-        self.professor = User.objects.create_user(
-            email="professor@teste.com",
-            password="TesteForte!2026x",
-            role=UserRole.TEACHER,
-            is_active=True,
-            email_confirmed=True,
-        )
+@pytest.fixture
+def course(db):
+    return Course.objects.get(name="Engenharia de Software")  # 8 períodos
 
-    def test_admin_pode_acessar_rota(self):
-        self.client.force_authenticate(user=self.admin)
-        resposta = self.client.get("/api/auth/admin/teste-acesso")
-        self.assertEqual(resposta.status_code, 200)
 
-    def test_academico_nao_pode_acessar_rota(self):
-        self.client.force_authenticate(user=self.academico)
-        resposta = self.client.get("/api/auth/admin/teste-acesso")
-        self.assertEqual(resposta.status_code, 403)
+@pytest.fixture
+def aluno(db):
+    EmailDomainFactory(name="aluno.edu.br", role=UserRole.STUDENT)
+    return UserFactory(email="ana@aluno.edu.br", role=UserRole.STUDENT)
 
-    def test_professor_nao_pode_acessar_rota(self):
-        self.client.force_authenticate(user=self.professor)
-        resposta = self.client.get("/api/auth/admin/teste-acesso")
-        self.assertEqual(resposta.status_code, 403)
 
-    def test_usuario_nao_autenticado_nao_pode_acessar_rota(self):
-        resposta = self.client.get("/api/auth/admin/teste-acesso")
-        self.assertIn(resposta.status_code, [401, 403])
+@pytest.fixture
+def client(aluno):
+    client = APIClient()
+    client.force_authenticate(aluno)
+    return client
+
+
+@pytest.fixture
+def post(client, course):
+    def call(**fields):
+        data = {
+            "registration_number": "202600123",
+            "course_id": course.pk,
+            "term": 4,
+            **fields,
+        }
+        return client.post(STUDENTS_URL, data, format="json")
+
+    return call
+
+
+def test_autocadastro_cria_perfil_e_devolve_user_id(post, aluno):
+    resposta = post()
+
+    assert resposta.status_code == 201
+    assert resposta.data == {"student": {"user_id": aluno.pk}}
+    student = Student.objects.get(user=aluno)
+    assert (student.registration_number, student.term) == ("202600123", 4)
+
+
+def test_autocadastro_sem_login_e_recusado(post, client):
+    client.force_authenticate(None)
+
+    resposta = post()
+
+    assert resposta.status_code == 403
+    assert resposta.data["error"]["code"] == "not_authenticated"
+
+
+def test_autocadastro_de_professor_e_recusado(post, client):
+    client.force_authenticate(TeacherFactory().user)
+
+    resposta = post()
+
+    assert resposta.status_code == 403
+    assert resposta.data["error"]["code"] == "permission_denied"
+
+
+def test_autocadastro_de_quem_ja_tem_perfil_recebe_409(post):
+    post()
+
+    resposta = post(registration_number="202600999")
+
+    assert resposta.status_code == 409
+    assert resposta.data["error"]["code"] == "student_profile_exists"
+
+
+def test_autocadastro_com_matricula_em_uso_recebe_409(post):
+    StudentFactory(registration_number="202600123")
+
+    resposta = post()
+
+    assert resposta.status_code == 409
+    assert resposta.data["error"]["code"] == "registration_number_taken"
+
+
+def test_autocadastro_sem_campos_detalha_a_validacao(client, aluno):
+    resposta = client.post(STUDENTS_URL, {}, format="json")
+
+    assert resposta.status_code == 400
+    assert resposta.data["error"]["code"] == "validation_error"
+    assert set(resposta.data["error"]["details"]) == {
+        "registration_number",
+        "course_id",
+        "term",
+    }
+
+
+def test_autocadastro_com_periodo_fora_do_curso_detalha_o_campo(post):
+    resposta = post(term=9)
+
+    assert resposta.status_code == 400
+    assert resposta.data["error"]["code"] == "validation_error"
+    assert "term" in resposta.data["error"]["details"]
+    assert not Student.objects.exists()
+
+
+def test_autocadastro_com_curso_inativo_recebe_400(post, course):
+    course.active = False
+    course.save()
+
+    resposta = post()
+
+    assert resposta.status_code == 400
+    assert resposta.data["error"]["code"] == "registration_rejected"
+    assert not Student.objects.exists()

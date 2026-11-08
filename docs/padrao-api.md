@@ -6,7 +6,7 @@ Como escrever um endpoint da API. Copie o exemplo e troque os nomes. As regras d
 
 | Camada | Arquivo | Faz | Não faz |
 | :- | :- | :- | :- |
-| View | `views.py` | recebe a requisição, chama o serializer e o caso de uso, devolve a resposta | regra de negócio, `try/except` para montar erro |
+| View | `views.py` (ou o pacote `views/`, um arquivo por assunto) | recebe a requisição, chama o serializer e o caso de uso, devolve a resposta | regra de negócio, `try/except` para montar erro |
 | Serializer | `serializers.py` | valida o **formato** da entrada (obrigatório, tipo, tamanho, `min_value`) | consultar o banco para decidir regra |
 | Caso de uso | `use_cases/<acao>.py` | decide: aplica as regras (`ensure_...` de `rules.py`), escreve, lança exceção | conhecer HTTP (`Response`, status) |
 
@@ -14,33 +14,54 @@ Leitura e listagem não viram caso de uso: ficam em `selectors.py`.
 
 ## Exemplo: escrita
 
+O autocadastro do aluno (`POST /api/auth/students`, RF19) é o endpoint de referência.
+
 ```python
 # apps/accounts/serializers.py
-class RegisterSerializer(serializers.Serializer):
-    email = serializers.EmailField()
-    password = serializers.CharField(write_only=True, trim_whitespace=False)
-    registration_number = serializers.CharField(max_length=50)
+class StudentProfileSerializer(serializers.Serializer):
+    registration_number = serializers.CharField(max_length=30)
     course_id = serializers.IntegerField()
     term = serializers.IntegerField(min_value=1)
 
 
-# apps/accounts/views.py
-class RegisterView(APIView):
-    permission_classes = [AllowAny]  # rota pública
-    authentication_classes = []
+# apps/accounts/views/student_profile.py
+class StudentProfileView(APIView):
+    permission_classes = [IsStudentAccount]
 
     def post(self, request):
-        serializer = RegisterSerializer(data=request.data)
+        serializer = StudentProfileSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        register_student(
-            actor=None,
-            **serializer.validated_data,
-            confirmation_url=request.build_absolute_uri(reverse("confirm-email")),
+        student = register_student(actor=request.user, **serializer.validated_data)
+        return Response(
+            {"student": {"user_id": student.user_id}}, status=status.HTTP_201_CREATED
         )
-        return Response({...}, status=status.HTTP_201_CREATED)
+
+
+# apps/accounts/use_cases/register_student.py
+@transaction.atomic
+def register_student(
+    *, actor: User, registration_number: str, course_id: int, term: int
+) -> Student:
+    if actor.role != UserRole.STUDENT:
+        raise NotStudentActor()
+    ensure_institutional_domain(actor.email, UserRole.STUDENT)
+    if Student.objects.filter(user=actor).exists():
+        raise StudentProfileExists()
+    ...  # curso ativo, período dentro do curso, matrícula livre
+    return Student.objects.create(...)
 ```
 
-A view não tem `try/except`. O erro de validação (`is_valid`) e as exceções do caso de uso sobem até o handler, que monta a resposta.
+A view não tem `try/except`. O erro de validação (`is_valid`) e as exceções do caso de uso sobem até o handler, que monta a resposta:
+
+| Situação | Quem detecta | Resposta |
+| :- | :- | :- |
+| Campo faltando ou com tipo errado | serializer | 400 `validation_error` |
+| Sem login ou com outro papel | permissão | 403 |
+| Aluno que já tem perfil | caso de uso | 409 `student_profile_exists` |
+| Matrícula em uso | caso de uso | 409 `registration_number_taken` |
+| Curso inativo ou período fora do curso | caso de uso | 400 `registration_rejected` |
+
+O `actor` vem de `request.user`, nunca do corpo da requisição.
 
 ## Erros
 
@@ -97,8 +118,9 @@ class FreezeFormationView(APIView):
 | Classe | Libera |
 | :- | :- |
 | `IsAdmin`, `IsStudent`, `IsTeacher`, `IsExternalReviewer` | usuário logado com o papel e o perfil que ele exige |
+| `IsStudentAccount` | aluno logado, com ou sem perfil: só para concluir o autocadastro |
 | `IsAuthenticated` | qualquer usuário logado |
-| `AllowAny` | rota pública (login, cadastro, painel público) |
+| `AllowAny` | rota pública (login, painel público) |
 
 Permissão que depende do objeto ("é o líder desta equipe?") é regra: vai no caso de uso, com o `actor`.
 
