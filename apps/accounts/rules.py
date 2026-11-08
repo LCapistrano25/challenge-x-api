@@ -40,6 +40,14 @@ def has_role_profile(user) -> bool:
     return profile is None or hasattr(user, profile)
 
 
+def ensure_term_within_course(course, term: int) -> None:
+    """Exige o período entre 1 e a quantidade de períodos do curso (RN10)."""
+    if not 1 <= term <= course.term_count:
+        raise ValidationError(
+            {"term": f"O período deve estar entre 1 e {course.term_count}."}
+        )
+
+
 def ensure_role_change_allowed(user) -> None:
     """Impede trocar o papel de quem já tem perfil: o perfil antigo ficaria órfão."""
     users = apps.get_model("accounts", "User").objects

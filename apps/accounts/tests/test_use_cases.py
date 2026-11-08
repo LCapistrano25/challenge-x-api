@@ -1,5 +1,5 @@
-from unittest.mock import patch
-
+import pytest
+from django.core.exceptions import ValidationError
 from django.test import TestCase
 
 from apps.accounts.enums import UserRole
@@ -11,89 +11,123 @@ from apps.accounts.exceptions import (
     RegistrationRejected,
     StudentProfileExists,
 )
-from apps.accounts.factories import StudentFactory, UserFactory
+from apps.accounts.factories import EmailDomainFactory, StudentFactory, UserFactory
 from apps.accounts.models import EmailDomain, Student
-from apps.accounts.rules import ensure_institutional_domain
+from apps.accounts.rules import ensure_institutional_domain, ensure_term_within_course
 from apps.accounts.use_cases.register_student import register_student
+from apps.core.factories import CourseFactory
 from apps.core.models import Course
 
+# Autocadastro do aluno (UC21, RF19, RN10)
 
-class RegisterStudentTests(TestCase):
-    def setUp(self):
-        EmailDomain.objects.create(name="aluno.edu.br", role=UserRole.STUDENT)
-        self.course = Course.objects.get(name="Engenharia de Software")  # 8 períodos
-        self.actor = UserFactory(email="ana@aluno.edu.br", role=UserRole.STUDENT)
 
-    def register(self, **fields):
+@pytest.fixture
+def course(db):
+    return Course.objects.get(name="Engenharia de Software")  # 8 períodos
+
+
+@pytest.fixture
+def actor(db):
+    EmailDomainFactory(name="aluno.edu.br", role=UserRole.STUDENT)
+    return UserFactory(email="ana@aluno.edu.br", role=UserRole.STUDENT)
+
+
+@pytest.fixture
+def register(actor, course):
+    def call(**fields):
         data = {
-            "actor": self.actor,
+            "actor": actor,
             "registration_number": "1",
-            "course_id": self.course.pk,
+            "course_id": course.pk,
             "term": 1,
         }
         return register_student(**{**data, **fields})
 
-    def test_cria_perfil_de_aluno_para_o_usuario_logado(self):
-        student = self.register(term=8)
+    return call
 
-        self.assertEqual(student.user, self.actor)
-        self.assertEqual(student.course, self.course)
-        self.assertEqual(student.term, 8)
 
-    def test_recusa_usuario_que_nao_e_aluno(self):
-        self.actor.role = UserRole.TEACHER
-        self.actor.save()
+def test_cria_perfil_de_aluno_para_o_usuario_logado(register, actor, course):
+    student = register(term=8)
 
-        with self.assertRaises(NotStudentActor):
-            self.register()
-        self.assertFalse(Student.objects.exists())
+    assert student.user == actor
+    assert student.course == course
+    assert student.term == 8
 
-    def test_recusa_email_fora_do_dominio_institucional(self):
-        actor = UserFactory(email="ana@gmail.com", role=UserRole.STUDENT)
 
-        with self.assertRaises(InvalidEmailDomain):
-            self.register(actor=actor)
+def test_recusa_usuario_que_nao_e_aluno(register, actor):
+    actor.role = UserRole.TEACHER
+    actor.save()
 
-    def test_recusa_aluno_que_ja_tem_perfil(self):
-        self.register()
+    with pytest.raises(NotStudentActor):
+        register()
+    assert not Student.objects.exists()
 
-        with self.assertRaises(StudentProfileExists):
-            self.register(registration_number="2")
 
-    def test_recusa_curso_inativo(self):
-        self.course.active = False
-        self.course.save()
+def test_recusa_email_fora_do_dominio_institucional(register):
+    with pytest.raises(InvalidEmailDomain):
+        register(actor=UserFactory(email="ana@gmail.com", role=UserRole.STUDENT))
 
-        with self.assertRaisesMessage(RegistrationRejected, "Curso inválido."):
-            self.register()
 
-    def test_recusa_periodo_fora_do_curso(self):
-        for term in (0, 9):
-            with (
-                self.subTest(term=term),
-                self.assertRaisesMessage(RegistrationRejected, "entre 1 e 8"),
-            ):
-                self.register(term=term)
-        self.assertFalse(Student.objects.exists())
+def test_recusa_aluno_que_ja_tem_perfil(register):
+    register()
 
-    def test_recusa_matricula_em_uso(self):
-        StudentFactory(registration_number="1")
+    with pytest.raises(StudentProfileExists):
+        register(registration_number="2")
 
-        with self.assertRaises(RegistrationNumberTaken):
-            self.register(registration_number="1")
 
-    def test_cadastro_simultaneo_vira_conflito_e_nao_erro_500(self):
-        StudentFactory(registration_number="1")
+def test_recusa_curso_inativo(register, course):
+    course.active = False
+    course.save()
 
-        # Simula a corrida: as checagens não veem o outro cadastro; o banco desempata.
-        with (
-            patch.object(Student.objects, "filter") as filter_,
-            self.assertRaises(RegistrationNumberTaken),
-        ):
-            filter_.return_value.exists.return_value = False
-            self.register(registration_number="1")
+    with pytest.raises(RegistrationRejected, match="Curso inválido."):
+        register()
 
-        self.assertFalse(Student.objects.filter(user=self.actor).exists())
+
+@pytest.mark.parametrize("term", [0, 9])
+def test_recusa_periodo_fora_do_curso(register, term):
+    with pytest.raises(ValidationError, match="entre 1 e 8"):
+        register(term=term)
+    assert not Student.objects.exists()
+
+
+def test_recusa_matricula_em_uso(register):
+    StudentFactory(registration_number="1")
+
+    with pytest.raises(RegistrationNumberTaken):
+        register(registration_number="1")
+
+
+def test_cadastro_simultaneo_vira_conflito_e_nao_erro_500(register, actor, monkeypatch):
+    StudentFactory(registration_number="1")
+
+    class NothingFound:
+        def exists(self):
+            return False
+
+    # Simula a corrida: as checagens não veem o outro cadastro; o banco desempata.
+    monkeypatch.setattr(Student.objects, "filter", lambda **kwargs: NothingFound())
+    with pytest.raises(RegistrationNumberTaken):
+        register(registration_number="1")
+
+    monkeypatch.undo()
+    assert not Student.objects.filter(user=actor).exists()
+
+
+# Regra do período (RN10)
+
+
+@pytest.mark.parametrize(
+    ("term", "valid"), [(0, False), (1, True), (8, True), (9, False)]
+)
+def test_periodo_vai_de_1_a_quantidade_de_periodos_do_curso(term, valid, db):
+    course = CourseFactory(term_count=8)
+
+    if valid:
+        ensure_term_within_course(course, term)
+    else:
+        with pytest.raises(ValidationError) as error:
+            ensure_term_within_course(course, term)
+        assert "term" in error.value.message_dict
 
 
 class EnsureInstitutionalDomainTests(TestCase):

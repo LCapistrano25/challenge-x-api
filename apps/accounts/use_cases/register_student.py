@@ -1,4 +1,4 @@
-"""UC21 — Realizar autocadastro. RF19. Regras: RN02 do Administrador (domínios)."""
+"""UC21 — Realizar autocadastro. RF19. Regras: RN02 do Admin (domínios), RN10."""
 
 from django.db import IntegrityError, transaction
 
@@ -10,7 +10,7 @@ from apps.accounts.exceptions import (
     StudentProfileExists,
 )
 from apps.accounts.models import Student, User
-from apps.accounts.rules import ensure_institutional_domain
+from apps.accounts.rules import ensure_institutional_domain, ensure_term_within_course
 from apps.core.models import Course
 
 
@@ -21,8 +21,8 @@ def register_student(
     """Conclui o autocadastro do aluno autenticado (UC21, RF19).
 
     Levanta NotStudentActor, InvalidEmailDomain, DomainRoleMismatch,
-    RegistrationRejected (curso ou período inválido), StudentProfileExists
-    ou RegistrationNumberTaken.
+    StudentProfileExists, RegistrationRejected (curso inválido),
+    ValidationError (período fora do curso) ou RegistrationNumberTaken.
     """
     if actor.role != UserRole.STUDENT:
         raise NotStudentActor()
@@ -33,10 +33,7 @@ def register_student(
     course = Course.objects.filter(pk=course_id, active=True).first()
     if course is None:
         raise RegistrationRejected("Curso inválido.")
-    if not 1 <= term <= course.term_count:
-        raise RegistrationRejected(
-            f"O período deve estar entre 1 e {course.term_count}."
-        )
+    ensure_term_within_course(course, term)
 
     if Student.objects.filter(registration_number=registration_number).exists():
         raise RegistrationNumberTaken()
