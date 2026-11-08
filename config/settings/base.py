@@ -108,4 +108,5 @@ REST_FRAMEWORK = {
         "rest_framework.authentication.SessionAuthentication",
     ],
     "EXCEPTION_HANDLER": "config.exception.custom_exception_handler",
+    "DEFAULT_PAGINATION_CLASS": "config.pagination.DefaultPagination",
 }
