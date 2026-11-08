@@ -111,6 +111,20 @@ def test_senha_incorreta_recebe_o_mesmo_401():
 
 
 @pytest.mark.django_db
+def test_login_bloqueia_a_sexta_tentativa_no_minuto():
+    admin = UserFactory(role=UserRole.ADMIN)
+
+    for _ in range(5):
+        _, resposta = login(admin.email, "SenhaErrada!2026")
+        assert resposta.status_code == 401
+
+    # Nem a senha certa passa enquanto o limite não zera.
+    _, resposta = login(admin.email)
+    assert resposta.status_code == 429
+    assert resposta.data["error"]["code"] == "throttled"
+
+
+@pytest.mark.django_db
 def test_login_sem_campos_detalha_a_validacao():
     client = APIClient()
 
