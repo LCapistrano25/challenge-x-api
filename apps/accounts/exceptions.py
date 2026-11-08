@@ -33,14 +33,3 @@ class InstitutionalDomainDenied(BusinessRuleViolation):
     code = "institutional_domain_denied"
     default_message = "Domínio institucional não autorizado."
     http_status = HTTPStatus.FORBIDDEN
-
-
-class InvalidConfirmationToken(BusinessRuleViolation):
-    code = "invalid_confirmation_token"
-    default_message = "Token de confirmação inválido."
-    http_status = HTTPStatus.BAD_REQUEST
-
-
-class ConfirmationTokenExpired(InvalidConfirmationToken):
-    code = "confirmation_token_expired"
-    default_message = "O link de confirmação expirou."

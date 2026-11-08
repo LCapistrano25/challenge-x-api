@@ -1,8 +1,5 @@
 from django.contrib.auth import authenticate, login, logout
-from django.core import signing
 from django.middleware.csrf import get_token
-from django.shortcuts import get_object_or_404
-from django.urls import reverse
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect
 from rest_framework import status
@@ -12,74 +9,14 @@ from rest_framework.views import APIView
 
 from apps.accounts.enums import UserRole
 from apps.accounts.exceptions import (
-    ConfirmationTokenExpired,
     EmailNotConfirmed,
     InstitutionalDomainDenied,
-    InvalidConfirmationToken,
     InvalidCredentials,
     InvalidEmailDomain,
 )
 from apps.accounts.models import User
-from apps.accounts.permissions import IsAdmin
 from apps.accounts.rules import ensure_institutional_domain
-from apps.accounts.serializers import (
-    ConfirmEmailSerializer,
-    LoginSerializer,
-    RegisterSerializer,
-)
-from apps.accounts.use_cases.register_student import (
-    EMAIL_CONFIRMATION_SALT,
-    register_student,
-)
-
-
-class RegisterView(APIView):
-    permission_classes = [AllowAny]
-    authentication_classes = []
-
-    def post(self, request):
-        serializer = RegisterSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        register_student(
-            actor=None,
-            **serializer.validated_data,
-            confirmation_url=request.build_absolute_uri(reverse("confirm-email")),
-        )
-        return Response(
-            {"mensagem": "Cadastro iniciado. Confira o e-mail para confirmar a conta."},
-            status=status.HTTP_201_CREATED,
-        )
-
-
-class ConfirmEmailView(APIView):
-    permission_classes = [AllowAny]
-    authentication_classes = []
-
-    def get(self, request):
-        serializer = ConfirmEmailSerializer(data=request.query_params)
-        serializer.is_valid(raise_exception=True)
-
-        try:
-            data = signing.loads(
-                serializer.validated_data["token"],
-                salt=EMAIL_CONFIRMATION_SALT,
-                max_age=60 * 60 * 24,
-            )
-        except signing.SignatureExpired:
-            raise ConfirmationTokenExpired() from None
-        except signing.BadSignature:
-            raise InvalidConfirmationToken() from None
-
-        user = get_object_or_404(User, pk=data.get("user_id"))
-
-        if user.email_confirmed:
-            return Response({"mensagem": "E-mail já confirmado."})
-
-        user.email_confirmed = True
-        user.is_active = True
-        user.save(update_fields=["email_confirmed", "is_active", "updated_at"])
-
-        return Response({"mensagem": "E-mail confirmado com sucesso."})
+from apps.accounts.serializers import LoginSerializer
 
 
 @method_decorator(csrf_protect, name="dispatch")
@@ -155,10 +92,3 @@ class CsrfView(APIView):
 
     def get(self, request):
         return Response({"csrfToken": get_token(request)})
-
-
-class AdminAccessTestView(APIView):
-    permission_classes = [IsAdmin]
-
-    def get(self, request):
-        return Response({"mensagem": "Acesso administrativo autorizado."})
