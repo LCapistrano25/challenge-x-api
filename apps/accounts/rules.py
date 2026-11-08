@@ -2,7 +2,7 @@ from django.apps import apps
 from django.core.exceptions import ValidationError
 
 from apps.accounts.enums import UserRole
-from apps.core.exceptions import DomainError
+from apps.accounts.exceptions import DomainRoleMismatch, InvalidEmailDomain
 
 # Os models importam estas regras; por isso elas pegam os models pelo registro
 # do Django (como a FK por string), sem import que fecharia o ciclo.
@@ -13,17 +13,6 @@ PROFILE_BY_ROLE = {
     UserRole.TEACHER: "teacher",
     UserRole.EXTERNAL_REVIEWER: "external_reviewer",
 }
-
-
-class InvalidEmailDomain(DomainError):
-
-    code = "invalid_email_domain"
-    default_message = "E-mail fora dos domínios autorizados."
-
-
-class DomainRoleMismatch(DomainError):
-    code = "domain_role_mismatch"
-    default_message = "Perfil não autorizado para este domínio."
 
 
 def ensure_institutional_domain(email: str, role: str) -> None:

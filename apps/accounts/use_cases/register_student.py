@@ -1,5 +1,7 @@
 """UC21 — Realizar autocadastro. RF19. Regras: RN02 do Administrador (domínios)."""
 
+from http import HTTPStatus
+
 from django.conf import settings
 from django.contrib.auth.password_validation import validate_password
 from django.core import signing
@@ -9,17 +11,21 @@ from django.db import IntegrityError, transaction
 from apps.accounts.enums import UserRole
 from apps.accounts.models import Student, User
 from apps.accounts.rules import ensure_institutional_domain
+from apps.core.exceptions import DomainError, ExternalServiceError
 from apps.core.models import Course
 
 EMAIL_CONFIRMATION_SALT = "email-confirmation"
 
 
-class RegistrationRejected(Exception):
-    pass
+class RegistrationRejected(DomainError):
+    code = "registration_rejected"
+    default_message = "Não foi possível realizar o cadastro com esses dados."
+    http_status = HTTPStatus.BAD_REQUEST
 
 
-class ConfirmationEmailFailed(Exception):
-    pass
+class ConfirmationEmailFailed(ExternalServiceError):
+    code = "confirmation_email_failed"
+    default_message = "Não foi possível enviar o e-mail de confirmação."
 
 
 @transaction.atomic
@@ -92,8 +98,6 @@ def register_student(
         )
     except Exception as error:
         # A exceção desfaz a transação: não fica conta pendente sem e-mail.
-        raise ConfirmationEmailFailed(
-            "Não foi possível enviar o e-mail de confirmação."
-        ) from error
+        raise ConfirmationEmailFailed() from error
 
     return user

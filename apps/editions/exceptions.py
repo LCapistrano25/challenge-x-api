@@ -1,15 +1,13 @@
-class EditionError(Exception):
-    """Base das violações de regra de negócio do app editions.
+from http import HTTPStatus
 
-    `code` é o identificador interno de domínio; quem expõe o erro (a API, depois)
-    decide como mapeá-lo.
-    """
+from apps.core.exceptions import DomainError
+
+
+class EditionError(DomainError):
+    """Base das violações de regra de negócio do app editions."""
 
     code = "edition_error"
     default_message = "Operação não permitida para a edição."
-
-    def __init__(self, message: str | None = None):
-        super().__init__(message or self.default_message)
 
 
 class EditionAlreadyExists(EditionError):
@@ -27,8 +25,10 @@ class InvalidTeamLimits(EditionError):
     default_message = (
         "Os limites devem ser maiores que zero e o mínimo não pode passar do máximo."
     )
+    http_status = HTTPStatus.BAD_REQUEST
 
 
 class NotAdminActor(EditionError):
     code = "not_admin_actor"
     default_message = "Apenas o administrador pode realizar esta ação."
+    http_status = HTTPStatus.FORBIDDEN
