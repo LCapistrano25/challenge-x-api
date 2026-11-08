@@ -2,7 +2,11 @@ from django.apps import apps
 from django.core.exceptions import ValidationError
 
 from apps.accounts.enums import UserRole
-from apps.accounts.exceptions import DomainRoleMismatch, InvalidEmailDomain
+from apps.accounts.exceptions import (
+    DomainRoleMismatch,
+    InvalidEmailDomain,
+    ReviewerNotInCurrentEdition,
+)
 
 # Os models importam estas regras; por isso elas pegam os models pelo registro
 # do Django (como a FK por string), sem import que fecharia o ciclo.
@@ -58,3 +62,14 @@ def ensure_role_change_allowed(user) -> None:
         raise ValidationError(
             {"role": "O usuário já tem perfil; o papel não pode ser trocado."}
         )
+
+
+def ensure_reviewer_in_current_edition(user) -> None:
+    """Exige o avaliador externo vinculado à edição vigente, não encerrada (RF41).
+
+    Edição vigente é a publicada (P-41): EditionStatus.PUBLISHED.
+    """
+    # editions fica acima de accounts: lê pelo registro, sem importar o app.
+    links = apps.get_model("editions", "EditionReviewer").objects
+    if not links.filter(reviewer__user=user, edition__status="PUBLISHED").exists():
+        raise ReviewerNotInCurrentEdition()

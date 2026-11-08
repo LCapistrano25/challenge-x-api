@@ -55,3 +55,9 @@ class RegistrationNumberTaken(BusinessRuleViolation):
     code = "registration_number_taken"
     default_message = "Número de matrícula já está em uso."
     http_status = HTTPStatus.CONFLICT
+
+
+class ReviewerNotInCurrentEdition(BusinessRuleViolation):
+    code = "reviewer_not_in_current_edition"
+    default_message = "O avaliador não está vinculado à edição vigente."
+    http_status = HTTPStatus.FORBIDDEN
