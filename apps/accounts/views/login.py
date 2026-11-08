@@ -8,51 +8,36 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts.enums import UserRole
-from apps.accounts.exceptions import (
-    EmailNotConfirmed,
-    InstitutionalDomainDenied,
-    InvalidCredentials,
-    InvalidEmailDomain,
-)
-from apps.accounts.models import User
-from apps.accounts.rules import ensure_institutional_domain
+from apps.accounts.exceptions import InvalidCredentials
+from apps.accounts.rules import ensure_reviewer_in_current_edition
 from apps.accounts.serializers import LoginSerializer
+
+# Aluno e professor entram pela Microsoft (RF18, RF36).
+PASSWORD_ROLES = {UserRole.ADMIN, UserRole.EXTERNAL_REVIEWER}
 
 
 @method_decorator(csrf_protect, name="dispatch")
 class LoginView(APIView):
+    """Sessão com e-mail e senha para administrador e avaliador externo (RF01, RF41)."""
+
     permission_classes = [AllowAny]
     authentication_classes = []
 
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        email = serializer.validated_data["email"]
-        password = serializer.validated_data["senha"]
 
-        # authenticate() recusa usuário inativo, e o aluno recém-cadastrado é inativo
-        # até confirmar o e-mail: sem esta checagem ele veria "Credenciais inválidas".
-        pending = User.objects.filter(
-            email=email, role=UserRole.STUDENT, is_active=False, email_confirmed=False
-        ).first()
-        if pending and pending.check_password(password):
-            raise EmailNotConfirmed()
-
-        user = authenticate(request, username=email, password=password)
-
-        if user is None:
+        # authenticate() já recusa usuário inativo. Todo motivo sai como o mesmo 401,
+        # sem dizer qual campo está errado.
+        user = authenticate(
+            request,
+            username=serializer.validated_data["email"],
+            password=serializer.validated_data["password"],
+        )
+        if user is None or user.role not in PASSWORD_ROLES:
             raise InvalidCredentials()
-
-        if user.role == UserRole.STUDENT and not user.email_confirmed:
-            raise EmailNotConfirmed()
-
-        # Revalida o domínio institucional, exceto para administradores.
-        # DomainRoleMismatch já sai como 403; o domínio inativo, no login, também.
-        if user.role != UserRole.ADMIN:
-            try:
-                ensure_institutional_domain(user.email, user.role)
-            except InvalidEmailDomain:
-                raise InstitutionalDomainDenied() from None
+        if user.role == UserRole.EXTERNAL_REVIEWER:
+            ensure_reviewer_in_current_edition(user)
 
         login(request, user)
 
