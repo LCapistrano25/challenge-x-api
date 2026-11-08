@@ -45,7 +45,7 @@ class LoginTests(TestCase):
 
         self.assertEqual(resposta.status_code, 403)
         self.assertEqual(
-            resposta.data["erro"],
+            resposta.data["error"]["message"],
             "Domínio institucional não autorizado.",
         )
         self.assertNotIn("_auth_user_id", self.client.session)
@@ -75,7 +75,7 @@ class LoginTests(TestCase):
 
         self.assertEqual(resposta.status_code, 403)
         self.assertEqual(
-            resposta.data["erro"],
+            resposta.data["error"]["message"],
             "Perfil não autorizado para este domínio.",
         )
         self.assertNotIn("_auth_user_id", self.client.session)
@@ -88,10 +88,8 @@ class LoginTests(TestCase):
         )
 
         self.assertEqual(resposta.status_code, 400)
-        self.assertEqual(
-            resposta.data["erro"],
-            "Informe e-mail e senha.",
-        )
+        self.assertEqual(resposta.data["error"]["code"], "validation_error")
+        self.assertEqual(set(resposta.data["error"]["details"]), {"email", "senha"})
 
     def test_login_com_conta_inativa(self):
         User.objects.create_user(
@@ -164,7 +162,7 @@ class LoginTests(TestCase):
 
         self.assertEqual(resposta.status_code, 401)
         self.assertEqual(
-            resposta.data["erro"],
+            resposta.data["error"]["message"],
             "Credenciais inválidas.",
         )
 
@@ -195,16 +193,16 @@ class RegisterTests(TestCase):
             "/api/auth/register",
             {
                 "email": "aluno@gmail.com",
-                "senha": "TesteForte!2026x",
-                "matricula": "TESTE001",
-                "curso": es_id(),
-                "periodo": 6,
+                "password": "TesteForte!2026x",
+                "registration_number": "TESTE001",
+                "course_id": es_id(),
+                "term": 6,
             },
             format="json",
         )
 
         self.assertEqual(resposta.status_code, 400)
-        self.assertIn("erro", resposta.data)
+        self.assertEqual(resposta.data["error"]["code"], "invalid_email_domain")
 
     def test_cadastro_com_dominio_autorizado(self):
         EmailDomain.objects.create(
@@ -217,10 +215,10 @@ class RegisterTests(TestCase):
             "/api/auth/register",
             {
                 "email": "novo@aluno.unicatolica.edu.br",
-                "senha": "TesteForte!2026x",
-                "matricula": "TESTE002",
-                "curso": es_id(),
-                "periodo": 6,
+                "password": "TesteForte!2026x",
+                "registration_number": "TESTE002",
+                "course_id": es_id(),
+                "term": 6,
             },
             format="json",
         )
@@ -273,7 +271,7 @@ class RegisterTests(TestCase):
 
         self.assertEqual(resposta.status_code, 400)
         self.assertEqual(
-            resposta.data["erro"],
+            resposta.data["error"]["message"],
             "Token de confirmação inválido.",
         )
 
@@ -288,10 +286,10 @@ class RegisterTests(TestCase):
             "/api/auth/register",
             {
                 "email": "bloqueado@aluno.unicatolica.edu.br",
-                "senha": "TesteForte!2026x",
-                "matricula": "TESTE004",
-                "curso": es_id(),
-                "periodo": 6,
+                "password": "TesteForte!2026x",
+                "registration_number": "TESTE004",
+                "course_id": es_id(),
+                "term": 6,
             },
             format="json",
         )
@@ -321,10 +319,10 @@ class RegisterTests(TestCase):
             "/api/auth/register",
             {
                 "email": "outro@aluno.unicatolica.edu.br",
-                "senha": "TesteForte!2026x",
-                "matricula": "TESTE005",
-                "curso": es_id(),
-                "periodo": 6,
+                "password": "TesteForte!2026x",
+                "registration_number": "TESTE005",
+                "course_id": es_id(),
+                "term": 6,
             },
             format="json",
         )
@@ -343,10 +341,10 @@ class RegisterTests(TestCase):
             "/api/auth/register",
             {
                 "email": "periodo@aluno.unicatolica.edu.br",
-                "senha": "TesteForte!2026x",
-                "matricula": "TESTE006",
-                "curso": es_id(),
-                "periodo": 0,
+                "password": "TesteForte!2026x",
+                "registration_number": "TESTE006",
+                "course_id": es_id(),
+                "term": 0,
             },
             format="json",
         )
@@ -373,10 +371,10 @@ class RegisterTests(TestCase):
             "/api/auth/register",
             {
                 "email": "EXISTENTE@aluno.unicatolica.edu.br",
-                "senha": "TesteForte!2026x",
-                "matricula": "TESTE009",
-                "curso": es_id(),
-                "periodo": 6,
+                "password": "TesteForte!2026x",
+                "registration_number": "TESTE009",
+                "course_id": es_id(),
+                "term": 6,
             },
             format="json",
         )
@@ -396,14 +394,22 @@ class RegisterTests(TestCase):
         }
         self.client.post(
             "/api/auth/register",
-            {**dados, "matricula": "TESTE010", "curso": es_id(), "periodo": 1},
+            {
+                "email": dados["email"],
+                "password": dados["senha"],
+                "registration_number": "TESTE010",
+                "course_id": es_id(),
+                "term": 1,
+            },
             format="json",
         )
 
         resposta = self.client.post("/api/auth/login", dados, format="json")
 
         self.assertEqual(resposta.status_code, 403)
-        self.assertEqual(resposta.data["erro"], "Confirme seu e-mail antes de entrar.")
+        self.assertEqual(
+            resposta.data["error"]["message"], "Confirme seu e-mail antes de entrar."
+        )
         self.assertNotIn("_auth_user_id", self.client.session)
 
         resposta = self.client.post(
@@ -699,7 +705,7 @@ class SessionTests(TestCase):
 
         self.assertEqual(resposta.status_code, 400)
         self.assertEqual(
-            resposta.data["erro"],
+            resposta.data["error"]["message"],
             "O link de confirmação expirou.",
         )
 
@@ -762,19 +768,19 @@ class AdminAccessTests(TestCase):
 
     def test_admin_pode_acessar_rota(self):
         self.client.force_authenticate(user=self.admin)
-        resposta = self.client.get("/api/admin/teste-acesso")
+        resposta = self.client.get("/api/auth/admin/teste-acesso")
         self.assertEqual(resposta.status_code, 200)
 
     def test_academico_nao_pode_acessar_rota(self):
         self.client.force_authenticate(user=self.academico)
-        resposta = self.client.get("/api/admin/teste-acesso")
+        resposta = self.client.get("/api/auth/admin/teste-acesso")
         self.assertEqual(resposta.status_code, 403)
 
     def test_professor_nao_pode_acessar_rota(self):
         self.client.force_authenticate(user=self.professor)
-        resposta = self.client.get("/api/admin/teste-acesso")
+        resposta = self.client.get("/api/auth/admin/teste-acesso")
         self.assertEqual(resposta.status_code, 403)
 
     def test_usuario_nao_autenticado_nao_pode_acessar_rota(self):
-        resposta = self.client.get("/api/admin/teste-acesso")
+        resposta = self.client.get("/api/auth/admin/teste-acesso")
         self.assertIn(resposta.status_code, [401, 403])

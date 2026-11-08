@@ -11,22 +11,26 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts.enums import UserRole
+from apps.accounts.exceptions import (
+    ConfirmationTokenExpired,
+    EmailNotConfirmed,
+    InstitutionalDomainDenied,
+    InvalidConfirmationToken,
+    InvalidCredentials,
+    InvalidEmailDomain,
+)
 from apps.accounts.models import User
 from apps.accounts.permissions import IsAdmin
-from apps.accounts.rules import (
-    DomainRoleMismatch,
-    InvalidEmailDomain,
-    ensure_institutional_domain,
+from apps.accounts.rules import ensure_institutional_domain
+from apps.accounts.serializers import (
+    ConfirmEmailSerializer,
+    LoginSerializer,
+    RegisterSerializer,
 )
-from apps.accounts.serializers import RegisterSerializer
 from apps.accounts.use_cases.register_student import (
     EMAIL_CONFIRMATION_SALT,
     register_student,
 )
-
-
-def error(message, status_code):
-    return Response({"mensagem": message}, status=status_code)
 
 
 class RegisterView(APIView):
@@ -52,21 +56,19 @@ class ConfirmEmailView(APIView):
     authentication_classes = []
 
     def get(self, request):
-        token = request.query_params.get("token")
-
-        if not token:
-            return error("Token não informado.", status.HTTP_400_BAD_REQUEST)
+        serializer = ConfirmEmailSerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
 
         try:
             data = signing.loads(
-                token,
+                serializer.validated_data["token"],
                 salt=EMAIL_CONFIRMATION_SALT,
                 max_age=60 * 60 * 24,
             )
         except signing.SignatureExpired:
-            return error("O link de confirmação expirou.", status.HTTP_400_BAD_REQUEST)
+            raise ConfirmationTokenExpired() from None
         except signing.BadSignature:
-            return error("Token de confirmação inválido.", status.HTTP_400_BAD_REQUEST)
+            raise InvalidConfirmationToken() from None
 
         user = get_object_or_404(User, pk=data.get("user_id"))
 
@@ -86,11 +88,10 @@ class LoginView(APIView):
     authentication_classes = []
 
     def post(self, request):
-        email = str(request.data.get("email", "")).strip().lower()
-        password = request.data.get("senha")
-
-        if not email or not password:
-            return error("Informe e-mail e senha.", status.HTTP_400_BAD_REQUEST)
+        serializer = LoginSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        email = serializer.validated_data["email"]
+        password = serializer.validated_data["senha"]
 
         # authenticate() recusa usuário inativo, e o aluno recém-cadastrado é inativo
         # até confirmar o e-mail: sem esta checagem ele veria "Credenciais inválidas".
@@ -98,31 +99,23 @@ class LoginView(APIView):
             email=email, role=UserRole.STUDENT, is_active=False, email_confirmed=False
         ).first()
         if pending and pending.check_password(password):
-            return error(
-                "Confirme seu e-mail antes de entrar.", status.HTTP_403_FORBIDDEN
-            )
+            raise EmailNotConfirmed()
 
         user = authenticate(request, username=email, password=password)
 
         if user is None:
-            return error("Credenciais inválidas.", status.HTTP_401_UNAUTHORIZED)
+            raise InvalidCredentials()
 
         if user.role == UserRole.STUDENT and not user.email_confirmed:
-            return error(
-                "Confirme seu e-mail antes de entrar.", status.HTTP_403_FORBIDDEN
-            )
+            raise EmailNotConfirmed()
 
         # Revalida o domínio institucional, exceto para administradores.
+        # DomainRoleMismatch já sai como 403; o domínio inativo, no login, também.
         if user.role != UserRole.ADMIN:
             try:
                 ensure_institutional_domain(user.email, user.role)
             except InvalidEmailDomain:
-                return error(
-                    "Domínio institucional não autorizado.",
-                    status.HTTP_403_FORBIDDEN,
-                )
-            except DomainRoleMismatch as exc:
-                return error(str(exc), status.HTTP_403_FORBIDDEN)
+                raise InstitutionalDomainDenied() from None
 
         login(request, user)
 
