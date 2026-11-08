@@ -1,10 +1,17 @@
+import pytest
 from django.test import TestCase
 from rest_framework.test import APIClient, APIRequestFactory
 
 from apps.accounts.enums import UserRole
-from apps.accounts.factories import StudentFactory, TeacherFactory
-from apps.accounts.models import EmailDomain, User
+from apps.accounts.factories import (
+    EmailDomainFactory,
+    StudentFactory,
+    TeacherFactory,
+    UserFactory,
+)
+from apps.accounts.models import EmailDomain, Student, User
 from apps.accounts.permissions import IsAdmin, IsStudent, IsTeacher
+from apps.core.models import Course
 
 
 class LoginTests(TestCase):
@@ -432,3 +439,117 @@ class SessionTests(TestCase):
 
         self.assertEqual(idade_antes, 1800)
         self.assertEqual(idade_depois, 1800)
+
+
+# POST /api/auth/students: autocadastro do aluno autenticado (RF19)
+
+STUDENTS_URL = "/api/auth/students"
+
+
+@pytest.fixture
+def course(db):
+    return Course.objects.get(name="Engenharia de Software")  # 8 períodos
+
+
+@pytest.fixture
+def aluno(db):
+    EmailDomainFactory(name="aluno.edu.br", role=UserRole.STUDENT)
+    return UserFactory(email="ana@aluno.edu.br", role=UserRole.STUDENT)
+
+
+@pytest.fixture
+def client(aluno):
+    client = APIClient()
+    client.force_authenticate(aluno)
+    return client
+
+
+@pytest.fixture
+def post(client, course):
+    def call(**fields):
+        data = {
+            "registration_number": "202600123",
+            "course_id": course.pk,
+            "term": 4,
+            **fields,
+        }
+        return client.post(STUDENTS_URL, data, format="json")
+
+    return call
+
+
+def test_autocadastro_cria_perfil_e_devolve_user_id(post, aluno):
+    resposta = post()
+
+    assert resposta.status_code == 201
+    assert resposta.data == {"student": {"user_id": aluno.pk}}
+    student = Student.objects.get(user=aluno)
+    assert (student.registration_number, student.term) == ("202600123", 4)
+
+
+def test_autocadastro_sem_login_e_recusado(post, client):
+    client.force_authenticate(None)
+
+    resposta = post()
+
+    assert resposta.status_code == 403
+    assert resposta.data["error"]["code"] == "not_authenticated"
+
+
+def test_autocadastro_de_professor_e_recusado(post, client):
+    client.force_authenticate(TeacherFactory().user)
+
+    resposta = post()
+
+    assert resposta.status_code == 403
+    assert resposta.data["error"]["code"] == "permission_denied"
+
+
+def test_autocadastro_de_quem_ja_tem_perfil_recebe_409(post):
+    post()
+
+    resposta = post(registration_number="202600999")
+
+    assert resposta.status_code == 409
+    assert resposta.data["error"]["code"] == "student_profile_exists"
+
+
+def test_autocadastro_com_matricula_em_uso_recebe_409(post):
+    StudentFactory(registration_number="202600123")
+
+    resposta = post()
+
+    assert resposta.status_code == 409
+    assert resposta.data["error"]["code"] == "registration_number_taken"
+
+
+def test_autocadastro_sem_campos_detalha_a_validacao(client, aluno):
+    resposta = client.post(STUDENTS_URL, {}, format="json")
+
+    assert resposta.status_code == 400
+    assert resposta.data["error"]["code"] == "validation_error"
+    assert set(resposta.data["error"]["details"]) == {
+        "registration_number",
+        "course_id",
+        "term",
+    }
+
+
+def test_autocadastro_com_periodo_fora_do_curso_detalha_o_campo(post):
+    resposta = post(term=9)
+
+    assert resposta.status_code == 400
+    assert resposta.data["error"]["code"] == "validation_error"
+    assert "term" in resposta.data["error"]["details"]
+    assert not Student.objects.exists()
+
+
+def test_autocadastro_com_curso_inativo_recebe_400(post, course):
+    course.active = False
+    course.save()
+
+    resposta = post()
+
+    assert resposta.status_code == 400
+    assert resposta.data["error"]["code"] == "registration_rejected"
+    assert not Student.objects.exists()

@@ -7,4 +7,5 @@ urlpatterns = [
     path("logout", views.LogoutView.as_view(), name="logout"),
     path("me", views.MeView.as_view(), name="me"),
     path("csrf", views.CsrfView.as_view(), name="csrf"),
+    path("students", views.StudentProfileView.as_view(), name="student-profile"),
 ]
