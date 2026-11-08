@@ -192,7 +192,9 @@ SC["MicrosoftSessionResponse"] = obj({
     "profile_completed": BOOL("Indica se o perfil acadêmico (student) ou docente (teacher) já foi configurado. Proposta (P-42).", False),
 }, ["token", "role", "profile_completed"])
 SC["PasswordSessionRequest"] = obj({"email": EMAIL(ex="avaliador@instituicao.com"), "password": STR(ex="********", format="password")}, ["email", "password"], strict=True)
-SC["SessionResponse"] = obj({"token": STR("JWT da aplicação.", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...")}, ["token"])
+SC["SessionResponse"] = obj({"user_id": USER_ID(), "name": STR(ex="Ana Ribeiro"), "email": EMAIL(ex="avaliador@instituicao.com"),
+                            "role": ref("UserRole")}, ["user_id", "name", "email", "role"],
+                           "Usuário da sessão. A credencial vai no cookie de sessão, não no corpo (#70, P-03).")
 SC["StudentProfileCreate"] = obj({
     "course_id": INT("Curso ativo do aluno.", 1),
     "registration_number": STR("Matrícula (única).", "202600123", maxLength=30),
@@ -660,13 +662,19 @@ op("post", "/api/auth/sessions/microsoft", "authCreateMicrosoftSession", "auth",
    errs=["403"], conflicts=[("microsoft_identity_mismatch", "O e-mail já está vinculado a outra identidade Microsoft.")],
    pend=["P-02", "P-03", "P-42"])
 op("post", "/api/auth/sessions/password", "authCreatePasswordSession", "auth", "Autenticar administrador ou avaliador externo com e-mail e senha",
-   ["RF01", "RF41"], [], "Autentica contas com senha local (ADMIN e EXTERNAL_EVALUATOR).", public=True,
+   ["RF01", "RF41"], [], "Autentica contas com senha local (ADMIN e EXTERNAL_EVALUATOR) e cria a sessão (cookie). Exige o cabeçalho X-CSRFToken, obtido em GET /api/auth/csrf.", public=True,
    body=ref("PasswordSessionRequest"), ok=ref("SessionResponse"), ok_desc="Sessão criada.",
-   rules=["Credenciais inválidas, conta inexistente, conta inativa ou conta sem senha (somente Microsoft) retornam o mesmo erro 401, sem indicar o campo incorreto.",
+   rules=["Credenciais inválidas, conta inexistente, conta inativa ou conta sem senha (somente Microsoft) retornam o mesmo erro 401 invalid_credentials, sem indicar o campo incorreto.",
           "Somente perfis ADMIN e EXTERNAL_EVALUATOR autenticam por senha.",
-          "EXTERNAL_EVALUATOR só autentica se vinculado à edição vigente e se ela não estiver encerrada (RF41).",
-          "Expiração por inatividade pendente (P-03)."],
-   errs=["401"], pend=["P-01", "P-03", "P-05"])
+          "EXTERNAL_EVALUATOR só autentica se vinculado à edição vigente, a publicada (P-41); caso contrário, 403 reviewer_not_in_current_edition (RF41).",
+          "A sessão expira após 30 minutos de inatividade, renovados a cada requisição (P-03)."],
+   errs=["401", "403"], pend=["P-01", "P-03", "P-05"])
+op("post", "/api/auth/logout", "authDeleteSession", "auth", "Encerrar a sessão",
+   ["RF01", "RF18", "RF36", "RF41"], ALL, "Encerra a sessão do usuário autenticado. Exige o cabeçalho X-CSRFToken.",
+   ok_code="204", ok_desc="Sessão encerrada.", pend=["P-03"])
+op("get", "/api/auth/me", "authGetCurrentUser", "auth", "Consultar o usuário autenticado",
+   ["RF01", "RF18", "RF36", "RF41"], ALL, "Devolve os dados do usuário da sessão atual.",
+   ok=ref("SessionResponse"), pend=["P-03"])
 op("post", "/api/auth/students", "authCompleteStudentProfile", "auth", "Concluir autocadastro do aluno",
    ["RF19"], ["STUDENT"], "Cria o perfil acadêmico (student) do usuário autenticado pela Microsoft.",
    authz="Somente o próprio usuário autenticado; o user_id vem do token, nunca do corpo.",
