@@ -19,12 +19,12 @@ class SeedUsersTests(TestCase):
         self.assertEqual(Teacher.objects.get().courses.count(), 1)
         self.assertEqual(ExternalReviewer.objects.count(), 1)
 
-    def test_login_do_aluno_do_seed(self):
+    def test_login_do_admin_do_seed(self):
         call_command("seed_users", password="TesteForte!2026x", stdout=None)
 
         resposta = self.client.post(
-            "/api/auth/login",
-            {"email": "aluno@aluno.desafiox.local", "senha": "TesteForte!2026x"},
+            "/api/auth/sessions/password",
+            {"email": "admin@desafiox.local", "password": "TesteForte!2026x"},
             content_type="application/json",
             HTTP_HOST="localhost",
         )

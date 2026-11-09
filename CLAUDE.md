@@ -35,5 +35,5 @@ Rode o servidor e os testes na branch mais nova: as branches antigas ficam atrá
 
 - Commit: `tipo(app): descrição` em português, terminando com `Refs #N`. **Sem linha `Co-Authored-By`.**
 - Uma branch por task: `feat/<app>-models-bmN`, criada a partir da anterior enquanto a PR anterior não é mesclada. Um app por PR.
-- Não fazer push nem abrir PR sem o pedido do dono. O `gh` não está logado: as PRs são abertas pelo GitHub.
+- Não fazer push nem abrir PR sem o pedido do dono. `main` e `developer` são protegidas: toda mudança entra por PR.
 - Migração de branch ainda não mesclada pode ser refeita; depois do merge, só migração nova.

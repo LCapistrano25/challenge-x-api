@@ -1,417 +1,138 @@
-from datetime import timedelta
-from unittest.mock import patch
-
-from django.core import signing
+import pytest
 from django.test import TestCase
-from django.utils import timezone
 from rest_framework.test import APIClient, APIRequestFactory
 
 from apps.accounts.enums import UserRole
-from apps.accounts.factories import StudentFactory, TeacherFactory
-from apps.accounts.models import EmailDomain, Student, User
+from apps.accounts.factories import (
+    EmailDomainFactory,
+    ExternalReviewerFactory,
+    StudentFactory,
+    TeacherFactory,
+    UserFactory,
+)
+from apps.accounts.models import Student, User
 from apps.accounts.permissions import IsAdmin, IsStudent, IsTeacher
-from apps.accounts.use_cases.register_student import EMAIL_CONFIRMATION_SALT
 from apps.core.models import Course
+from apps.editions.enums import EditionStatus
+from apps.editions.factories import EditionFactory
+from apps.editions.models import EditionReviewer
+
+# POST /api/auth/sessions/password: só administrador e avaliador externo (RF01, RF41)
+
+LOGIN_URL = "/api/auth/sessions/password"
+PASSWORD = "TesteForte!2026x"
 
 
-def es_id():
-    return Course.objects.get(name="Engenharia de Software").pk
+def login(email, password=PASSWORD):
+    client = APIClient()
+    resposta = client.post(
+        LOGIN_URL, {"email": email, "password": password}, format="json"
+    )
+    return client, resposta
 
 
-class LoginTests(TestCase):
-    def test_login_com_dominio_desativado(self):
-        EmailDomain.objects.create(
-            name="aluno.unicatolica.edu.br",
-            active=False,
-            role=UserRole.STUDENT,
-        )
-
-        User.objects.create_user(
-            email="aluno@aluno.unicatolica.edu.br",
-            password="TesteForte!2026x",
-            role=UserRole.STUDENT,
-            is_active=True,
-            email_confirmed=True,
-        )
-
-        resposta = self.client.post(
-            "/api/auth/login",
-            {
-                "email": "aluno@aluno.unicatolica.edu.br",
-                "senha": "TesteForte!2026x",
-            },
-            format="json",
-        )
-
-        self.assertEqual(resposta.status_code, 403)
-        self.assertEqual(
-            resposta.data["erro"],
-            "Domínio institucional não autorizado.",
-        )
-        self.assertNotIn("_auth_user_id", self.client.session)
-
-    def test_login_com_perfil_incompativel_com_dominio(self):
-        EmailDomain.objects.create(
-            name="aluno.unicatolica.edu.br",
-            active=True,
-            role=UserRole.STUDENT,
-        )
-
-        User.objects.create_user(
-            email="professor@aluno.unicatolica.edu.br",
-            password="TesteForte!2026x",
-            role=UserRole.TEACHER,
-            is_active=True,
-        )
-
-        resposta = self.client.post(
-            "/api/auth/login",
-            {
-                "email": "professor@aluno.unicatolica.edu.br",
-                "senha": "TesteForte!2026x",
-            },
-            format="json",
-        )
-
-        self.assertEqual(resposta.status_code, 403)
-        self.assertEqual(
-            resposta.data["erro"],
-            "Perfil não autorizado para este domínio.",
-        )
-        self.assertNotIn("_auth_user_id", self.client.session)
-
-    def test_login_com_campos_vazios(self):
-        resposta = self.client.post(
-            "/api/auth/login",
-            {},
-            format="json",
-        )
-
-        self.assertEqual(resposta.status_code, 400)
-        self.assertEqual(
-            resposta.data["erro"],
-            "Informe e-mail e senha.",
-        )
-
-    def test_login_com_conta_inativa(self):
-        User.objects.create_user(
-            email="inativo@teste.com",
-            password="TesteForte!2026x",
-            role=UserRole.ADMIN,
-            is_active=False,
-        )
-
-        resposta = self.client.post(
-            "/api/auth/login",
-            {
-                "email": "inativo@teste.com",
-                "senha": "TesteForte!2026x",
-            },
-            format="json",
-        )
-
-        self.assertEqual(resposta.status_code, 401)
-        self.assertNotIn("_auth_user_id", self.client.session)
-
-    def setUp(self):
-        self.client = APIClient()
-
-        self.usuario = User.objects.create_user(
-            email="teste@login.com",
-            password="TesteForte!2026x",
-            role=UserRole.ADMIN,
-            is_active=True,
-            is_staff=True,
-            is_superuser=True,
-        )
-
-    def test_login_com_email_nao_confirmado(self):
-        EmailDomain.objects.create(
-            name="a.catolica-to.edu.br",
-            active=True,
-            role=UserRole.STUDENT,
-        )
-
-        User.objects.create_user(
-            email="aluno@a.catolica-to.edu.br",
-            password="TesteForte!2026x",
-            role=UserRole.STUDENT,
-            is_active=True,
-            email_confirmed=False,
-        )
-
-        resposta = self.client.post(
-            "/api/auth/login",
-            {
-                "email": "aluno@a.catolica-to.edu.br",
-                "senha": "TesteForte!2026x",
-            },
-            format="json",
-        )
-
-        self.assertEqual(resposta.status_code, 403)
-        self.assertNotIn("_auth_user_id", self.client.session)
-
-    def test_login_com_senha_incorreta(self):
-        resposta = self.client.post(
-            "/api/auth/login",
-            {
-                "email": "teste@login.com",
-                "senha": "SenhaErrada!2026",
-            },
-            format="json",
-        )
-
-        self.assertEqual(resposta.status_code, 401)
-        self.assertEqual(
-            resposta.data["erro"],
-            "Credenciais inválidas.",
-        )
-
-    def test_login_com_credenciais_validas(self):
-        resposta = self.client.post(
-            "/api/auth/login",
-            {
-                "email": "teste@login.com",
-                "senha": "TesteForte!2026x",
-            },
-            format="json",
-        )
-
-        self.assertEqual(resposta.status_code, 200)
-        self.assertEqual(
-            resposta.data["email"],
-            "teste@login.com",
-        )
-        self.assertTrue("_auth_user_id" in self.client.session)
+def reviewer_in_edition(status=EditionStatus.PUBLISHED):
+    reviewer = ExternalReviewerFactory()
+    EditionReviewer.objects.create(
+        edition=EditionFactory(status=status), reviewer=reviewer
+    )
+    return reviewer.user
 
 
-class RegisterTests(TestCase):
-    def setUp(self):
-        self.client = APIClient()
+@pytest.mark.django_db
+def test_admin_entra_com_senha():
+    admin = UserFactory(role=UserRole.ADMIN)
 
-    def test_cadastro_com_dominio_nao_autorizado(self):
-        resposta = self.client.post(
-            "/api/auth/register",
-            {
-                "email": "aluno@gmail.com",
-                "senha": "TesteForte!2026x",
-                "matricula": "TESTE001",
-                "curso": es_id(),
-                "periodo": 6,
-            },
-            format="json",
-        )
+    client, resposta = login(admin.email)
 
-        self.assertEqual(resposta.status_code, 400)
-        self.assertIn("erro", resposta.data)
+    assert resposta.status_code == 200
+    assert resposta.data == {
+        "user_id": admin.pk,
+        "name": admin.name,
+        "email": admin.email,
+        "role": UserRole.ADMIN,
+    }
+    assert "_auth_user_id" in client.session
 
-    def test_cadastro_com_dominio_autorizado(self):
-        EmailDomain.objects.create(
-            name="aluno.unicatolica.edu.br",
-            active=True,
-            role=UserRole.STUDENT,
-        )
 
-        resposta = self.client.post(
-            "/api/auth/register",
-            {
-                "email": "novo@aluno.unicatolica.edu.br",
-                "senha": "TesteForte!2026x",
-                "matricula": "TESTE002",
-                "curso": es_id(),
-                "periodo": 6,
-            },
-            format="json",
-        )
+@pytest.mark.django_db
+def test_avaliador_vinculado_a_edicao_vigente_entra():
+    client, resposta = login(reviewer_in_edition().email)
 
-        self.assertEqual(resposta.status_code, 201)
-        self.assertTrue(
-            User.objects.filter(
-                email="novo@aluno.unicatolica.edu.br",
-                email_confirmed=False,
-                is_active=False,
-            ).exists()
-        )
-        usuario = User.objects.get(email="novo@aluno.unicatolica.edu.br")
-        self.assertEqual(usuario.role, UserRole.STUDENT)
-        self.assertEqual(usuario.student.registration_number, "TESTE002")
+    assert resposta.status_code == 200
+    assert "_auth_user_id" in client.session
 
-    def test_confirmacao_de_email_ativa_conta(self):
-        usuario = User.objects.create_user(
-            email="confirmar@aluno.unicatolica.edu.br",
-            password="TesteForte!2026x",
-            role=UserRole.STUDENT,
-            is_active=False,
-            email_confirmed=False,
-        )
-        cadastro = timezone.now() - timedelta(days=1)
-        User.objects.filter(pk=usuario.pk).update(updated_at=cadastro)
 
-        token = signing.dumps(
-            {"user_id": usuario.pk},
-            salt=EMAIL_CONFIRMATION_SALT,
-        )
+@pytest.mark.django_db
+@pytest.mark.parametrize("status", [None, EditionStatus.CLOSED])
+def test_avaliador_fora_da_edicao_vigente_nao_entra(status):
+    user = (
+        ExternalReviewerFactory().user
+        if status is None
+        else reviewer_in_edition(status)
+    )
 
-        resposta = self.client.get(
-            "/api/auth/confirm-email",
-            {"token": token},
-        )
+    client, resposta = login(user.email)
 
-        self.assertEqual(resposta.status_code, 200)
+    assert resposta.status_code == 403
+    assert resposta.data["error"]["code"] == "reviewer_not_in_current_edition"
+    assert "_auth_user_id" not in client.session
 
-        usuario.refresh_from_db()
-        self.assertTrue(usuario.email_confirmed)
-        self.assertTrue(usuario.is_active)
-        self.assertGreater(usuario.updated_at, cadastro)
 
-    def test_confirmacao_com_token_invalido(self):
-        resposta = self.client.get(
-            "/api/auth/confirm-email",
-            {"token": "token-invalido"},
-        )
+@pytest.mark.django_db
+@pytest.mark.parametrize("factory", [StudentFactory, TeacherFactory])
+def test_aluno_e_professor_nao_entram_com_senha(factory):
+    # Os dois entram pela Microsoft; a resposta não revela o motivo.
+    client, resposta = login(factory().user.email)
 
-        self.assertEqual(resposta.status_code, 400)
-        self.assertEqual(
-            resposta.data["erro"],
-            "Token de confirmação inválido.",
-        )
+    assert resposta.status_code == 401
+    assert resposta.data["error"]["code"] == "invalid_credentials"
+    assert "_auth_user_id" not in client.session
 
-    def test_cadastro_com_dominio_desativado(self):
-        EmailDomain.objects.create(
-            name="aluno.unicatolica.edu.br",
-            active=False,
-            role=UserRole.STUDENT,
-        )
 
-        resposta = self.client.post(
-            "/api/auth/register",
-            {
-                "email": "bloqueado@aluno.unicatolica.edu.br",
-                "senha": "TesteForte!2026x",
-                "matricula": "TESTE004",
-                "curso": es_id(),
-                "periodo": 6,
-            },
-            format="json",
-        )
+@pytest.mark.django_db
+def test_conta_inativa_recebe_o_mesmo_401():
+    inativo = UserFactory(role=UserRole.ADMIN, is_active=False)
 
-        self.assertEqual(resposta.status_code, 400)
-        self.assertFalse(
-            User.objects.filter(email="bloqueado@aluno.unicatolica.edu.br").exists()
-        )
+    client, resposta = login(inativo.email)
 
-    def test_cadastro_com_matricula_duplicada(self):
-        EmailDomain.objects.create(
-            name="aluno.unicatolica.edu.br",
-            active=True,
-            role=UserRole.STUDENT,
-        )
+    assert resposta.status_code == 401
+    assert resposta.data["error"]["code"] == "invalid_credentials"
 
-        existente = User.objects.create_user(
-            email="existente@aluno.unicatolica.edu.br",
-            password="TesteForte!2026x",
-            role=UserRole.STUDENT,
-        )
-        Student.objects.create(
-            user=existente, registration_number="TESTE005", course_id=es_id(), term=6
-        )
 
-        resposta = self.client.post(
-            "/api/auth/register",
-            {
-                "email": "outro@aluno.unicatolica.edu.br",
-                "senha": "TesteForte!2026x",
-                "matricula": "TESTE005",
-                "curso": es_id(),
-                "periodo": 6,
-            },
-            format="json",
-        )
+@pytest.mark.django_db
+def test_senha_incorreta_recebe_o_mesmo_401():
+    admin = UserFactory(role=UserRole.ADMIN)
 
-        self.assertEqual(resposta.status_code, 400)
-        self.assertEqual(User.objects.count(), 1)
+    client, resposta = login(admin.email, "SenhaErrada!2026")
 
-    def test_cadastro_com_periodo_invalido(self):
-        EmailDomain.objects.create(
-            name="aluno.unicatolica.edu.br",
-            active=True,
-            role=UserRole.STUDENT,
-        )
+    assert resposta.status_code == 401
+    assert resposta.data["error"]["code"] == "invalid_credentials"
 
-        resposta = self.client.post(
-            "/api/auth/register",
-            {
-                "email": "periodo@aluno.unicatolica.edu.br",
-                "senha": "TesteForte!2026x",
-                "matricula": "TESTE006",
-                "curso": es_id(),
-                "periodo": 0,
-            },
-            format="json",
-        )
 
-        self.assertEqual(resposta.status_code, 400)
-        self.assertFalse(
-            User.objects.filter(email="periodo@aluno.unicatolica.edu.br").exists()
-        )
+@pytest.mark.django_db
+def test_login_bloqueia_a_sexta_tentativa_no_minuto():
+    admin = UserFactory(role=UserRole.ADMIN)
 
-    def test_cadastro_com_email_duplicado(self):
-        EmailDomain.objects.create(
-            name="aluno.unicatolica.edu.br",
-            active=True,
-            role=UserRole.STUDENT,
-        )
+    for _ in range(5):
+        _, resposta = login(admin.email, "SenhaErrada!2026")
+        assert resposta.status_code == 401
 
-        User.objects.create_user(
-            email="existente@aluno.unicatolica.edu.br",
-            password="TesteForte!2026x",
-            role=UserRole.STUDENT,
-        )
+    # Nem a senha certa passa enquanto o limite não zera.
+    _, resposta = login(admin.email)
+    assert resposta.status_code == 429
+    assert resposta.data["error"]["code"] == "throttled"
 
-        resposta = self.client.post(
-            "/api/auth/register",
-            {
-                "email": "EXISTENTE@aluno.unicatolica.edu.br",
-                "senha": "TesteForte!2026x",
-                "matricula": "TESTE009",
-                "curso": es_id(),
-                "periodo": 6,
-            },
-            format="json",
-        )
 
-        self.assertEqual(resposta.status_code, 400)
-        self.assertEqual(User.objects.count(), 1)
+@pytest.mark.django_db
+def test_login_sem_campos_detalha_a_validacao():
+    client = APIClient()
 
-    def test_login_logo_apos_cadastro_pede_confirmacao(self):
-        EmailDomain.objects.create(
-            name="aluno.unicatolica.edu.br",
-            active=True,
-            role=UserRole.STUDENT,
-        )
-        dados = {
-            "email": "novo@aluno.unicatolica.edu.br",
-            "senha": "TesteForte!2026x",
-        }
-        self.client.post(
-            "/api/auth/register",
-            {**dados, "matricula": "TESTE010", "curso": es_id(), "periodo": 1},
-            format="json",
-        )
+    resposta = client.post(LOGIN_URL, {}, format="json")
 
-        resposta = self.client.post("/api/auth/login", dados, format="json")
-
-        self.assertEqual(resposta.status_code, 403)
-        self.assertEqual(resposta.data["erro"], "Confirme seu e-mail antes de entrar.")
-        self.assertNotIn("_auth_user_id", self.client.session)
-
-        resposta = self.client.post(
-            "/api/auth/login",
-            {**dados, "senha": "SenhaErrada!2026"},
-            format="json",
-        )
-        self.assertEqual(resposta.status_code, 401)
+    assert resposta.status_code == 400
+    assert resposta.data["error"]["code"] == "validation_error"
+    assert set(resposta.data["error"]["details"]) == {"email", "password"}
 
 
 class PermissionTests(TestCase):
@@ -494,63 +215,27 @@ class SessionTests(TestCase):
         token = resposta_csrf.data["csrfToken"]
 
         resposta = self.client.post(
-            "/api/auth/login",
+            LOGIN_URL,
             {
                 "email": "sessao@teste.com",
-                "senha": "TesteForte!2026x",
+                "password": "TesteForte!2026x",
             },
             format="json",
             HTTP_X_CSRFTOKEN=token,
         )
 
         self.assertEqual(resposta.status_code, 200)
-        self.assertEqual(resposta.data["perfil"], UserRole.ADMIN)
+        self.assertEqual(resposta.data["role"], UserRole.ADMIN)
         self.assertIn("_auth_user_id", self.client.session)
 
         resposta_me = self.client.get("/api/auth/me")
         self.assertEqual(resposta_me.status_code, 200)
-        self.assertEqual(resposta_me.data["perfil"], UserRole.ADMIN)
+        self.assertEqual(resposta_me.data["role"], UserRole.ADMIN)
 
-    def test_login_logout_nos_tres_perfis(self):
-        EmailDomain.objects.create(
-            name="aluno.unicatolica.edu.br",
-            active=True,
-            role=UserRole.STUDENT,
-        )
-        EmailDomain.objects.create(
-            name="professor.unicatolica.edu.br",
-            active=True,
-            role=UserRole.TEACHER,
-        )
-
+    def test_login_logout_nos_perfis_com_senha(self):
         usuarios = [
-            (
-                self.usuario,
-                "TesteForte!2026x",
-                UserRole.ADMIN,
-            ),
-            (
-                User.objects.create_user(
-                    email="aluno@aluno.unicatolica.edu.br",
-                    password="TesteForte!2026x",
-                    role=UserRole.STUDENT,
-                    is_active=True,
-                    email_confirmed=True,
-                ),
-                "TesteForte!2026x",
-                UserRole.STUDENT,
-            ),
-            (
-                User.objects.create_user(
-                    email="professor@professor.unicatolica.edu.br",
-                    password="TesteForte!2026x",
-                    role=UserRole.TEACHER,
-                    is_active=True,
-                    email_confirmed=True,
-                ),
-                "TesteForte!2026x",
-                UserRole.TEACHER,
-            ),
+            (self.usuario, "TesteForte!2026x", UserRole.ADMIN),
+            (reviewer_in_edition(), "TesteForte!2026x", UserRole.EXTERNAL_REVIEWER),
         ]
 
         for usuario, senha, perfil in usuarios:
@@ -559,19 +244,19 @@ class SessionTests(TestCase):
                 token = resposta_csrf.data["csrfToken"]
 
                 resposta_login = self.client.post(
-                    "/api/auth/login",
-                    {"email": usuario.email, "senha": senha},
+                    LOGIN_URL,
+                    {"email": usuario.email, "password": senha},
                     format="json",
                     HTTP_X_CSRFTOKEN=token,
                 )
 
                 self.assertEqual(resposta_login.status_code, 200)
-                self.assertEqual(resposta_login.data["perfil"], perfil)
+                self.assertEqual(resposta_login.data["role"], perfil)
                 self.assertIn("_auth_user_id", self.client.session)
 
                 resposta_me = self.client.get("/api/auth/me")
                 self.assertEqual(resposta_me.status_code, 200)
-                self.assertEqual(resposta_me.data["perfil"], perfil)
+                self.assertEqual(resposta_me.data["role"], perfil)
 
                 resposta_csrf = self.client.get("/api/auth/csrf")
                 token = resposta_csrf.data["csrfToken"]
@@ -588,10 +273,10 @@ class SessionTests(TestCase):
 
     def test_login_sem_csrf_e_bloqueado(self):
         resposta = self.client.post(
-            "/api/auth/login",
+            LOGIN_URL,
             {
                 "email": "sessao@teste.com",
-                "senha": "TesteForte!2026x",
+                "password": "TesteForte!2026x",
             },
             format="json",
         )
@@ -674,107 +359,116 @@ class SessionTests(TestCase):
         self.assertEqual(idade_antes, 1800)
         self.assertEqual(idade_depois, 1800)
 
-    def test_confirmacao_com_token_expirado(self):
-        usuario = User.objects.create_user(
-            email="expirado@aluno.unicatolica.edu.br",
-            password="TesteForte!2026x",
-            role=UserRole.STUDENT,
-            is_active=False,
-            email_confirmed=False,
-        )
 
-        token = signing.dumps(
-            {"user_id": usuario.pk},
-            salt=EMAIL_CONFIRMATION_SALT,
-        )
+# POST /api/auth/students: autocadastro do aluno autenticado (RF19)
 
-        # Simula um token com mais de 24 horas.
-        with patch("apps.accounts.views.signing.loads") as mock_loads:
-            mock_loads.side_effect = signing.SignatureExpired
-
-            resposta = self.client.get(
-                "/api/auth/confirm-email",
-                {"token": token},
-            )
-
-        self.assertEqual(resposta.status_code, 400)
-        self.assertEqual(
-            resposta.data["erro"],
-            "O link de confirmação expirou.",
-        )
-
-        usuario.refresh_from_db()
-        self.assertFalse(usuario.email_confirmed)
-        self.assertFalse(usuario.is_active)
-
-    def test_confirmacao_de_email_ja_confirmado(self):
-        usuario = User.objects.create_user(
-            email="confirmado@aluno.unicatolica.edu.br",
-            password="TesteForte!2026x",
-            role=UserRole.STUDENT,
-            is_active=True,
-            email_confirmed=True,
-        )
-
-        token = signing.dumps(
-            {"user_id": usuario.pk},
-            salt=EMAIL_CONFIRMATION_SALT,
-        )
-
-        resposta = self.client.get(
-            "/api/auth/confirm-email",
-            {"token": token},
-        )
-
-        self.assertEqual(resposta.status_code, 200)
-        self.assertEqual(
-            resposta.data["mensagem"],
-            "E-mail já confirmado.",
-        )
+STUDENTS_URL = "/api/auth/students"
 
 
-class AdminAccessTests(TestCase):
-    def setUp(self):
-        self.client = APIClient()
-        self.admin = User.objects.create_user(
-            email="admin@teste.com",
-            password="TesteForte!2026x",
-            role=UserRole.ADMIN,
-            is_active=True,
-            is_staff=True,
-            is_superuser=True,
-            email_confirmed=True,
-        )
-        self.academico = User.objects.create_user(
-            email="aluno@teste.com",
-            password="TesteForte!2026x",
-            role=UserRole.STUDENT,
-            is_active=True,
-            email_confirmed=True,
-        )
-        self.professor = User.objects.create_user(
-            email="professor@teste.com",
-            password="TesteForte!2026x",
-            role=UserRole.TEACHER,
-            is_active=True,
-            email_confirmed=True,
-        )
+@pytest.fixture
+def course(db):
+    return Course.objects.get(name="Engenharia de Software")  # 8 períodos
 
-    def test_admin_pode_acessar_rota(self):
-        self.client.force_authenticate(user=self.admin)
-        resposta = self.client.get("/api/admin/teste-acesso")
-        self.assertEqual(resposta.status_code, 200)
 
-    def test_academico_nao_pode_acessar_rota(self):
-        self.client.force_authenticate(user=self.academico)
-        resposta = self.client.get("/api/admin/teste-acesso")
-        self.assertEqual(resposta.status_code, 403)
+@pytest.fixture
+def aluno(db):
+    EmailDomainFactory(name="aluno.edu.br", role=UserRole.STUDENT)
+    return UserFactory(email="ana@aluno.edu.br", role=UserRole.STUDENT)
 
-    def test_professor_nao_pode_acessar_rota(self):
-        self.client.force_authenticate(user=self.professor)
-        resposta = self.client.get("/api/admin/teste-acesso")
-        self.assertEqual(resposta.status_code, 403)
 
-    def test_usuario_nao_autenticado_nao_pode_acessar_rota(self):
-        resposta = self.client.get("/api/admin/teste-acesso")
-        self.assertIn(resposta.status_code, [401, 403])
+@pytest.fixture
+def client(aluno):
+    client = APIClient()
+    client.force_authenticate(aluno)
+    return client
+
+
+@pytest.fixture
+def post(client, course):
+    def call(**fields):
+        data = {
+            "registration_number": "202600123",
+            "course_id": course.pk,
+            "term": 4,
+            **fields,
+        }
+        return client.post(STUDENTS_URL, data, format="json")
+
+    return call
+
+
+def test_autocadastro_cria_perfil_e_devolve_user_id(post, aluno):
+    resposta = post()
+
+    assert resposta.status_code == 201
+    assert resposta.data == {"student": {"user_id": aluno.pk}}
+    student = Student.objects.get(user=aluno)
+    assert (student.registration_number, student.term) == ("202600123", 4)
+
+
+def test_autocadastro_sem_login_e_recusado(post, client):
+    client.force_authenticate(None)
+
+    resposta = post()
+
+    assert resposta.status_code == 403
+    assert resposta.data["error"]["code"] == "not_authenticated"
+
+
+def test_autocadastro_de_professor_e_recusado(post, client):
+    client.force_authenticate(TeacherFactory().user)
+
+    resposta = post()
+
+    assert resposta.status_code == 403
+    assert resposta.data["error"]["code"] == "permission_denied"
+
+
+def test_autocadastro_de_quem_ja_tem_perfil_recebe_409(post):
+    post()
+
+    resposta = post(registration_number="202600999")
+
+    assert resposta.status_code == 409
+    assert resposta.data["error"]["code"] == "student_profile_exists"
+
+
+def test_autocadastro_com_matricula_em_uso_recebe_409(post):
+    StudentFactory(registration_number="202600123")
+
+    resposta = post()
+
+    assert resposta.status_code == 409
+    assert resposta.data["error"]["code"] == "registration_number_taken"
+
+
+def test_autocadastro_sem_campos_detalha_a_validacao(client, aluno):
+    resposta = client.post(STUDENTS_URL, {}, format="json")
+
+    assert resposta.status_code == 400
+    assert resposta.data["error"]["code"] == "validation_error"
+    assert set(resposta.data["error"]["details"]) == {
+        "registration_number",
+        "course_id",
+        "term",
+    }
+
+
+def test_autocadastro_com_periodo_fora_do_curso_detalha_o_campo(post):
+    resposta = post(term=9)
+
+    assert resposta.status_code == 400
+    assert resposta.data["error"]["code"] == "validation_error"
+    assert "term" in resposta.data["error"]["details"]
+    assert not Student.objects.exists()
+
+
+def test_autocadastro_com_curso_inativo_recebe_400(post, course):
+    course.active = False
+    course.save()
+
+    resposta = post()
+
+    assert resposta.status_code == 400
+    assert resposta.data["error"]["code"] == "registration_rejected"
+    assert not Student.objects.exists()

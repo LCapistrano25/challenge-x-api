@@ -10,7 +10,13 @@ from apps.accounts.factories import (
     UserFactory,
 )
 from apps.accounts.models import ExternalReviewer, Teacher, User
-from apps.accounts.permissions import IsAdmin, IsExternalReviewer, IsStudent, IsTeacher
+from apps.accounts.permissions import (
+    IsAdmin,
+    IsExternalReviewer,
+    IsStudent,
+    IsStudentAccount,
+    IsTeacher,
+)
 
 pytestmark = pytest.mark.django_db
 
@@ -67,6 +73,17 @@ def test_permissao_exige_papel_e_perfil(permission, role, profile_factory):
 
 def test_admin_nao_precisa_de_perfil():
     assert allowed(IsAdmin, UserFactory(role=UserRole.ADMIN))
+
+
+def test_conta_de_aluno_passa_com_ou_sem_perfil():
+    # Sem perfil é quem conclui o autocadastro; com perfil, o 409 é do caso de uso.
+    assert allowed(IsStudentAccount, UserFactory(role=UserRole.STUDENT))
+    assert allowed(IsStudentAccount, StudentFactory().user)
+
+
+def test_conta_de_aluno_recusa_outros_papeis():
+    assert not allowed(IsStudentAccount, TeacherFactory().user)
+    assert not allowed(IsStudentAccount, UserFactory(role=UserRole.ADMIN))
 
 
 # 3. Admin cria o perfil e não deixa trocar o papel de quem já tem
