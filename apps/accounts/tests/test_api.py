@@ -125,6 +125,29 @@ def test_login_bloqueia_a_sexta_tentativa_no_minuto():
 
 
 @pytest.mark.django_db
+def test_limite_de_um_email_nao_bloqueia_outra_conta_do_mesmo_ip():
+    # O campus sai por um IP só: errar a senha de uma conta não trava as outras.
+    bloqueado = UserFactory(role=UserRole.ADMIN)
+    outro = UserFactory(role=UserRole.ADMIN)
+    for _ in range(6):
+        login(bloqueado.email, "SenhaErrada!2026")
+
+    _, resposta = login(outro.email)
+
+    assert resposta.status_code == 200
+
+
+@pytest.mark.django_db
+def test_admin_criado_com_maiuscula_entra_com_o_email_em_minusculas():
+    admin = UserFactory(role=UserRole.ADMIN, email="Admin.Teste@Instituicao.com")
+
+    _, resposta = login("admin.teste@instituicao.com")
+
+    assert admin.email == "admin.teste@instituicao.com"
+    assert resposta.status_code == 200
+
+
+@pytest.mark.django_db
 def test_login_sem_campos_detalha_a_validacao():
     client = APIClient()
 
