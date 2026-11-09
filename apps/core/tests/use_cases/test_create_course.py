@@ -106,3 +106,19 @@ def test_api_create_course_bad_request(api_client, admin_user):
     }, format="json")
     
     assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+@pytest.mark.django_db
+def test_api_list_courses_admin(api_client, admin_user):
+    """Testa se o admin consegue listar os cursos no endpoint GET."""
+    api_client.force_authenticate(user=admin_user)
+    
+    from apps.core.models import Course
+    Course.objects.all().delete() # Limpa sujeira de outros testes
+    Course.objects.create(name="Arquitetura", term_count=10)
+    
+    response = api_client.get("/api/admin/courses")
+    
+    assert response.status_code == status.HTTP_200_OK
+    assert len(response.data) == 1
+    assert response.data[0]["name"] == "Arquitetura"

@@ -6,6 +6,7 @@ from rest_framework.exceptions import ValidationError as DRFValidationError
 from django.core.exceptions import ValidationError as DjangoValidationError
 
 from apps.core.use_cases.create_course import create_course
+from apps.core.use_cases.list_courses import list_courses
 
 class CourseCreateSerializer(serializers.Serializer):
     """Filtra e valida os dados que chegam da internet."""
@@ -16,6 +17,10 @@ class CourseCreateView(APIView):
     """Endpoint para cadastrar um novo curso (Admin)."""
     
     permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        courses_data = list_courses(actor=request.user)
+        return Response(courses_data, status=status.HTTP_200_OK)
 
     def post(self, request):
         serializer = CourseCreateSerializer(data=request.data)
