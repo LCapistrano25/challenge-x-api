@@ -27,6 +27,8 @@ def STR(desc=None, ex=None, **kw): return P("string", desc, ex, **kw)
 def TXT(desc=None, ex=None, **kw): return P("string", desc, ex, **kw)
 def BOOL(desc=None, ex=None, **kw): return P("boolean", desc, ex, **kw)
 def UUID(desc=None, ex="3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f", **kw): return P("string", desc, ex, format="uuid", **kw)
+# Id de usuário: inteiro, como User.id no código e usuario.id no DBML.
+def USER_ID(desc=None, ex=42, **kw): return INT(desc, ex, minimum=1, **kw)
 def DT(desc=None, ex="2026-10-22T16:00:00Z", **kw): return P("string", desc, ex, format="date-time", **kw)
 def DEC(desc=None, ex="2.50", **kw): return P("string", desc, ex, format="decimal", pattern=r"^\d{1,2}(\.\d{1,2})?$", **kw)
 def EMAIL(desc=None, ex="maria.souza@a.catolica-to.edu.br", **kw): return P("string", desc, ex, format="email", maxLength=254, **kw)
@@ -162,9 +164,9 @@ SC["Error"] = obj({
     "error": obj({
         "code": STR("Código estável do erro, em snake_case.", "validation_error"),
         "message": STR("Mensagem legível para o usuário.", "Dados inválidos."),
-        "details": nul(obj({}, desc="Detalhes adicionais. Em erros de validação: campo -> lista de mensagens.", additionalProperties=True)),
+        "details": nul(obj({}, desc="Detalhes adicionais. Em erros de validação: campo -> lista de mensagens; erro sem campo vai em non_field_errors.", additionalProperties=True)),
     }, ["code", "message", "details"]),
-}, ["error"], "Formato padrão de erro proposto (P-37).")
+}, ["error"], "Formato padrão de erro (P-37).")
 
 # ---------------------------------------------------------------- refs compactas
 SC["CourseSummary"] = obj({"id": INT(ex=1), "name": STR(ex="Engenharia de Software"), "slug": STR(ex="ES")}, ["id", "name", "slug"])
@@ -172,7 +174,7 @@ SC["SdgSummary"] = obj({"id": INT(ex=9), "number": INT(ex=9, minimum=1, maximum=
 SC["EditionSummary"] = obj({"id": INT(ex=3), "year": INT(ex=2026), "semester": INT(ex=1, enum=[1, 2]),
                             "name": nul(STR(ex="Desafio X 2026/1")), "status": ref("EditionStatus")},
                            ["id", "year", "semester", "name", "status"])
-SC["UserSummary"] = obj({"user_id": UUID(), "name": STR(ex="Maria Souza")}, ["user_id", "name"])
+SC["UserSummary"] = obj({"user_id": USER_ID(), "name": STR(ex="Maria Souza")}, ["user_id", "name"])
 SC["TeamRef"] = obj({"id": INT(ex=12), "name": STR(ex="Equipe Aurora"), "code": STR(ex="DXA7K2")}, ["id", "name", "code"])
 SC["ProjectRef"] = obj({"id": INT(ex=40), "title": STR(ex="Monitoramento inteligente do consumo de água")}, ["id", "title"])
 SC["StageRef"] = obj({"id": INT(ex=7), "name": STR(ex="Entrega Preliminar"), "position": INT(ex=3)}, ["id", "name", "position"])
@@ -190,32 +192,34 @@ SC["MicrosoftSessionResponse"] = obj({
     "profile_completed": BOOL("Indica se o perfil acadêmico (student) ou docente (teacher) já foi configurado. Proposta (P-42).", False),
 }, ["token", "role", "profile_completed"])
 SC["PasswordSessionRequest"] = obj({"email": EMAIL(ex="avaliador@instituicao.com"), "password": STR(ex="********", format="password")}, ["email", "password"], strict=True)
-SC["SessionResponse"] = obj({"token": STR("JWT da aplicação.", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...")}, ["token"])
+SC["SessionResponse"] = obj({"user_id": USER_ID(), "name": STR(ex="Ana Ribeiro"), "email": EMAIL(ex="avaliador@instituicao.com"),
+                            "role": ref("UserRole")}, ["user_id", "name", "email", "role"],
+                           "Usuário da sessão. A credencial vai no cookie de sessão, não no corpo (#70, P-03).")
 SC["StudentProfileCreate"] = obj({
     "course_id": INT("Curso ativo do aluno.", 1),
-    "registration_number": STR("Matrícula (única).", "202600123", maxLength=50),
+    "registration_number": STR("Matrícula (única).", "202600123", maxLength=30),
     "term": INT("Período do aluno (1..term_count do curso).", 4, minimum=1),
 }, ["course_id", "registration_number", "term"], strict=True)
-SC["StudentProfileCreated"] = obj({"student": obj({"user_id": UUID()}, ["user_id"])}, ["student"])
+SC["StudentProfileCreated"] = obj({"student": obj({"user_id": USER_ID()}, ["user_id"])}, ["student"])
 SC["TeacherProfileCreate"] = obj({"course_ids": arr(INT(ex=1), description="Cursos aos quais o professor declara vínculo.", uniqueItems=True, minItems=1)}, ["course_ids"], strict=True)
-SC["TeacherProfileCreated"] = obj({"teacher": obj({"user_id": UUID()}, ["user_id"])}, ["teacher"])
+SC["TeacherProfileCreated"] = obj({"teacher": obj({"user_id": USER_ID()}, ["user_id"])}, ["teacher"])
 
 # ---------------------------------------------------------------- accounts
 SC["UserStatusUpdate"] = obj({"active": BOOL("Novo status de acesso (explícito, sem alternância automática).", False)}, ["active"], strict=True)
-SC["UserStatus"] = obj({"user_id": UUID(), "active": BOOL(ex=False)}, ["user_id", "active"])
+SC["UserStatus"] = obj({"user_id": USER_ID(), "active": BOOL(ex=False)}, ["user_id", "active"])
 SC["StudentAdmin"] = obj({
-    "user_id": UUID(), "name": STR(ex="Maria Souza"), "email": EMAIL(), "active": BOOL(ex=True),
+    "user_id": USER_ID(), "name": STR(ex="Maria Souza"), "email": EMAIL(), "active": BOOL(ex=True),
     "registration_number": STR(ex="202600123"), "course": ref("CourseSummary"), "term": INT(ex=4),
     "created_at": DT(), "updated_at": DT(),
 }, ["user_id", "name", "email", "active", "registration_number", "course", "term", "created_at", "updated_at"])
 SC["StudentAdminUpdate"] = obj({
     "name": STR(ex="Maria Souza Lima", maxLength=150),
-    "registration_number": STR(ex="202600124", maxLength=50),
+    "registration_number": STR(ex="202600124", maxLength=30),
     "course_id": INT(ex=1), "term": INT(ex=5, minimum=1),
 }, desc="Ao menos um campo deve ser informado.", strict=True, minProperties=1)
 SC["TeacherCourseLink"] = obj({"course": ref("CourseSummary"), "active": BOOL(ex=True)}, ["course", "active"])
 SC["TeacherAdmin"] = obj({
-    "user_id": UUID(), "name": STR(ex="João Pereira"), "email": EMAIL(ex="joao.pereira@p.catolica-to.edu.br"),
+    "user_id": USER_ID(), "name": STR(ex="João Pereira"), "email": EMAIL(ex="joao.pereira@p.catolica-to.edu.br"),
     "active": BOOL(ex=True), "courses": arr(ref("TeacherCourseLink")), "created_at": DT(), "updated_at": DT(),
 }, ["user_id", "name", "email", "active", "courses", "created_at", "updated_at"])
 SC["TeacherCourseLinkWrite"] = obj({"course_id": INT(ex=1), "active": BOOL(ex=True)}, ["course_id", "active"], strict=True)
@@ -225,7 +229,7 @@ SC["TeacherAdminUpdate"] = obj({
 }, desc="Ao menos um campo deve ser informado.", strict=True, minProperties=1)
 SC["ExternalEvaluatorEditionLink"] = obj({"edition": ref("EditionSummary"), "course": nul(ref("CourseSummary"))}, ["edition", "course"])
 SC["ExternalEvaluatorAdmin"] = obj({
-    "user_id": UUID(), "name": STR(ex="Ana Ribeiro"), "email": EMAIL(ex="avaliador@instituicao.com"),
+    "user_id": USER_ID(), "name": STR(ex="Ana Ribeiro"), "email": EMAIL(ex="avaliador@instituicao.com"),
     "active": BOOL(ex=True), "institution": nul(STR(ex="Instituto Tecnológico do Tocantins")),
     "editions": arr(ref("ExternalEvaluatorEditionLink")), "created_at": DT(), "updated_at": DT(),
 }, ["user_id", "name", "email", "active", "institution", "editions", "created_at", "updated_at"])
@@ -237,7 +241,7 @@ SC["ExternalEvaluatorCreate"] = obj({
     "password": STR("Senha inicial; armazenada apenas como hash.", "SenhaInicial#2026", format="password"),
     "institution": nul(STR(ex="Instituto Tecnológico do Tocantins", maxLength=200)),
 }, ["name", "email", "password"], strict=True)
-SC["ExternalEvaluatorCreated"] = obj({"external_evaluator": obj({"user_id": UUID(), "email": EMAIL(ex="avaliador@instituicao.com")}, ["user_id", "email"])}, ["external_evaluator"])
+SC["ExternalEvaluatorCreated"] = obj({"external_evaluator": obj({"user_id": USER_ID(), "email": EMAIL(ex="avaliador@instituicao.com")}, ["user_id", "email"])}, ["external_evaluator"])
 
 # ---------------------------------------------------------------- core
 SC["Course"] = obj({
@@ -361,11 +365,11 @@ SC["FinalFormWrite"] = obj({"title": nul(STR(ex="Avaliação da Apresentação F
                            ["questions"], strict=True)
 SC["EditionEvaluator"] = obj({
     "id": INT(ex=5), "edition_id": INT(ex=3),
-    "evaluator": obj({"user_id": UUID(), "name": STR(ex="Ana Ribeiro"), "email": EMAIL(ex="avaliador@instituicao.com"),
+    "evaluator": obj({"user_id": USER_ID(), "name": STR(ex="Ana Ribeiro"), "email": EMAIL(ex="avaliador@instituicao.com"),
                       "institution": nul(STR(ex="Instituto Tecnológico do Tocantins"))}, ["user_id", "name", "email", "institution"]),
     "course": nul(ref("CourseSummary")), "created_at": DT(), "updated_at": DT(),
 }, ["id", "edition_id", "evaluator", "course", "created_at", "updated_at"], desc="course nulo = abrangência em todos os cursos da edição.")
-SC["EditionEvaluatorCreate"] = obj({"evaluator_id": UUID(), "course_id": nul(INT("Nulo = todos os cursos.", None))}, ["evaluator_id", "course_id"], strict=True)
+SC["EditionEvaluatorCreate"] = obj({"evaluator_id": USER_ID(), "course_id": nul(INT("Nulo = todos os cursos.", None))}, ["evaluator_id", "course_id"], strict=True)
 SC["EditionEvaluatorUpdate"] = obj({"course_id": nul(INT("Nulo = todos os cursos.", 1))}, ["course_id"], strict=True)
 
 # ---------------------------------------------------------------- public
@@ -394,7 +398,7 @@ SC["Winner"] = obj({"award_place": INT(ex=1, enum=[1, 2, 3]), "course": ref("Cou
 
 # ---------------------------------------------------------------- teams
 SC["TeamMember"] = obj({"id": INT("Identificador do vínculo (team_member).", 101),
-                        "student": obj({"user_id": UUID(), "name": STR(ex="Maria Souza"), "course": ref("CourseSummary")}, ["user_id", "name", "course"]),
+                        "student": obj({"user_id": USER_ID(), "name": STR(ex="Maria Souza"), "course": ref("CourseSummary")}, ["user_id", "name", "course"]),
                         "role": ref("MemberRole"), "joined_at": DT()}, ["id", "student", "role", "joined_at"])
 SC["Team"] = obj({
     "id": INT(ex=12), "edition_id": INT(ex=3), "name": STR(ex="Equipe Aurora"), "code": STR("Código de identificação da equipe.", "DXA7K2"),
@@ -413,7 +417,7 @@ SC["AdminTeamListItem"] = obj({"id": INT(ex=12), "edition_id": INT(ex=3), "name"
 SC["TeamDisqualify"] = obj({"reason": TXT("Justificativa obrigatória.", "Plágio comprovado na entrega preliminar.", minLength=1)}, ["reason"], strict=True)
 SC["InvitationCreate"] = {
     "oneOf": [
-        obj({"student_id": UUID()}, ["student_id"], strict=True),
+        obj({"student_id": USER_ID()}, ["student_id"], strict=True),
         obj({"email": EMAIL(ex="joao.lima@a.catolica-to.edu.br")}, ["email"], strict=True),
     ],
     "description": "Informe exatamente um entre student_id e email institucional.",
@@ -423,7 +427,7 @@ SC["Invitation"] = obj({"id": INT(ex=88), "team": ref("TeamRef"), "student": nul
                        ["id", "team", "student", "invited_email", "status", "created_at", "responded_at"])
 SC["InvitationResponse"] = obj({"status": STR(ex="ACCEPTED", enum=["ACCEPTED", "DECLINED"])}, ["status"], strict=True)
 SC["JoinRequest"] = obj({"id": INT(ex=45), "team": ref("TeamRef"),
-                         "student": obj({"user_id": UUID(), "name": STR(ex="Pedro Alves"), "course": ref("CourseSummary")}, ["user_id", "name", "course"]),
+                         "student": obj({"user_id": USER_ID(), "name": STR(ex="Pedro Alves"), "course": ref("CourseSummary")}, ["user_id", "name", "course"]),
                          "status": ref("RequestStatus"), "created_at": DT(), "responded_at": nul(DT(ex=None))},
                         ["id", "team", "student", "status", "created_at", "responded_at"])
 SC["JoinRequestDecision"] = obj({"status": STR(ex="APPROVED", enum=["APPROVED", "REJECTED"])}, ["status"], strict=True)
@@ -576,13 +580,13 @@ SC["SupportTicket"] = obj({"id": UUID(ex="b7e1c2d4-5f6a-4b8c-9d0e-1f2a3b4c5d6e")
                            "created_at": DT(), "updated_at": DT(), "resolved_at": nul(DT(ex=None))},
                           ["id", "title", "description", "status", "priority", "support_response", "created_at", "updated_at", "resolved_at"])
 SC["SupportTicketAdmin"] = {"allOf": [ref("SupportTicket"), obj({
-    "requester": obj({"user_id": UUID(), "name": STR(ex="Maria Souza"), "email": EMAIL(), "role": ref("UserRole")}, ["user_id", "name", "email", "role"]),
+    "requester": obj({"user_id": USER_ID(), "name": STR(ex="Maria Souza"), "email": EMAIL(), "role": ref("UserRole")}, ["user_id", "name", "email", "role"]),
     "assigned_to": nul(ref("UserSummary")),
 }, ["requester", "assigned_to"])]}
 SC["SupportTicketAdminUpdate"] = obj({
     "status": ref("SupportTicketStatus"), "priority": ref("SupportTicketPriority"),
     "support_response": nul(TXT(ex="A matrícula foi corrigida conforme solicitado.")),
-    "assigned_to": nul(UUID("Usuário ADMIN responsável (P-10).")),
+    "assigned_to": nul(USER_ID("Usuário ADMIN responsável (P-10).")),
 }, desc="Ao menos um campo deve ser informado.", strict=True, minProperties=1)
 
 # ---------------------------------------------------------------- notifications
@@ -604,7 +608,7 @@ def pp(name, schema, desc):
 def qp(name, schema, desc):
     return {"name": name, "in": "query", "required": False, "description": desc, "schema": schema}
 PARAMS = {
-    "UserId": pp("user_id", {"type": "string", "format": "uuid"}, "Identificador do usuário."),
+    "UserId": pp("user_id", {"type": "integer", "minimum": 1}, "Identificador do usuário."),
     "CourseId": pp("course_id", {"type": "integer"}, "Identificador do curso."),
     "SdgId": pp("sdg_id", {"type": "integer"}, "Identificador da ODS."),
     "EditionId": pp("edition_id", {"type": "integer"}, "Identificador da edição."),
@@ -612,7 +616,7 @@ PARAMS = {
     "CategoryId": pp("category_id", {"type": "integer"}, "Identificador da categoria."),
     "CriterionId": pp("criterion_id", {"type": "integer"}, "Identificador do critério."),
     "StageId": pp("stage_id", {"type": "integer"}, "Identificador da etapa."),
-    "EvaluatorId": pp("evaluator_id", {"type": "string", "format": "uuid"}, "Identificador do avaliador externo (user_id)."),
+    "EvaluatorId": pp("evaluator_id", {"type": "integer", "minimum": 1}, "Identificador do avaliador externo (user_id)."),
     "TeamId": pp("team_id", {"type": "integer"}, "Identificador da equipe."),
     "InvitationId": pp("invitation_id", {"type": "integer"}, "Identificador do convite."),
     "JoinRequestId": pp("join_request_id", {"type": "integer"}, "Identificador da solicitação de entrada."),
@@ -636,7 +640,7 @@ PARAMS = {
     "InvitationStatusFilter": qp("status", ref("InvitationStatus"), "Filtra pela situação do convite."),
     "TicketStatusFilter": qp("status", ref("SupportTicketStatus"), "Filtra pela situação do chamado."),
     "TicketPriorityFilter": qp("priority", ref("SupportTicketPriority"), "Filtra pela prioridade."),
-    "AssignedToFilter": qp("assigned_to", {"type": "string", "format": "uuid"}, "Filtra pelo responsável."),
+    "AssignedToFilter": qp("assigned_to", {"type": "integer", "minimum": 1}, "Filtra pelo responsável."),
     "PendingOnly": qp("pending_only", {"type": "boolean", "default": False}, "Somente entregas que aguardam a avaliação do professor autenticado."),
     "UnreadOnly": qp("unread", {"type": "boolean", "default": False}, "Somente notificações não lidas."),
 }
@@ -658,13 +662,19 @@ op("post", "/api/auth/sessions/microsoft", "authCreateMicrosoftSession", "auth",
    errs=["403"], conflicts=[("microsoft_identity_mismatch", "O e-mail já está vinculado a outra identidade Microsoft.")],
    pend=["P-02", "P-03", "P-42"])
 op("post", "/api/auth/sessions/password", "authCreatePasswordSession", "auth", "Autenticar administrador ou avaliador externo com e-mail e senha",
-   ["RF01", "RF41"], [], "Autentica contas com senha local (ADMIN e EXTERNAL_EVALUATOR).", public=True,
+   ["RF01", "RF41"], [], "Autentica contas com senha local (ADMIN e EXTERNAL_EVALUATOR) e cria a sessão (cookie). Exige o cabeçalho X-CSRFToken, obtido em GET /api/auth/csrf.", public=True,
    body=ref("PasswordSessionRequest"), ok=ref("SessionResponse"), ok_desc="Sessão criada.",
-   rules=["Credenciais inválidas, conta inexistente, conta inativa ou conta sem senha (somente Microsoft) retornam o mesmo erro 401, sem indicar o campo incorreto.",
+   rules=["Credenciais inválidas, conta inexistente, conta inativa ou conta sem senha (somente Microsoft) retornam o mesmo erro 401 invalid_credentials, sem indicar o campo incorreto.",
           "Somente perfis ADMIN e EXTERNAL_EVALUATOR autenticam por senha.",
-          "EXTERNAL_EVALUATOR só autentica se vinculado à edição vigente e se ela não estiver encerrada (RF41).",
-          "Expiração por inatividade pendente (P-03)."],
-   errs=["401"], pend=["P-01", "P-03", "P-05"])
+          "EXTERNAL_EVALUATOR só autentica se vinculado à edição vigente, a publicada (P-41); caso contrário, 403 reviewer_not_in_current_edition (RF41).",
+          "A sessão expira após 30 minutos de inatividade, renovados a cada requisição (P-03)."],
+   errs=["401", "403"], pend=["P-01", "P-03", "P-05"])
+op("post", "/api/auth/logout", "authDeleteSession", "auth", "Encerrar a sessão",
+   ["RF01", "RF18", "RF36", "RF41"], ALL, "Encerra a sessão do usuário autenticado. Exige o cabeçalho X-CSRFToken.",
+   ok_code="204", ok_desc="Sessão encerrada.", pend=["P-03"])
+op("get", "/api/auth/me", "authGetCurrentUser", "auth", "Consultar o usuário autenticado",
+   ["RF01", "RF18", "RF36", "RF41"], ALL, "Devolve os dados do usuário da sessão atual.",
+   ok=ref("SessionResponse"), pend=["P-03"])
 op("post", "/api/auth/students", "authCompleteStudentProfile", "auth", "Concluir autocadastro do aluno",
    ["RF19"], ["STUDENT"], "Cria o perfil acadêmico (student) do usuário autenticado pela Microsoft.",
    authz="Somente o próprio usuário autenticado; o user_id vem do token, nunca do corpo.",
@@ -897,7 +907,7 @@ op("get", "/api/teams/{team_id}", "teamsGet", "teams", "Consultar equipe", ["RF1
    authz="STUDENT: integrante ativo. TEACHER: vínculo ativo com o curso do desafio do projeto da equipe. ADMIN: qualquer equipe. Sem acesso retorna 404.")
 op("post", "/api/teams/{team_id}/invitations", "teamsCreateInvitation", "teams", "Enviar convite", ["RF22"], ["STUDENT"],
    "Convida um aluno (por identificador ou e-mail institucional).", params=["TeamId"], body=ref("InvitationCreate"),
-   req_ex={"student_id": "5a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d"}, ok=ref("Invitation"), ok_code="201", ok_desc="Convite enviado.", errs=["404"],
+   req_ex={"student_id": 42}, ok=ref("Invitation"), ok_code="201", ok_desc="Convite enviado.", errs=["404"],
    authz=LEADER,
    rules=["Somente durante a formação.", "Total de integrantes atual < max_members.", "Convidado não pode estar em outra equipe da edição.",
           "Não pode haver convite PENDING para o mesmo aluno/e-mail e equipe.", "Gera notificação TEAM ao convidado quando ele já possui usuário (P-13)."],
@@ -1100,7 +1110,9 @@ spec = {
             "",
             "**Autenticação:** alunos e professores entram com a Microsoft; administradores e avaliadores externos, com e-mail e senha. Rotas protegidas usam Bearer JWT.",
             "",
-            "**Convenções propostas (pendentes de aprovação):** formato de erro `Error` (P-37), paginação `page`/`page_size` (P-38), decimais como string (P-39).",
+            "**Convenções adotadas:** formato de erro `Error` (P-37) e paginação `page`/`page_size` (P-38). Regra de negócio violada responde 409 com `code` estável.",
+            "",
+            "**Convenção proposta (pendente de aprovação):** decimais como string (P-39).",
             "",
             "Cada operação informa o status (`x-status`: `confirmed` ou `proposed`), os requisitos (`x-requirements`), os perfis (`x-roles`) e as pendências (`x-pendencias`) registradas em api-pendencias.md. Operações `proposed` dependem de uma pendência de severidade alta.",
         ]),

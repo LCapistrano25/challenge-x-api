@@ -17,7 +17,7 @@ A branch `task3` (código original da Task 3) existe só localmente na máquina 
 ## O que existe
 
 - **core:** `TimeStampedModel`, `Course` (`name` único, `term_count` 8 ou 10), `Sdg` (1 a 17). Seeds por migração: ODS 1, 2, 3, 9 e 16 e os 15 cursos da UniCatólica (ensalamento 2026/2).
-- **accounts:** `User` (login por e-mail, `name` único, `role`: ADMIN, STUDENT, TEACHER, EXTERNAL_REVIEWER), `EmailDomain`, `Student`, `Teacher`, `TeacherCourse`, `ExternalReviewer`. Autenticação por sessão + CSRF (`/api/auth/register`, `confirm-email`, `login`, `logout`, `me`, `csrf`). Caso de uso `register_student`. Comando `seed_users`.
+- **accounts:** `User` (login por e-mail, `name` único, `role`: ADMIN, STUDENT, TEACHER, EXTERNAL_REVIEWER), `EmailDomain`, `Student`, `Teacher`, `TeacherCourse`, `ExternalReviewer`. Autenticação por sessão + CSRF (`/api/auth/sessions/password`, `logout`, `me`, `csrf`): senha só para ADMIN e EXTERNAL_REVIEWER (este, vinculado à edição publicada); aluno e professor entram pela Microsoft (#93). Autocadastro do aluno logado em `/api/auth/students` (caso de uso `register_student`). Comando `seed_users`.
 - **editions:** `Edition`, `EditionSdg`, `Category`, `Challenge`, `Stage`, `StageSubmissionField`, `Criterion`, `StageCriterion`, `EditionReviewer`, com as unicidades da issue e do DBML e regras em `rules.py`.
 - **projects:** `Project` (vazio), `Submission`, `SubmissionVersion`, `SubmissionItem`, `SubmissionReceipt` — adiantados de outra task, ainda não alinhados ao DBML.
 - 97 testes passando no PostgreSQL.
@@ -30,7 +30,7 @@ A branch `task3` (código original da Task 3) existe só localmente na máquina 
 - Etapa: `kind` (FORMATION, SUBMISSION, FINAL), `order`, `max_score` (parte da nota 0–10), `min_evaluations`.
 - Edição com status SETUP, PUBLISHED, CLOSED (sem IN_PROGRESS, P-16 em aberto); edital como `regulation_url`.
 - Sem FK composta: a consistência entre edições é validada em `rules.py` + `clean()`.
-- `POST /api/auth/register` recebe `curso` como **id** do curso; o contrato HTTP da Task 3 (chaves em português) foi mantido.
+- As rotas de `accounts` seguem o contrato OpenAPI (campos em inglês); o cadastro com senha e a confirmação de e-mail da Task 3 saíram (#92). Ids de usuário são inteiros.
 - PostgreSQL (e não SQLite, como dizia a issue BM0); Docker na porta 5433.
 - Equipes (para a BM4): unicidade só entre registros **ativos** (`equipe_membro`, no máximo 1 LIDER ativo) e só entre **pendentes** (`convite`, `solicitacao_entrada`, `solicitacao_lideranca`). SQL dos índices parciais no fim do DBML; no Django viram `UniqueConstraint(..., condition=Q(...))`.
 
