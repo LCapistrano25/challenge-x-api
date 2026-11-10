@@ -1,39 +1,41 @@
+"""UC11 — Cadastrar avaliador externo. RF11."""
+
 from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
+
 from apps.accounts.enums import UserRole
+from apps.accounts.exceptions import EmailTaken
 from apps.accounts.models import ExternalReviewer, User
-from apps.accounts.exceptions import NotAdminActor, RegistrationRejected
+from apps.accounts.rules import ensure_actor_is_admin
 
 
 @transaction.atomic
-def register_external_reviewer(*, actor: User, name: str, email: str, password: str, institution: str) -> ExternalReviewer:
+def register_external_reviewer(
+    *, actor: User, name: str, email: str, password: str, institution: str = ""
+) -> ExternalReviewer:
+    """Cria o usuário avaliador externo com senha e o perfil dele (UC11, RF11).
 
-    if actor.role != UserRole.ADMIN:
-        raise NotAdminActor()
-    
-    rejected = "Não foi possível realizar o cadastro com esses dados."
+    O e-mail não tem restrição de domínio; o vínculo com a edição é feito depois
+    (P-05). Levanta NotAdminActor, EmailTaken ou ValidationError (senha fraca).
+    """
+    ensure_actor_is_admin(actor)
 
     if User.objects.filter(email__iexact=email).exists():
-        raise RegistrationRejected(rejected)
-    
-    validate_password(password)
+        raise EmailTaken()
+    try:
+        validate_password(password)
+    except ValidationError as error:
+        raise ValidationError({"password": error.messages}) from None
 
     try:
         user = User.objects.create_user(
-            name=name,
             email=email,
             password=password,
+            name=name,
             role=UserRole.EXTERNAL_REVIEWER,
-            is_active=True,
-            email_confirmed=False,
         )
-
-        external_review = ExternalReviewer.objects.create(
-            user=user,
-            institution=institution
-        )
-
     except IntegrityError:
-        raise RegistrationRejected(rejected) from None
-
-    return external_review
+        # Dois cadastros simultâneos passam pela checagem acima; o banco desempata.
+        raise EmailTaken() from None
+    return ExternalReviewer.objects.create(user=user, institution=institution)

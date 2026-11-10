@@ -5,7 +5,9 @@ from django.test import TestCase
 from apps.accounts.enums import UserRole
 from apps.accounts.exceptions import (
     DomainRoleMismatch,
+    EmailTaken,
     InvalidEmailDomain,
+    NotAdminActor,
     NotStudentActor,
     RegistrationNumberTaken,
     RegistrationRejected,
@@ -14,6 +16,9 @@ from apps.accounts.exceptions import (
 from apps.accounts.factories import EmailDomainFactory, StudentFactory, UserFactory
 from apps.accounts.models import EmailDomain, Student
 from apps.accounts.rules import ensure_institutional_domain, ensure_term_within_course
+from apps.accounts.use_cases.register_external_reviewer import (
+    register_external_reviewer,
+)
 from apps.accounts.use_cases.register_student import register_student
 from apps.core.factories import CourseFactory
 from apps.core.models import Course
@@ -169,3 +174,59 @@ class EnsureInstitutionalDomainTests(TestCase):
             ensure_institutional_domain(
                 "docente@professor.unicatolica.edu.br", UserRole.TEACHER
             )
+
+
+# Cadastro do avaliador externo (UC11, RF11)
+
+
+@pytest.fixture
+def register_reviewer(db):
+    admin = UserFactory(role=UserRole.ADMIN)
+
+    def call(**fields):
+        data = {
+            "actor": admin,
+            "name": "Ana Ribeiro",
+            "email": "ana@empresa.com",
+            "password": "SenhaForte!2026x",
+            "institution": "Empresa Parceira",
+        }
+        return register_external_reviewer(**{**data, **fields})
+
+    return call
+
+
+def test_admin_cadastra_avaliador_com_senha_e_perfil(register_reviewer):
+    reviewer = register_reviewer()
+
+    assert reviewer.user.role == UserRole.EXTERNAL_REVIEWER
+    assert reviewer.user.check_password("SenhaForte!2026x")
+    assert reviewer.institution == "Empresa Parceira"
+
+
+def test_avaliador_dispensa_dominio_institucional(register_reviewer):
+    # Sem EmailDomain cadastrado para empresa.com, o cadastro passa (RF11).
+    assert (
+        register_reviewer(email="ana@qualquer.com.br").user.email
+        == "ana@qualquer.com.br"
+    )
+
+
+@pytest.mark.parametrize("role", [UserRole.STUDENT, UserRole.TEACHER])
+def test_so_admin_cadastra_avaliador(register_reviewer, role):
+    with pytest.raises(NotAdminActor):
+        register_reviewer(actor=UserFactory(role=role))
+
+
+def test_email_ja_cadastrado_e_recusado(register_reviewer):
+    UserFactory(email="ana@empresa.com")
+
+    with pytest.raises(EmailTaken):
+        register_reviewer()
+
+
+def test_senha_fraca_aponta_o_campo(register_reviewer):
+    with pytest.raises(ValidationError) as error:
+        register_reviewer(password="123")
+
+    assert "password" in error.value.message_dict
