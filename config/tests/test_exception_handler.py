@@ -1,7 +1,9 @@
 """Formato padrão de erro (P-37): cada caminho do custom_exception_handler."""
 
 import pytest
+from django.core.exceptions import PermissionDenied as DjangoPermissionDenied
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.http import Http404
 from rest_framework import exceptions, serializers
 from rest_framework.permissions import AllowAny
 from rest_framework.test import APIRequestFactory
@@ -122,6 +124,17 @@ def test_mensagem_personalizada_substitui_a_padrao():
     ],
 )
 def test_excecao_do_drf_sai_no_formato_padrao(error, status, code):
+    assert_error(respond(error), status, code)
+
+
+@pytest.mark.parametrize(
+    ("error", "status", "code"),
+    [
+        (Http404(), 404, "not_found"),  # o que get_object_or_404 lança
+        (DjangoPermissionDenied(), 403, "permission_denied"),
+    ],
+)
+def test_excecao_do_django_sai_no_formato_padrao(error, status, code):
     assert_error(respond(error), status, code)
 
 
