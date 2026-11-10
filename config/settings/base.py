@@ -107,6 +107,15 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework.authentication.SessionAuthentication",
     ],
-    # Login e cadastro por e-mail: barra força bruta numa conta (EmailRateThrottle).
-    "DEFAULT_THROTTLE_RATES": {"auth": "5/min"},
+    # Esquecer permission_classes exige login em vez de deixar a rota aberta.
+    # Cada view declara o papel (IsAdmin, IsStudent...) ou AllowAny se pública.
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",
+    ],
+    "EXCEPTION_HANDLER": "config.exception.custom_exception_handler",
+    "DEFAULT_PAGINATION_CLASS": "config.pagination.DefaultPagination",
+    # Tentativas de login por e-mail (EmailRateThrottle).
+    # shortcut: o cache padrão é por processo, então o limite vale por processo;
+    # com mais de um processo em produção, apontar CACHES para um cache compartilhado.
+    "DEFAULT_THROTTLE_RATES": {"login": "5/min"},
 }

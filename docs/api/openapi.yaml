@@ -9,7 +9,9 @@ info:
 
     **Autenticação:** alunos e professores entram com a Microsoft; administradores e avaliadores externos, com e-mail e senha. Rotas protegidas usam Bearer JWT.
 
-    **Convenções propostas (pendentes de aprovação):** formato de erro `Error` (P-37), paginação `page`/`page_size` (P-38), decimais como string (P-39).
+    **Convenções adotadas:** formato de erro `Error` (P-37) e paginação `page`/`page_size` (P-38). Regra de negócio violada responde 409 com `code` estável.
+
+    **Convenção proposta (pendente de aprovação):** decimais como string (P-39).
 
     Cada operação informa o status (`x-status`: `confirmed` ou `proposed`), os requisitos (`x-requirements`), os perfis (`x-roles`) e as pendências (`x-pendencias`) registradas em api-pendencias.md. Operações `proposed` dependem de uma pendência de severidade alta.
 servers:
@@ -1497,7 +1499,7 @@ paths:
               - id: 5
                 edition_id: 3
                 evaluator:
-                  user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                  user_id: 42
                   name: Ana Ribeiro
                   email: avaliador@instituicao.com
                   institution: Instituto Tecnológico do Tocantins
@@ -1548,7 +1550,7 @@ paths:
             schema:
               $ref: '#/components/schemas/EditionEvaluatorCreate'
             example:
-              evaluator_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+              evaluator_id: 42
               course_id: null
       responses:
         '201':
@@ -1561,7 +1563,7 @@ paths:
                 id: 5
                 edition_id: 3
                 evaluator:
-                  user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                  user_id: 42
                   name: Ana Ribeiro
                   email: avaliador@instituicao.com
                   institution: Instituto Tecnológico do Tocantins
@@ -1642,7 +1644,7 @@ paths:
                 id: 5
                 edition_id: 3
                 evaluator:
-                  user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                  user_id: 42
                   name: Ana Ribeiro
                   email: avaliador@instituicao.com
                   institution: Instituto Tecnológico do Tocantins
@@ -2306,7 +2308,7 @@ paths:
                 next: null
                 previous: null
                 results:
-                - user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                - user_id: 42
                   name: Ana Ribeiro
                   email: avaliador@instituicao.com
                   active: true
@@ -2357,7 +2359,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ExternalEvaluatorAdmin'
               example:
-                user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                user_id: 42
                 name: Ana Ribeiro
                 email: avaliador@instituicao.com
                 active: true
@@ -2422,7 +2424,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ExternalEvaluatorAdmin'
               example:
-                user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                user_id: 42
                 name: Ana Ribeiro
                 email: avaliador@instituicao.com
                 active: true
@@ -2490,7 +2492,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/UserStatus'
               example:
-                user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                user_id: 42
                 active: false
         '400':
           $ref: '#/components/responses/BadRequest'
@@ -3043,7 +3045,7 @@ paths:
                 next: null
                 previous: null
                 results:
-                - user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                - user_id: 42
                   name: Maria Souza
                   email: maria.souza@a.catolica-to.edu.br
                   active: true
@@ -3088,7 +3090,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/StudentAdmin'
               example:
-                user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                user_id: 42
                 name: Maria Souza
                 email: maria.souza@a.catolica-to.edu.br
                 active: true
@@ -3150,7 +3152,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/StudentAdmin'
               example:
-                user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                user_id: 42
                 name: Maria Souza
                 email: maria.souza@a.catolica-to.edu.br
                 active: true
@@ -3226,7 +3228,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/UserStatus'
               example:
-                user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                user_id: 42
                 active: false
         '400':
           $ref: '#/components/responses/BadRequest'
@@ -3284,12 +3286,12 @@ paths:
                   updated_at: '2026-10-22T16:00:00Z'
                   resolved_at: null
                   requester:
-                    user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                    user_id: 42
                     name: Maria Souza
                     email: maria.souza@a.catolica-to.edu.br
                     role: STUDENT
                   assigned_to:
-                    user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                    user_id: 42
                     name: Maria Souza
         '401':
           $ref: '#/components/responses/Unauthorized'
@@ -3334,12 +3336,12 @@ paths:
                 updated_at: '2026-10-22T16:00:00Z'
                 resolved_at: null
                 requester:
-                  user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                  user_id: 42
                   name: Maria Souza
                   email: maria.souza@a.catolica-to.edu.br
                   role: STUDENT
                 assigned_to:
-                  user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                  user_id: 42
                   name: Maria Souza
         '401':
           $ref: '#/components/responses/Unauthorized'
@@ -3393,7 +3395,7 @@ paths:
               status: OPEN
               priority: LOW
               support_response: A matrícula foi corrigida conforme solicitado.
-              assigned_to: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+              assigned_to: 42
       responses:
         '200':
           description: Operação concluída.
@@ -3412,12 +3414,12 @@ paths:
                 updated_at: '2026-10-22T16:00:00Z'
                 resolved_at: null
                 requester:
-                  user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                  user_id: 42
                   name: Maria Souza
                   email: maria.souza@a.catolica-to.edu.br
                   role: STUDENT
                 assigned_to:
-                  user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                  user_id: 42
                   name: Maria Souza
         '400':
           $ref: '#/components/responses/BadRequest'
@@ -3478,7 +3480,7 @@ paths:
                 next: null
                 previous: null
                 results:
-                - user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                - user_id: 42
                   name: João Pereira
                   email: joao.pereira@p.catolica-to.edu.br
                   active: true
@@ -3523,7 +3525,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/TeacherAdmin'
               example:
-                user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                user_id: 42
                 name: João Pereira
                 email: joao.pereira@p.catolica-to.edu.br
                 active: true
@@ -3584,7 +3586,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/TeacherAdmin'
               example:
-                user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                user_id: 42
                 name: João Pereira
                 email: joao.pereira@p.catolica-to.edu.br
                 active: true
@@ -3646,7 +3648,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/UserStatus'
               example:
-                user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                user_id: 42
                 active: false
         '400':
           $ref: '#/components/responses/BadRequest'
@@ -3762,7 +3764,7 @@ paths:
                 members:
                 - id: 101
                   student:
-                    user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                    user_id: 42
                     name: Maria Souza
                     course:
                       id: 1
@@ -3850,7 +3852,7 @@ paths:
                 $ref: '#/components/schemas/ExternalEvaluatorCreated'
               example:
                 external_evaluator:
-                  user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                  user_id: 42
                   email: avaliador@instituicao.com
         '400':
           $ref: '#/components/responses/BadRequest'
@@ -3872,6 +3874,83 @@ paths:
                       code: email_taken
                       message: E-mail já cadastrado.
                       details: null
+  /api/auth/logout:
+    post:
+      tags:
+      - auth
+      operationId: authDeleteSession
+      summary: Encerrar a sessão
+      description: |-
+        Encerra a sessão do usuário autenticado. Exige o cabeçalho X-CSRFToken.
+
+        **Requisitos:** RF01, RF18, RF36, RF41
+
+        **Autenticação:** obrigatória (Bearer JWT).
+
+        **Perfis permitidos:** STUDENT, TEACHER, EXTERNAL_EVALUATOR, ADMIN
+
+        **Pendências relacionadas (api-pendencias.md):** P-03
+      x-status: confirmed
+      x-requirements:
+      - RF01
+      - RF18
+      - RF36
+      - RF41
+      x-roles:
+      - STUDENT
+      - TEACHER
+      - EXTERNAL_EVALUATOR
+      - ADMIN
+      x-pendencias:
+      - P-03
+      responses:
+        '204':
+          description: Sessão encerrada.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /api/auth/me:
+    get:
+      tags:
+      - auth
+      operationId: authGetCurrentUser
+      summary: Consultar o usuário autenticado
+      description: |-
+        Devolve os dados do usuário da sessão atual.
+
+        **Requisitos:** RF01, RF18, RF36, RF41
+
+        **Autenticação:** obrigatória (Bearer JWT).
+
+        **Perfis permitidos:** STUDENT, TEACHER, EXTERNAL_EVALUATOR, ADMIN
+
+        **Pendências relacionadas (api-pendencias.md):** P-03
+      x-status: confirmed
+      x-requirements:
+      - RF01
+      - RF18
+      - RF36
+      - RF41
+      x-roles:
+      - STUDENT
+      - TEACHER
+      - EXTERNAL_EVALUATOR
+      - ADMIN
+      x-pendencias:
+      - P-03
+      responses:
+        '200':
+          description: Operação concluída.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+              example:
+                user_id: 42
+                name: Ana Ribeiro
+                email: avaliador@instituicao.com
+                role: STUDENT
+        '401':
+          $ref: '#/components/responses/Unauthorized'
   /api/auth/sessions/microsoft:
     post:
       tags:
@@ -3952,7 +4031,7 @@ paths:
       description: |-
         **Status: PROPOSTO** — o contrato depende da decisão de P-01 e pode mudar.
 
-        Autentica contas com senha local (ADMIN e EXTERNAL_EVALUATOR).
+        Autentica contas com senha local (ADMIN e EXTERNAL_EVALUATOR) e cria a sessão (cookie). Exige o cabeçalho X-CSRFToken, obtido em GET /api/auth/csrf.
 
         **Requisitos:** RF01, RF41
 
@@ -3961,10 +4040,10 @@ paths:
         **Perfis permitidos:** qualquer visitante
 
         **Regras de negócio:**
-        - Credenciais inválidas, conta inexistente, conta inativa ou conta sem senha (somente Microsoft) retornam o mesmo erro 401, sem indicar o campo incorreto.
+        - Credenciais inválidas, conta inexistente, conta inativa ou conta sem senha (somente Microsoft) retornam o mesmo erro 401 invalid_credentials, sem indicar o campo incorreto.
         - Somente perfis ADMIN e EXTERNAL_EVALUATOR autenticam por senha.
-        - EXTERNAL_EVALUATOR só autentica se vinculado à edição vigente e se ela não estiver encerrada (RF41).
-        - Expiração por inatividade pendente (P-03).
+        - EXTERNAL_EVALUATOR só autentica se vinculado à edição vigente, a publicada (P-41); caso contrário, 403 reviewer_not_in_current_edition (RF41).
+        - A sessão expira após 30 minutos de inatividade, renovados a cada requisição (P-03).
 
         **Pendências relacionadas (api-pendencias.md):** P-01, P-03, P-05
       x-status: proposed
@@ -3994,11 +4073,16 @@ paths:
               schema:
                 $ref: '#/components/schemas/SessionResponse'
               example:
-                token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                user_id: 42
+                name: Ana Ribeiro
+                email: avaliador@instituicao.com
+                role: STUDENT
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
   /api/auth/students:
     post:
       tags:
@@ -4049,7 +4133,7 @@ paths:
                 $ref: '#/components/schemas/StudentProfileCreated'
               example:
                 student:
-                  user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                  user_id: 42
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -4128,7 +4212,7 @@ paths:
                 $ref: '#/components/schemas/TeacherProfileCreated'
               example:
                 teacher:
-                  user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                  user_id: 42
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -4565,7 +4649,7 @@ paths:
                   name: Equipe Aurora
                   code: DXA7K2
                 student:
-                  user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                  user_id: 42
                   name: Maria Souza
                 invited_email: null
                 status: PENDING
@@ -4664,7 +4748,7 @@ paths:
                   name: Equipe Aurora
                   code: DXA7K2
                 student:
-                  user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                  user_id: 42
                   name: Pedro Alves
                   course:
                     id: 1
@@ -4772,12 +4856,12 @@ paths:
                   name: Equipe Aurora
                   code: DXA7K2
                 requester:
-                  user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                  user_id: 42
                   name: Maria Souza
                 justification: O líder anterior deixou a instituição sem transferir a liderança.
                 status: PENDING
                 teacher:
-                  user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                  user_id: 42
                   name: Maria Souza
                 decision_justification: null
                 created_at: '2026-10-22T16:00:00Z'
@@ -4922,7 +5006,7 @@ paths:
                   members:
                   - id: 101
                     student:
-                      user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                      user_id: 42
                       name: Maria Souza
                       course:
                         id: 1
@@ -5025,7 +5109,7 @@ paths:
                   name: Equipe Aurora
                   code: DXA7K2
                 student:
-                  user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                  user_id: 42
                   name: Maria Souza
                 invited_email: null
                 status: PENDING
@@ -5074,7 +5158,7 @@ paths:
                   name: Equipe Aurora
                   code: DXA7K2
                 student:
-                  user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                  user_id: 42
                   name: Pedro Alves
                   course:
                     id: 1
@@ -5258,7 +5342,7 @@ paths:
                 - id: 77
                   version_number: 2
                   submitted_by:
-                    user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                    user_id: 42
                     name: Maria Souza
                   submitted_at: '2026-10-22T16:00:00Z'
                   notes: Correção do relatório.
@@ -5583,7 +5667,7 @@ paths:
                 id: 77
                 version_number: 2
                 submitted_by:
-                  user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                  user_id: 42
                   name: Maria Souza
                 submitted_at: '2026-10-22T16:00:00Z'
                 notes: Correção do relatório.
@@ -6198,12 +6282,12 @@ paths:
                     name: Equipe Aurora
                     code: DXA7K2
                   requester:
-                    user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                    user_id: 42
                     name: Maria Souza
                   justification: O líder anterior deixou a instituição sem transferir a liderança.
                   status: PENDING
                   teacher:
-                    user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                    user_id: 42
                     name: Maria Souza
                   decision_justification: null
                   created_at: '2026-10-22T16:00:00Z'
@@ -6329,7 +6413,7 @@ paths:
                 members:
                 - id: 101
                   student:
-                    user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                    user_id: 42
                     name: Maria Souza
                     course:
                       id: 1
@@ -6474,7 +6558,7 @@ paths:
                 members:
                 - id: 101
                   student:
-                    user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                    user_id: 42
                     name: Maria Souza
                     course:
                       id: 1
@@ -6531,7 +6615,7 @@ paths:
             schema:
               $ref: '#/components/schemas/InvitationCreate'
             example:
-              student_id: 5a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d
+              student_id: 42
       responses:
         '201':
           description: Convite enviado.
@@ -6546,7 +6630,7 @@ paths:
                   name: Equipe Aurora
                   code: DXA7K2
                 student:
-                  user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                  user_id: 42
                   name: Maria Souza
                 invited_email: null
                 status: PENDING
@@ -6634,7 +6718,7 @@ paths:
                   name: Equipe Aurora
                   code: DXA7K2
                 student:
-                  user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                  user_id: 42
                   name: Maria Souza
                 invited_email: null
                 status: PENDING
@@ -6689,7 +6773,7 @@ paths:
                   name: Equipe Aurora
                   code: DXA7K2
                 student:
-                  user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                  user_id: 42
                   name: Pedro Alves
                   course:
                     id: 1
@@ -6778,7 +6862,7 @@ paths:
                   name: Equipe Aurora
                   code: DXA7K2
                 student:
-                  user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                  user_id: 42
                   name: Pedro Alves
                   course:
                     id: 1
@@ -6847,12 +6931,12 @@ paths:
                   name: Equipe Aurora
                   code: DXA7K2
                 requester:
-                  user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                  user_id: 42
                   name: Maria Souza
                 justification: O líder anterior deixou a instituição sem transferir a liderança.
                 status: PENDING
                 teacher:
-                  user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                  user_id: 42
                   name: Maria Souza
                 decision_justification: null
                 created_at: '2026-10-22T16:00:00Z'
@@ -6931,12 +7015,12 @@ paths:
                   name: Equipe Aurora
                   code: DXA7K2
                 requester:
-                  user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                  user_id: 42
                   name: Maria Souza
                 justification: O líder anterior deixou a instituição sem transferir a liderança.
                 status: PENDING
                 teacher:
-                  user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                  user_id: 42
                   name: Maria Souza
                 decision_justification: null
                 created_at: '2026-10-22T16:00:00Z'
@@ -7000,7 +7084,7 @@ paths:
                 members:
                 - id: 101
                   student:
-                    user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                    user_id: 42
                     name: Maria Souza
                     course:
                       id: 1
@@ -7192,10 +7276,10 @@ paths:
               example:
               - id: 17
                 member:
-                  user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                  user_id: 42
                   name: Maria Souza
                 author:
-                  user_id: 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                  user_id: 42
                   name: Maria Souza
                 content: Não participou das duas últimas reuniões.
                 created_at: '2026-10-22T16:00:00Z'
@@ -7459,8 +7543,8 @@ components:
       required: true
       description: Identificador do usuário.
       schema:
-        type: string
-        format: uuid
+        type: integer
+        minimum: 1
     CourseId:
       name: course_id
       in: path
@@ -7516,8 +7600,8 @@ components:
       required: true
       description: Identificador do avaliador externo (user_id).
       schema:
-        type: string
-        format: uuid
+        type: integer
+        minimum: 1
     TeamId:
       name: team_id
       in: path
@@ -7692,8 +7776,8 @@ components:
       required: false
       description: Filtra pelo responsável.
       schema:
-        type: string
-        format: uuid
+        type: integer
+        minimum: 1
     PendingOnly:
       name: pending_only
       in: query
@@ -7930,7 +8014,7 @@ components:
       description: Requisito não atendido na verificação de fim de formação (RF51). Persistência pendente (P-23).
     Error:
       type: object
-      description: Formato padrão de erro proposto (P-37).
+      description: Formato padrão de erro (P-37).
       properties:
         error:
           type: object
@@ -7949,7 +8033,8 @@ components:
               type:
               - object
               - 'null'
-              description: 'Detalhes adicionais. Em erros de validação: campo -> lista de mensagens.'
+              description: 'Detalhes adicionais. Em erros de validação: campo -> lista de mensagens; erro sem campo vai em
+                non_field_errors.'
               properties: {}
               additionalProperties: true
               examples:
@@ -8036,10 +8121,10 @@ components:
       type: object
       properties:
         user_id:
-          type: string
-          format: uuid
+          type: integer
+          minimum: 1
           examples:
-          - 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+          - 42
         name:
           type: string
           examples:
@@ -8197,14 +8282,30 @@ components:
       additionalProperties: false
     SessionResponse:
       type: object
+      description: Usuário da sessão. A credencial vai no cookie de sessão, não no corpo (#70, P-03).
       properties:
-        token:
-          type: string
-          description: JWT da aplicação.
+        user_id:
+          type: integer
+          minimum: 1
           examples:
-          - eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+          - 42
+        name:
+          type: string
+          examples:
+          - Ana Ribeiro
+        email:
+          type: string
+          format: email
+          maxLength: 254
+          examples:
+          - avaliador@instituicao.com
+        role:
+          $ref: '#/components/schemas/UserRole'
       required:
-      - token
+      - user_id
+      - name
+      - email
+      - role
     StudentProfileCreate:
       type: object
       properties:
@@ -8216,7 +8317,7 @@ components:
         registration_number:
           type: string
           description: Matrícula (única).
-          maxLength: 50
+          maxLength: 30
           examples:
           - '202600123'
         term:
@@ -8237,10 +8338,10 @@ components:
           type: object
           properties:
             user_id:
-              type: string
-              format: uuid
+              type: integer
+              minimum: 1
               examples:
-              - 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+              - 42
           required:
           - user_id
       required:
@@ -8267,10 +8368,10 @@ components:
           type: object
           properties:
             user_id:
-              type: string
-              format: uuid
+              type: integer
+              minimum: 1
               examples:
-              - 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+              - 42
           required:
           - user_id
       required:
@@ -8290,10 +8391,10 @@ components:
       type: object
       properties:
         user_id:
-          type: string
-          format: uuid
+          type: integer
+          minimum: 1
           examples:
-          - 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+          - 42
         active:
           type: boolean
           examples:
@@ -8305,10 +8406,10 @@ components:
       type: object
       properties:
         user_id:
-          type: string
-          format: uuid
+          type: integer
+          minimum: 1
           examples:
-          - 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+          - 42
         name:
           type: string
           examples:
@@ -8364,7 +8465,7 @@ components:
           - Maria Souza Lima
         registration_number:
           type: string
-          maxLength: 50
+          maxLength: 30
           examples:
           - '202600124'
         course_id:
@@ -8394,10 +8495,10 @@ components:
       type: object
       properties:
         user_id:
-          type: string
-          format: uuid
+          type: integer
+          minimum: 1
           examples:
-          - 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+          - 42
         name:
           type: string
           examples:
@@ -8482,10 +8583,10 @@ components:
       type: object
       properties:
         user_id:
-          type: string
-          format: uuid
+          type: integer
+          minimum: 1
           examples:
-          - 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+          - 42
         name:
           type: string
           examples:
@@ -8586,10 +8687,10 @@ components:
           type: object
           properties:
             user_id:
-              type: string
-              format: uuid
+              type: integer
+              minimum: 1
               examples:
-              - 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+              - 42
             email:
               type: string
               format: email
@@ -9749,10 +9850,10 @@ components:
           type: object
           properties:
             user_id:
-              type: string
-              format: uuid
+              type: integer
+              minimum: 1
               examples:
-              - 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+              - 42
             name:
               type: string
               examples:
@@ -9799,10 +9900,10 @@ components:
       type: object
       properties:
         evaluator_id:
-          type: string
-          format: uuid
+          type: integer
+          minimum: 1
           examples:
-          - 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+          - 42
         course_id:
           type:
           - integer
@@ -10029,10 +10130,10 @@ components:
           type: object
           properties:
             user_id:
-              type: string
-              format: uuid
+              type: integer
+              minimum: 1
               examples:
-              - 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+              - 42
             name:
               type: string
               examples:
@@ -10217,10 +10318,10 @@ components:
       - type: object
         properties:
           student_id:
-            type: string
-            format: uuid
+            type: integer
+            minimum: 1
             examples:
-            - 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+            - 42
         required:
         - student_id
         additionalProperties: false
@@ -10305,10 +10406,10 @@ components:
           type: object
           properties:
             user_id:
-              type: string
-              format: uuid
+              type: integer
+              minimum: 1
               examples:
-              - 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+              - 42
             name:
               type: string
               examples:
@@ -11640,10 +11741,10 @@ components:
             type: object
             properties:
               user_id:
-                type: string
-                format: uuid
+                type: integer
+                minimum: 1
                 examples:
-                - 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+                - 42
               name:
                 type: string
                 examples:
@@ -11684,12 +11785,12 @@ components:
           - A matrícula foi corrigida conforme solicitado.
         assigned_to:
           type:
-          - string
+          - integer
           - 'null'
           description: Usuário ADMIN responsável (P-10).
-          format: uuid
+          minimum: 1
           examples:
-          - 3f6c2a9e-8b1d-4c5e-9a7f-2d1e0b4c6a8f
+          - 42
       additionalProperties: false
       minProperties: 1
     Notification:

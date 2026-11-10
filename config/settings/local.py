@@ -28,6 +28,6 @@ REST_FRAMEWORK = base.REST_FRAMEWORK
 
 MAILERS = {
     "default": {
-        "BACKEND": "django.core.mail.backends.console.EmailBackend",
+        "BACKEND": "config.mail.ReadableConsoleEmailBackend",
     },
 }
