@@ -169,7 +169,7 @@ SC["Error"] = obj({
 }, ["error"], "Formato padrão de erro (P-37).")
 
 # ---------------------------------------------------------------- refs compactas
-SC["CourseSummary"] = obj({"id": INT(ex=1), "name": STR(ex="Engenharia de Software"), "slug": STR(ex="ES")}, ["id", "name", "slug"])
+SC["CourseSummary"] = obj({"id": INT(ex=1), "name": STR(ex="Engenharia de Software")}, ["id", "name"])
 SC["SdgSummary"] = obj({"id": INT(ex=9), "number": INT(ex=9, minimum=1, maximum=17), "title": STR(ex="Indústria, Inovação e Infraestrutura")}, ["id", "number", "title"])
 SC["EditionSummary"] = obj({"id": INT(ex=3), "year": INT(ex=2026), "semester": INT(ex=1, enum=[1, 2]),
                             "name": nul(STR(ex="Desafio X 2026/1")), "status": ref("EditionStatus")},
