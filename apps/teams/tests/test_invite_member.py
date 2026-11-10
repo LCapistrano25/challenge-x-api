@@ -1,4 +1,3 @@
-
 from datetime import timedelta
 from unittest.mock import patch
 
@@ -9,6 +8,7 @@ from django.utils import timezone
 from apps.accounts.enums import UserRole
 from apps.accounts.factories import StudentFactory, UserFactory
 from apps.editions.factories import StageFactory
+from apps.notifications.models import Notification, NotificationType
 from apps.teams.enums import InvitationStatus, MemberRole
 from apps.teams.factories import (
     InvitationFactory,
@@ -59,6 +59,17 @@ def test_lider_envia_convite_com_sucesso():
     assert invitation.student == invited_student
     assert invitation.status == InvitationStatus.PENDING
     assert Invitation.objects.count() == 1
+    notification = Notification.objects.get(
+        user=invited_student.user,
+    )
+
+    assert notification.type == NotificationType.TEAM
+    assert notification.title == "Novo convite para equipe"
+    assert notification.message == (
+        f"Você recebeu um convite para participar da equipe {team.name}."
+    )
+    assert notification.link == f"/convites/{invitation.id}"
+    assert notification.read_at is None
 
 
 def test_usuario_que_nao_e_aluno_nao_pode_enviar_convite():
@@ -331,11 +342,14 @@ def test_nao_pode_enviar_convite_duplicado():
             student_id=invited_student.pk,
         )
 
-    assert Invitation.objects.filter(
-        team=team,
-        student=invited_student,
-        status=InvitationStatus.PENDING,
-    ).count() == 1
+    assert (
+        Invitation.objects.filter(
+            team=team,
+            student=invited_student,
+            status=InvitationStatus.PENDING,
+        ).count()
+        == 1
+    )
 
 
 def test_reverte_operacao_se_ocorrer_erro_ao_criar_convite():
@@ -357,5 +371,76 @@ def test_reverte_operacao_se_ocorrer_erro_ao_criar_convite():
                 team_id=team.id,
                 student_id=invited_student.pk,
             )
+
+    assert Invitation.objects.count() == 0
+    assert Notification.objects.count() == 0
+
+
+def test_lider_envia_convite_por_email_com_sucesso():
+    team = TeamFactory()
+    create_open_formation(team.edition)
+    leader = get_leader(team)
+    invited_student = StudentFactory()
+
+    invitation = invite_member(
+        actor=leader,
+        team_id=team.id,
+        email=invited_student.user.email,
+    )
+
+    assert invitation.student == invited_student
+    assert invitation.team == team
+    assert invitation.status == InvitationStatus.PENDING
+    assert Invitation.objects.count() == 1
+
+    notification = Notification.objects.get(
+        user=invited_student.user,
+    )
+    assert notification.type == NotificationType.TEAM
+
+
+def test_nao_pode_convidar_email_nao_cadastrado():
+    team = TeamFactory()
+    create_open_formation(team.edition)
+    leader = get_leader(team)
+
+    with pytest.raises(InvitationRejected):
+        invite_member(
+            actor=leader,
+            team_id=team.id,
+            email="nao.cadastrado@exemplo.com",
+        )
+
+    assert Invitation.objects.count() == 0
+    assert Notification.objects.count() == 0
+
+
+def test_nao_pode_enviar_convite_com_student_id_e_email():
+    team = TeamFactory()
+    create_open_formation(team.edition)
+    leader = get_leader(team)
+    invited_student = StudentFactory()
+
+    with pytest.raises(InvitationRejected):
+        invite_member(
+            actor=leader,
+            team_id=team.id,
+            student_id=invited_student.pk,
+            email=invited_student.user.email,
+        )
+
+    assert Invitation.objects.count() == 0
+
+
+def test_nao_pode_enviar_convite_sem_student_id_e_email():
+    team = TeamFactory()
+    create_open_formation(team.edition)
+    leader = get_leader(team)
+
+    with pytest.raises(InvitationRejected):
+        invite_member(
+            actor=leader,
+            team_id=team.id,
+        )
 
     assert Invitation.objects.count() == 0
