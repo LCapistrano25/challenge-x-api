@@ -8643,7 +8643,7 @@ components:
           type:
           - string
           - 'null'
-          maxLength: 200
+          maxLength: 150
           examples:
           - Instituto Tecnológico do Tocantins
       additionalProperties: false
@@ -8672,7 +8672,7 @@ components:
           type:
           - string
           - 'null'
-          maxLength: 200
+          maxLength: 150
           examples:
           - Instituto Tecnológico do Tocantins
       required:
