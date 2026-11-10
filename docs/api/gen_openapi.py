@@ -422,9 +422,32 @@ SC["InvitationCreate"] = {
     ],
     "description": "Informe exatamente um entre student_id e email institucional.",
 }
-SC["Invitation"] = obj({"id": INT(ex=88), "team": ref("TeamRef"), "student": nul(ref("UserSummary")), "invited_email": nul(EMAIL(ex=None)),
-                        "status": ref("InvitationStatus"), "created_at": DT(), "responded_at": nul(DT(ex=None))},
-                       ["id", "team", "student", "invited_email", "status", "created_at", "responded_at"])
+SC["Invitation"] = obj(
+    {
+        "id": INT(ex=88),
+        "team": ref("TeamRef"),
+        "student": obj(
+            {
+                "user_id": USER_ID(),
+                "name": STR(ex="João Lima"),
+            },
+            ["user_id", "name"],
+        ),
+        "invited_email": nul(EMAIL(ex=None)),
+        "status": ref("InvitationStatus"),
+        "created_at": DT(),
+        "responded_at": nul(DT(ex=None)),
+    },
+    [
+        "id",
+        "team",
+        "student",
+        "invited_email",
+        "status",
+        "created_at",
+        "responded_at",
+    ],
+)
 SC["InvitationResponse"] = obj({"status": STR(ex="ACCEPTED", enum=["ACCEPTED", "DECLINED"])}, ["status"], strict=True)
 SC["JoinRequest"] = obj({"id": INT(ex=45), "team": ref("TeamRef"),
                          "student": obj({"user_id": USER_ID(), "name": STR(ex="Pedro Alves"), "course": ref("CourseSummary")}, ["user_id", "name", "course"]),
