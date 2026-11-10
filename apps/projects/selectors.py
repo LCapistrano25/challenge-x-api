@@ -13,6 +13,7 @@ def get_valid_version(submission: Submission) -> SubmissionVersion | None:
     Nenhuma versão no prazo = entrega não enviada (None).
     """
     deadline = get_submission_deadline(submission.project, submission.stage)
+
     return (
         submission.versions.filter(submitted_at__lte=deadline)
         .order_by("-number")
