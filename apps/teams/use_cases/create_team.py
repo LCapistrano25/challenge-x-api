@@ -1,4 +1,3 @@
-
 import secrets
 import string
 
@@ -71,18 +70,14 @@ def create_team(
         raise TeamCreationRejected("O nome da equipe é obrigatório.")
 
     if Team.objects.filter(edition=edition, name=name).exists():
-        raise TeamCreationRejected(
-            "Já existe uma equipe com esse nome nesta edição."
-        )
+        raise TeamCreationRejected("Já existe uma equipe com esse nome nesta edição.")
 
     for _ in range(5):
         code = _generate_team_code()
         if not Team.objects.filter(code=code).exists():
             break
     else:
-        raise TeamCreationRejected(
-            "Não foi possível gerar um código de convite único."
-        )
+        raise TeamCreationRejected("Não foi possível gerar um código de convite único.")
 
     try:
         with transaction.atomic():
