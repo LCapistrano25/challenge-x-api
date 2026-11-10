@@ -7,13 +7,14 @@ from django.utils import timezone
 
 from apps.accounts.enums import UserRole
 from apps.accounts.models import Student, User
+from apps.core.exceptions import BusinessRuleViolation
 from apps.editions.enums import StageKind
 from apps.editions.models import Edition, Stage
 from apps.teams.enums import MemberRole
 from apps.teams.models import Team, TeamMember
 
 
-class TeamCreationRejected(Exception):
+class TeamCreationRejected(BusinessRuleViolation):
     """A equipe não pôde ser criada por uma regra de negócio."""
 
 
