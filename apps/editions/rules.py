@@ -1,12 +1,10 @@
 from django.apps import apps
 from django.core.exceptions import ValidationError
 
-from apps.accounts.enums import UserRole
 from apps.editions.enums import EditionStatus
 from apps.editions.exceptions import (
     EditionAlreadyExists,
     InvalidTeamLimits,
-    NotAdminActor,
     TeamLimitsLocked,
 )
 
@@ -32,12 +30,6 @@ def ensure_criterion_in_stage_edition(stage, criterion) -> None:
     """Exige que critério e etapa sejam da mesma edição (RF08)."""
     if stage.edition_id != criterion.edition_id:
         raise ValidationError("O critério pertence a outra edição.")
-
-
-def ensure_actor_is_admin(actor) -> None:
-    """Exige que quem age seja administrador (RF47, RF48)."""
-    if actor is None or actor.role != UserRole.ADMIN:
-        raise NotAdminActor()
 
 
 def ensure_edition_identification_is_free(year: int, semester: int) -> None:

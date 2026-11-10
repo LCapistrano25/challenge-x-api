@@ -26,9 +26,3 @@ class InvalidTeamLimits(EditionError):
         "Os limites devem ser maiores que zero e o mínimo não pode passar do máximo."
     )
     http_status = HTTPStatus.BAD_REQUEST
-
-
-class NotAdminActor(EditionError):
-    code = "not_admin_actor"
-    default_message = "Apenas o administrador pode realizar esta ação."
-    http_status = HTTPStatus.FORBIDDEN

@@ -2,13 +2,13 @@ import pytest
 from django.core.exceptions import ValidationError
 
 from apps.accounts.enums import UserRole
+from apps.accounts.exceptions import NotAdminActor
 from apps.accounts.factories import UserFactory
 from apps.editions import use_cases
 from apps.editions.enums import EditionStatus
 from apps.editions.exceptions import (
     EditionAlreadyExists,
     InvalidTeamLimits,
-    NotAdminActor,
     TeamLimitsLocked,
 )
 from apps.editions.factories import EditionFactory

@@ -7,10 +7,10 @@ from rest_framework.permissions import AllowAny
 from rest_framework.test import APIRequestFactory
 from rest_framework.views import APIView
 
+from apps.accounts.exceptions import NotAdminActor
 from apps.core.exceptions import ExternalServiceError
 from apps.editions.exceptions import (
     EditionAlreadyExists,
-    NotAdminActor,
     TeamLimitsLocked,
 )
 

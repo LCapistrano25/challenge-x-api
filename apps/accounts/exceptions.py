@@ -51,8 +51,13 @@ class ReviewerNotInCurrentEdition(BusinessRuleViolation):
     http_status = HTTPStatus.FORBIDDEN
 
 
-
 class NotAdminActor(BusinessRuleViolation):
     code = "not_admin_actor"
-    default_message = "Apenas administradores podem realizar o cadastro."
+    default_message = "Apenas o administrador pode realizar esta ação."
     http_status = HTTPStatus.FORBIDDEN
+
+
+class EmailTaken(BusinessRuleViolation):
+    code = "email_taken"
+    default_message = "E-mail já cadastrado."
+    http_status = HTTPStatus.CONFLICT
