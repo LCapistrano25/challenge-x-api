@@ -23,3 +23,13 @@ class EditionReviewerSerializer(serializers.ModelSerializer):
     class Meta:
         model = EditionReviewer
         fields = ["id", "edition_id", "evaluator", "course", "created_at", "updated_at"]
+
+
+class EditionReviewerCreateSerializer(serializers.Serializer):
+    evaluator_id = serializers.IntegerField(min_value=1)
+    # Obrigatório no contrato; nulo = todos os cursos da edição.
+    course_id = serializers.IntegerField(min_value=1, allow_null=True)
+
+
+class EditionReviewerUpdateSerializer(serializers.Serializer):
+    course_id = serializers.IntegerField(min_value=1, allow_null=True)
