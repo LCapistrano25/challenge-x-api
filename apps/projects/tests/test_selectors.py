@@ -1,13 +1,24 @@
 from datetime import timedelta
 
 import pytest
+from django.utils import timezone
 
+from apps.accounts.factories import StudentFactory
+from apps.core.factories import CourseFactory
+from apps.editions.factories import CategoryFactory, ChallengeFactory, EditionFactory
 from apps.projects.factories import (
     DeadlineExtensionFactory,
     SubmissionFactory,
     SubmissionVersionFactory,
 )
-from apps.projects.selectors import get_valid_version
+from apps.projects.selectors import (
+    get_active_categories,
+    get_eligible_challenges,
+    get_team_courses,
+    get_valid_version,
+)
+from apps.teams.enums import MemberRole
+from apps.teams.factories import TeamFactory, TeamMemberFactory
 
 pytestmark = pytest.mark.django_db
 
@@ -93,3 +104,74 @@ def test_prorrogacao_de_outra_equipe_nao_vale(submission):
         submitted_at=at(submission, timedelta(days=1)),
     )
     assert get_valid_version(submission) is None
+
+
+# Opções de desafio e categoria da equipe (RF29, RF50)
+
+
+@pytest.fixture
+def team():
+    return TeamFactory()
+
+
+def leader_course(team):
+    return team.members.get(role=MemberRole.LEADER).student.course
+
+
+def test_cursos_da_equipe_sao_os_dos_integrantes_ativos(team):
+    outro = CourseFactory()
+    TeamMemberFactory(team=team, student=StudentFactory(course=outro))
+    TeamMemberFactory(team=team, student=StudentFactory(course=outro))
+    inativo = TeamMemberFactory(team=team, student=StudentFactory())
+    inativo.active = False
+    inativo.left_at = timezone.now()
+    inativo.save()
+
+    assert set(get_team_courses(team)) == {leader_course(team), outro}
+
+
+def test_desafio_de_curso_de_integrante_ativo_e_elegivel(team):
+    desafio = ChallengeFactory(edition=team.edition, course=leader_course(team))
+    assert list(get_eligible_challenges(team)) == [desafio]
+
+
+def test_desafio_de_curso_sem_integrante_nao_e_elegivel(team):
+    ChallengeFactory(edition=team.edition)
+    assert not get_eligible_challenges(team).exists()
+
+
+def test_desafio_inativo_nao_e_elegivel(team):
+    ChallengeFactory(edition=team.edition, course=leader_course(team), active=False)
+    assert not get_eligible_challenges(team).exists()
+
+
+def test_desafio_de_outra_edicao_nao_e_elegivel(team):
+    ChallengeFactory(edition=EditionFactory(), course=leader_course(team))
+    assert not get_eligible_challenges(team).exists()
+
+
+def test_curso_de_ex_integrante_nao_conta(team):
+    curso = CourseFactory()
+    ex = TeamMemberFactory(team=team, student=StudentFactory(course=curso))
+    ex.active = False
+    ex.left_at = timezone.now()
+    ex.save()
+    ChallengeFactory(edition=team.edition, course=curso)
+
+    assert not get_eligible_challenges(team).exists()
+
+
+def test_desafio_aparece_uma_vez_com_varios_integrantes_do_curso(team):
+    curso = leader_course(team)
+    TeamMemberFactory(team=team, student=StudentFactory(course=curso))
+    desafio = ChallengeFactory(edition=team.edition, course=curso)
+
+    assert list(get_eligible_challenges(team)) == [desafio]
+
+
+def test_categorias_so_ativas_da_edicao(team):
+    ativa = CategoryFactory(edition=team.edition)
+    CategoryFactory(edition=team.edition, active=False)
+    CategoryFactory(edition=EditionFactory())
+
+    assert list(get_active_categories(team.edition)) == [ativa]
