@@ -122,3 +122,45 @@ def test_api_list_courses_admin(api_client, admin_user):
     assert response.status_code == status.HTTP_200_OK
     assert len(response.data) == 1
     assert response.data[0]["name"] == "Arquitetura"
+
+@pytest.mark.django_db
+def test_api_update_course_admin(api_client, admin_user):
+    """Testa se o admin consegue atualizar o nome e os períodos de um curso via PATCH."""
+    api_client.force_authenticate(user=admin_user)
+    
+    from apps.core.models import Course
+    # 1. Limpa o banco de testes para evitar conflito de nomes
+    Course.objects.all().delete()
+    
+    # 2. Cria um curso para podermos editar
+    course = Course.objects.create(name="Direito", term_count=10)
+    
+    # 3. Faz o pedido PATCH para alterar o nome e os períodos
+    response = api_client.patch(f"/api/admin/courses/{course.id}", {
+        "name": "Direito Internacional",
+        "term_count": 8
+    }, format="json")
+    
+    # 4. Verifica se deu 200 OK e se os dados mudaram
+    assert response.status_code == status.HTTP_200_OK
+    assert response.data["name"] == "Direito Internacional"
+    assert response.data["term_count"] == 8
+
+@pytest.mark.django_db
+def test_api_delete_course_success(api_client, admin_user):
+    """Testa se o admin consegue excluir um curso sem vínculos (204 No Content)."""
+    api_client.force_authenticate(user=admin_user)
+    
+    from apps.core.models import Course
+    Course.objects.all().delete()
+    
+    # Cria um curso isolado, sem professores nem projetos
+    course = Course.objects.create(name="Filosofia", term_count=8)
+    
+    # Faz o pedido DELETE
+    response = api_client.delete(f"/api/admin/courses/{course.id}")
+    
+    # Verifica se a API devolveu 204 No Content
+    assert response.status_code == status.HTTP_204_NO_CONTENT
+    # Verifica se o curso realmente sumiu do banco de dados
+    assert Course.objects.count() == 0
