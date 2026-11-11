@@ -8,6 +8,7 @@ from apps.projects.exceptions import (
     ChallengeNotSelected,
     FormationClosed,
     NotTeamLeader,
+    ProjectTitleTaken,
 )
 
 # Os models importam estas regras; por isso as que consultam outro app pegam os
@@ -97,3 +98,15 @@ def ensure_project_has_challenge(project) -> None:
     """Os dados do projeto só se cadastram depois de escolhido o desafio (RF30)."""
     if not project.challenge_id:
         raise ChallengeNotSelected()
+
+
+def ensure_project_title_is_free(project, title: str) -> None:
+    """Impede título igual ao de outro projeto da edição, sem olhar caixa (RN03).
+
+    O banco recusa o mesmo caso (unique_project_title_per_edition); aqui sai o
+    erro de negócio em vez de IntegrityError. Título em branco não conta.
+    """
+    projects = apps.get_model("projects", "Project").objects
+    taken = projects.filter(edition_id=project.edition_id, title__iexact=title)
+    if title and taken.exclude(pk=project.pk).exists():
+        raise ProjectTitleTaken()
