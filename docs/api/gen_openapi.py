@@ -169,7 +169,7 @@ SC["Error"] = obj({
 }, ["error"], "Formato padrão de erro (P-37).")
 
 # ---------------------------------------------------------------- refs compactas
-SC["CourseSummary"] = obj({"id": INT(ex=1), "name": STR(ex="Engenharia de Software"), "slug": STR(ex="ES")}, ["id", "name", "slug"])
+SC["CourseSummary"] = obj({"id": INT(ex=1), "name": STR(ex="Engenharia de Software")}, ["id", "name"])
 SC["SdgSummary"] = obj({"id": INT(ex=9), "number": INT(ex=9, minimum=1, maximum=17), "title": STR(ex="Indústria, Inovação e Infraestrutura")}, ["id", "number", "title"])
 SC["EditionSummary"] = obj({"id": INT(ex=3), "year": INT(ex=2026), "semester": INT(ex=1, enum=[1, 2]),
                             "name": nul(STR(ex="Desafio X 2026/1")), "status": ref("EditionStatus")},
@@ -234,12 +234,12 @@ SC["ExternalEvaluatorAdmin"] = obj({
     "editions": arr(ref("ExternalEvaluatorEditionLink")), "created_at": DT(), "updated_at": DT(),
 }, ["user_id", "name", "email", "active", "institution", "editions", "created_at", "updated_at"])
 SC["ExternalEvaluatorAdminUpdate"] = obj({
-    "name": STR(ex="Ana Ribeiro", maxLength=150), "institution": nul(STR(ex="Instituto Tecnológico do Tocantins", maxLength=200)),
+    "name": STR(ex="Ana Ribeiro", maxLength=150), "institution": nul(STR(ex="Instituto Tecnológico do Tocantins", maxLength=150)),
 }, desc="Ao menos um campo deve ser informado. A abrangência por edição é alterada em /api/admin/editions/{edition_id}/evaluators.", strict=True, minProperties=1)
 SC["ExternalEvaluatorCreate"] = obj({
     "name": STR(ex="Ana Ribeiro", maxLength=150), "email": EMAIL(ex="avaliador@instituicao.com"),
     "password": STR("Senha inicial; armazenada apenas como hash.", "SenhaInicial#2026", format="password"),
-    "institution": nul(STR(ex="Instituto Tecnológico do Tocantins", maxLength=200)),
+    "institution": nul(STR(ex="Instituto Tecnológico do Tocantins", maxLength=150)),
 }, ["name", "email", "password"], strict=True)
 SC["ExternalEvaluatorCreated"] = obj({"external_evaluator": obj({"user_id": USER_ID(), "email": EMAIL(ex="avaliador@instituicao.com")}, ["user_id", "email"])}, ["external_evaluator"])
 

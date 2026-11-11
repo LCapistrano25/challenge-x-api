@@ -28,7 +28,11 @@ class InvalidTeamLimits(EditionError):
     http_status = HTTPStatus.BAD_REQUEST
 
 
-class NotAdminActor(EditionError):
-    code = "not_admin_actor"
-    default_message = "Apenas o administrador pode realizar esta ação."
-    http_status = HTTPStatus.FORBIDDEN
+class EditionClosed(EditionError):
+    code = "edition_closed"
+    default_message = "A edição está encerrada e não pode ser alterada."
+
+
+class ReviewerAlreadyLinked(EditionError):
+    code = "evaluator_already_linked"
+    default_message = "O avaliador já está vinculado a esta edição."

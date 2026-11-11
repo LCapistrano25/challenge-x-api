@@ -495,3 +495,69 @@ def test_autocadastro_com_curso_inativo_recebe_400(post, course):
     assert resposta.status_code == 400
     assert resposta.data["error"]["code"] == "registration_rejected"
     assert not Student.objects.exists()
+
+
+# POST /api/auth/external-evaluators: cadastro do avaliador pelo admin (RF11)
+
+EVALUATORS_URL = "/api/auth/external-evaluators"
+EVALUATOR = {
+    "name": "Ana Ribeiro",
+    "email": "Ana@Empresa.com",
+    "password": "SenhaForte!2026x",
+}
+
+
+def post_evaluator(user, data=EVALUATOR):
+    client = APIClient()
+    if user:
+        client.force_authenticate(user)
+    return client.post(EVALUATORS_URL, data, format="json")
+
+
+@pytest.mark.django_db
+def test_admin_cadastra_avaliador_sem_instituicao():
+    resposta = post_evaluator(UserFactory(role=UserRole.ADMIN))
+
+    assert resposta.status_code == 201
+    user = User.objects.get(email="ana@empresa.com")
+    assert resposta.data == {
+        "external_evaluator": {"user_id": user.pk, "email": "ana@empresa.com"}
+    }
+    assert user.external_reviewer.institution == ""
+
+
+@pytest.mark.django_db
+def test_cadastro_de_avaliador_sem_login_e_recusado():
+    resposta = post_evaluator(None)
+
+    assert resposta.status_code == 403
+    assert resposta.data["error"]["code"] == "not_authenticated"
+
+
+@pytest.mark.django_db
+def test_so_admin_cadastra_avaliador_pela_api():
+    resposta = post_evaluator(TeacherFactory().user)
+
+    assert resposta.status_code == 403
+    assert resposta.data["error"]["code"] == "permission_denied"
+
+
+@pytest.mark.django_db
+def test_email_de_avaliador_repetido_recebe_409():
+    UserFactory(email="ana@empresa.com")
+
+    resposta = post_evaluator(UserFactory(role=UserRole.ADMIN))
+
+    assert resposta.status_code == 409
+    assert resposta.data["error"]["code"] == "email_taken"
+
+
+@pytest.mark.django_db
+def test_senha_fraca_do_avaliador_aponta_o_campo():
+    resposta = post_evaluator(
+        UserFactory(role=UserRole.ADMIN), {**EVALUATOR, "password": "123"}
+    )
+
+    assert resposta.status_code == 400
+    assert resposta.data["error"]["code"] == "validation_error"
+    assert "password" in resposta.data["error"]["details"]

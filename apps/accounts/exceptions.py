@@ -49,3 +49,15 @@ class ReviewerNotInCurrentEdition(BusinessRuleViolation):
     code = "reviewer_not_in_current_edition"
     default_message = "O avaliador não está vinculado à edição vigente."
     http_status = HTTPStatus.FORBIDDEN
+
+
+class NotAdminActor(BusinessRuleViolation):
+    code = "not_admin_actor"
+    default_message = "Apenas o administrador pode realizar esta ação."
+    http_status = HTTPStatus.FORBIDDEN
+
+
+class EmailTaken(BusinessRuleViolation):
+    code = "email_taken"
+    default_message = "E-mail já cadastrado."
+    http_status = HTTPStatus.CONFLICT
