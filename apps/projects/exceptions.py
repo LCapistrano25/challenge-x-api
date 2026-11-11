@@ -35,3 +35,9 @@ class ChallengeNotSelected(ProjectError):
 class ProjectTitleTaken(ProjectError):
     code = "project_title_taken"
     default_message = "Já existe projeto com título equivalente nesta edição."
+
+
+class ProjectAccessDenied(ProjectError):
+    code = "project_access_denied"
+    default_message = "Você não tem acesso ao projeto desta equipe."
+    http_status = HTTPStatus.FORBIDDEN

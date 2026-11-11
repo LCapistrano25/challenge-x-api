@@ -2,12 +2,14 @@ from django.apps import apps
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
+from apps.accounts.enums import UserRole
 from apps.editions.enums import StageKind
 from apps.projects.exceptions import (
     ChallengeNotEligible,
     ChallengeNotSelected,
     FormationClosed,
     NotTeamLeader,
+    ProjectAccessDenied,
     ProjectTitleTaken,
 )
 
@@ -110,3 +112,31 @@ def ensure_project_title_is_free(project, title: str) -> None:
     taken = projects.filter(edition_id=project.edition_id, title__iexact=title)
     if title and taken.exclude(pk=project.pk).exists():
         raise ProjectTitleTaken()
+
+
+def ensure_actor_is_team_member(team, actor) -> None:
+    """Exige que quem consulta seja integrante ativo da equipe (RF29)."""
+    members = apps.get_model("teams", "TeamMember").objects
+    if not members.filter(team=team, student_id=actor.pk, active=True).exists():
+        raise ProjectAccessDenied()
+
+
+def ensure_actor_can_view_project(team, actor) -> None:
+    """Aluno integrante ativo, professor do curso do desafio ou admin (RF30, RF20)."""
+    if actor.role == UserRole.ADMIN:
+        return
+    if actor.role == UserRole.STUDENT:
+        ensure_actor_is_team_member(team, actor)
+        return
+    project = apps.get_model("projects", "Project").objects.filter(team=team).first()
+    links = apps.get_model("accounts", "TeacherCourse").objects
+    is_course_teacher = (
+        actor.role == UserRole.TEACHER
+        and project is not None
+        and project.challenge_id is not None
+        and links.filter(
+            teacher_id=actor.pk, course_id=project.challenge.course_id, active=True
+        ).exists()
+    )
+    if not is_course_teacher:
+        raise ProjectAccessDenied()
