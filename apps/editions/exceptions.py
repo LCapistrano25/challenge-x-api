@@ -26,3 +26,13 @@ class InvalidTeamLimits(EditionError):
         "Os limites devem ser maiores que zero e o mínimo não pode passar do máximo."
     )
     http_status = HTTPStatus.BAD_REQUEST
+
+
+class EditionClosed(EditionError):
+    code = "edition_closed"
+    default_message = "A edição está encerrada e não pode ser alterada."
+
+
+class ReviewerAlreadyLinked(EditionError):
+    code = "evaluator_already_linked"
+    default_message = "O avaliador já está vinculado a esta edição."

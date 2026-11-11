@@ -4,6 +4,7 @@ from django.core.exceptions import ValidationError
 from apps.editions.enums import EditionStatus
 from apps.editions.exceptions import (
     EditionAlreadyExists,
+    EditionClosed,
     InvalidTeamLimits,
     TeamLimitsLocked,
 )
@@ -56,3 +57,16 @@ def ensure_team_limits_editable(edition) -> None:
     """
     if edition.status != EditionStatus.SETUP:
         raise TeamLimitsLocked()
+
+
+def ensure_edition_not_closed(edition) -> None:
+    """Edição encerrada não aceita alteração (RF11: o vínculo expira com ela)."""
+    if edition.status == EditionStatus.CLOSED:
+        raise EditionClosed()
+
+
+def ensure_course_is_active(course_id: int) -> None:
+    """Exige curso existente e ativo para a abrangência do avaliador (RF11)."""
+    courses = apps.get_model("core", "Course").objects
+    if not courses.filter(pk=course_id, active=True).exists():
+        raise ValidationError({"course_id": "Curso inválido."})
