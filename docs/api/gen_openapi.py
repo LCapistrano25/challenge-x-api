@@ -234,12 +234,12 @@ SC["ExternalEvaluatorAdmin"] = obj({
     "editions": arr(ref("ExternalEvaluatorEditionLink")), "created_at": DT(), "updated_at": DT(),
 }, ["user_id", "name", "email", "active", "institution", "editions", "created_at", "updated_at"])
 SC["ExternalEvaluatorAdminUpdate"] = obj({
-    "name": STR(ex="Ana Ribeiro", maxLength=150), "institution": nul(STR(ex="Instituto Tecnológico do Tocantins", maxLength=200)),
+    "name": STR(ex="Ana Ribeiro", maxLength=150), "institution": nul(STR(ex="Instituto Tecnológico do Tocantins", maxLength=150)),
 }, desc="Ao menos um campo deve ser informado. A abrangência por edição é alterada em /api/admin/editions/{edition_id}/evaluators.", strict=True, minProperties=1)
 SC["ExternalEvaluatorCreate"] = obj({
     "name": STR(ex="Ana Ribeiro", maxLength=150), "email": EMAIL(ex="avaliador@instituicao.com"),
     "password": STR("Senha inicial; armazenada apenas como hash.", "SenhaInicial#2026", format="password"),
-    "institution": nul(STR(ex="Instituto Tecnológico do Tocantins", maxLength=200)),
+    "institution": nul(STR(ex="Instituto Tecnológico do Tocantins", maxLength=150)),
 }, ["name", "email", "password"], strict=True)
 SC["ExternalEvaluatorCreated"] = obj({"external_evaluator": obj({"user_id": USER_ID(), "email": EMAIL(ex="avaliador@instituicao.com")}, ["user_id", "email"])}, ["external_evaluator"])
 

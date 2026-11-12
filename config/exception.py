@@ -1,5 +1,7 @@
+from django.core.exceptions import PermissionDenied as DjangoPermissionDenied
 from django.core.exceptions import ValidationError as DjangoValidationError
-from rest_framework.exceptions import ValidationError
+from django.http import Http404
+from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 from rest_framework.response import Response
 from rest_framework.views import exception_handler
 
@@ -20,6 +22,11 @@ def custom_exception_handler(exc, context):
             else {"non_field_errors": exc.messages}
         )
         exc = ValidationError(details)
+    # Http404 (get_object_or_404) e PermissionDenied do Django não têm default_code.
+    elif isinstance(exc, Http404):
+        exc = NotFound()
+    elif isinstance(exc, DjangoPermissionDenied):
+        exc = PermissionDenied()
 
     if isinstance(exc, AppError):
         return Response(body(exc.code, str(exc)), status=exc.http_status)

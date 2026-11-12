@@ -4,13 +4,11 @@ from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 
 from apps.accounts.models import User
+from apps.accounts.rules import ensure_actor_is_admin
 from apps.editions.enums import EditionStatus
 from apps.editions.exceptions import EditionAlreadyExists
 from apps.editions.models import Edition
-from apps.editions.rules import (
-    ensure_actor_is_admin,
-    ensure_edition_identification_is_free,
-)
+from apps.editions.rules import ensure_edition_identification_is_free
 
 
 @transaction.atomic

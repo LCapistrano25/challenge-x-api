@@ -8,4 +8,9 @@ urlpatterns = [
     path("me", views.MeView.as_view(), name="me"),
     path("csrf", views.CsrfView.as_view(), name="csrf"),
     path("students", views.StudentProfileView.as_view(), name="student-profile"),
+    path(
+        "external-evaluators",
+        views.ExternalReviewProfileView.as_view(),
+        name="external-evaluators-profile",
+    ),
 ]
