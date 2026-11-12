@@ -212,7 +212,7 @@
 - O RF29 seleciona o desafio **antes** do RF30 (título e resumo), então a seleção do desafio não pode ser gravada sozinha.
 - O RF26 (regra 5) e o RF29 exigem **invalidar** o desafio quando o curso perde representante, o que é impossível com `challenge_id` NOT NULL.
 - **Decidir:** tornar esses campos anuláveis ou adotar um fluxo único (desafio + categoria + título + resumo numa só requisição), com outra forma de marcar a invalidação.
-- **Resolvida (25/10/2026):** `challenge` anulável e `title`/`summary` em branco até o RF30. O RF26 invalida o desafio gravando nulo. A entrega (RF31) exige os três preenchidos (`ensure_project_complete`), e o título único na edição ignora título em branco. Falta dividir `PUT /api/teams/{team_id}/project` em RF29 e RF30 no `gen_openapi.py`.
+- **Resolvida (25/10/2026):** `challenge` anulável e `title`/`summary` em branco até o RF30. O RF26 invalida o desafio gravando nulo. A entrega (RF31) exige os três preenchidos (`ensure_project_complete`), e o título único na edição ignora título em branco. O `PUT /api/teams/{team_id}/project` foi dividido (#65, #103) em `PUT .../project/challenge` (RF29) e `PUT .../project/details` (RF30); a categoria (RF50) fica para a seleção de categoria (UC39).
 
 ### P-26 — Transições de `project_status` · Média
 - `project_status` tem `IN_PROGRESS`, `SUBMITTED`, `UNDER_EVALUATION`, `APPROVED` e `REJECTED`, mas nenhum requisito define quando o projeto é aprovado ou reprovado, nem quem faz cada transição.
@@ -352,7 +352,7 @@ A especificação tem **109 operações em 79 caminhos**:
 | PATCH | `/api/admin/support/tickets/{ticket_id}` | P-06 |
 
 Duas decisões de desenho merecem atenção:
-- **`PUT /api/teams/{team_id}/project`** junta RF29 e RF30 numa operação, porque o modelo exige desafio, título e resumo juntos. Se P-25 tornar esses campos anuláveis, ela pode ser dividida.
+- **Projeto em duas operações:** `PUT /api/teams/{team_id}/project/challenge` (RF29) e `PUT .../project/details` (RF30), porque P-25 tornou desafio, título e resumo independentes. `CourseSummary` e `ChallengeSummary` seguem os models: curso sem `slug` e desafio sem `title` (usam `description`).
 - **Avaliador externo:** a criação (`POST /api/auth/external-evaluators`, do contrato) e o vínculo com a edição (`POST /api/admin/editions/{edition_id}/evaluators`) ficaram separados (P-05).
 
 Dois desvios do contrato de auth, ambos pela regra "DBML como referência":
@@ -379,7 +379,7 @@ Dois desvios do contrato de auth, ambos pela regra "DBML como referência":
 | RF19 | Coberto | `POST /api/auth/students` |
 | RF20 | Coberto (proposto) | `GET /api/me/dashboard` |
 | RF21–RF28 | Coberto | `/api/teams`, convites, solicitações, saída, liderança |
-| RF29, RF30, RF50 | Coberto (proposto) | `PUT /api/teams/{id}/project`, `/project/options` |
+| RF29, RF30, RF50 | Coberto (proposto) | `PUT /api/teams/{id}/project/challenge`, `PUT .../project/details`, `/project/options` |
 | RF31 | Coberto | entregas, versões e comprovante |
 | RF32 | Coberto | `GET /api/projects/{id}/scores` |
 | RF33, RF39 | Coberto | `/api/teams/{id}/member-notes` |

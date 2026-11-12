@@ -5004,7 +5004,7 @@ paths:
                   edition_id: 3
                   challenge:
                     id: 15
-                    title: Uso eficiente de recursos hídricos no campus
+                    description: Propor uma solução para reduzir o desperdício de água nas instalações da universidade.
                     course:
                       id: 1
                       name: Engenharia de Software
@@ -5801,7 +5801,6 @@ paths:
                   icon: ods-09.svg
                 challenges:
                 - id: 15
-                  title: Uso eficiente de recursos hídricos no campus
                   description: Propor uma solução para reduzir o desperdício de água nas instalações da universidade.
                   course:
                     id: 1
@@ -7292,7 +7291,7 @@ paths:
                 edition_id: 3
                 challenge:
                   id: 15
-                  title: Uso eficiente de recursos hídricos no campus
+                  description: Propor uma solução para reduzir o desperdício de água nas instalações da universidade.
                   course:
                     id: 1
                     name: Engenharia de Software
@@ -7318,41 +7317,32 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+  /api/teams/{team_id}/project/challenge:
     put:
       tags:
       - projects
-      operationId: projectsSaveTeamProject
-      summary: Cadastrar ou atualizar projeto (desafio, categoria e dados)
+      operationId: projectsSelectChallenge
+      summary: Escolher o desafio do projeto
       description: |-
-        **Status: PROPOSTO** — o contrato depende da decisão de P-25 e pode mudar.
+        Grava o desafio escolhido pela equipe e cria o projeto se ele ainda não existe. Não altera título, resumo nem categoria.
 
-        Cria ou atualiza o projeto em uma única operação, pois o modelo exige desafio, título e resumo juntos (P-25).
-
-        **Requisitos:** RF29, RF30, RF50
+        **Requisitos:** RF29
 
         **Autenticação:** obrigatória (Bearer JWT).
 
         **Perfis permitidos:** STUDENT
 
-        **Autorização adicional:** O usuário deve ser o LEADER ativo da equipe.
+        **Autorização adicional:** O usuário deve ser o LEADER ativo da equipe. Erro 403: not_team_leader.
 
         **Regras de negócio:**
-        - Somente durante a formação; depois os dados ficam congelados.
-        - Desafio deve pertencer a curso de integrante ativo (400 challenge_not_eligible).
-        - Categoria ativa da edição (400 category_not_available).
+        - Somente durante a formação; depois o desafio fica congelado (409 formation_closed).
+        - Desafio ativo da edição e de curso de integrante ativo (400 challenge_not_eligible).
         - A ODS e o curso do desafio são vinculados automaticamente.
-        - Título único na edição, ignorando maiúsculas/minúsculas e espaços extras.
-
-        **Pendências relacionadas (api-pendencias.md):** P-25
-      x-status: proposed
+      x-status: confirmed
       x-requirements:
       - RF29
-      - RF30
-      - RF50
       x-roles:
       - STUDENT
-      x-pendencias:
-      - P-25
       parameters:
       - $ref: '#/components/parameters/TeamId'
       requestBody:
@@ -7360,16 +7350,12 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ProjectWrite'
+              $ref: '#/components/schemas/ChallengeSelection'
             example:
               challenge_id: 15
-              category_id: 2
-              title: Monitoramento inteligente do consumo de água
-              summary: Sensores de baixo custo e um painel web para identificar vazamentos no campus.
-              objective: Reduzir em 20% o desperdício de água no campus.
       responses:
         '200':
-          description: Projeto atualizado.
+          description: Operação concluída.
           content:
             application/json:
               schema:
@@ -7380,7 +7366,7 @@ paths:
                 edition_id: 3
                 challenge:
                   id: 15
-                  title: Uso eficiente de recursos hídricos no campus
+                  description: Propor uma solução para reduzir o desperdício de água nas instalações da universidade.
                   course:
                     id: 1
                     name: Engenharia de Software
@@ -7400,12 +7386,6 @@ paths:
                   name: Engenharia de Software
                 created_at: '2026-10-22T16:00:00Z'
                 updated_at: '2026-10-22T16:00:00Z'
-        '201':
-          description: Projeto criado.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Project'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -7427,6 +7407,106 @@ paths:
                     error:
                       code: formation_closed
                       message: O prazo de formação de equipes está encerrado.
+                      details: null
+  /api/teams/{team_id}/project/details:
+    put:
+      tags:
+      - projects
+      operationId: projectsSaveProjectDetails
+      summary: Cadastrar ou atualizar os dados do projeto
+      description: |-
+        Grava título, resumo e objetivo do projeto; serve para cadastrar e para atualizar. Exige desafio já escolhido.
+
+        **Requisitos:** RF30
+
+        **Autenticação:** obrigatória (Bearer JWT).
+
+        **Perfis permitidos:** STUDENT
+
+        **Autorização adicional:** O usuário deve ser o LEADER ativo da equipe. Erro 403: not_team_leader.
+
+        **Regras de negócio:**
+        - Somente durante a formação; depois os dados ficam congelados (409 formation_closed).
+        - O desafio deve ter sido escolhido antes (409 challenge_not_selected).
+        - Título único na edição, ignorando maiúsculas/minúsculas e espaços extras.
+      x-status: confirmed
+      x-requirements:
+      - RF30
+      x-roles:
+      - STUDENT
+      parameters:
+      - $ref: '#/components/parameters/TeamId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectDetailsWrite'
+            example:
+              title: Monitoramento inteligente do consumo de água
+              summary: Sensores de baixo custo e um painel web para identificar vazamentos no campus.
+              objective: Reduzir em 20% o desperdício de água no campus.
+      responses:
+        '200':
+          description: Operação concluída.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+              example:
+                id: 40
+                team_id: 12
+                edition_id: 3
+                challenge:
+                  id: 15
+                  description: Propor uma solução para reduzir o desperdício de água nas instalações da universidade.
+                  course:
+                    id: 1
+                    name: Engenharia de Software
+                  sdg:
+                    id: 9
+                    number: 9
+                    title: Indústria, Inovação e Infraestrutura
+                category:
+                  id: 2
+                  name: Protótipos e Artefatos
+                title: Monitoramento inteligente do consumo de água
+                summary: Sensores de baixo custo e um painel web para identificar vazamentos no campus.
+                objective: Reduzir em 20% o desperdício de água no campus.
+                status: IN_PROGRESS
+                courses:
+                - id: 1
+                  name: Engenharia de Software
+                created_at: '2026-10-22T16:00:00Z'
+                updated_at: '2026-10-22T16:00:00Z'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Conflito com uma regra de negócio.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                formation_closed:
+                  summary: O prazo de formação de equipes está encerrado.
+                  value:
+                    error:
+                      code: formation_closed
+                      message: O prazo de formação de equipes está encerrado.
+                      details: null
+                challenge_not_selected:
+                  summary: Escolha o desafio antes de cadastrar os dados do projeto.
+                  value:
+                    error:
+                      code: challenge_not_selected
+                      message: Escolha o desafio antes de cadastrar os dados do projeto.
                       details: null
                 project_title_taken:
                   summary: Já existe projeto com título equivalente nesta edição.
@@ -7469,7 +7549,6 @@ paths:
               example:
                 challenges:
                 - id: 15
-                  title: Uso eficiente de recursos hídricos no campus
                   description: Propor uma solução para reduzir o desperdício de água nas instalações da universidade.
                   course:
                     id: 1
@@ -8173,17 +8252,17 @@ components:
           type: integer
           examples:
           - 15
-        title:
+        description:
           type: string
           examples:
-          - Uso eficiente de recursos hídricos no campus
+          - Propor uma solução para reduzir o desperdício de água nas instalações da universidade.
         course:
           $ref: '#/components/schemas/CourseSummary'
         sdg:
           $ref: '#/components/schemas/SdgSummary'
       required:
       - id
-      - title
+      - description
       - course
       - sdg
     MicrosoftSessionRequest:
@@ -9940,10 +10019,6 @@ components:
           type: integer
           examples:
           - 15
-        title:
-          type: string
-          examples:
-          - Uso eficiente de recursos hídricos no campus
         description:
           type: string
           examples:
@@ -9954,7 +10029,6 @@ components:
           $ref: '#/components/schemas/SdgSummary'
       required:
       - id
-      - title
       - description
       - course
       - sdg
@@ -10573,23 +10647,25 @@ components:
           examples:
           - 3
         challenge:
-          $ref: '#/components/schemas/ChallengeSummary'
+          oneOf:
+          - $ref: '#/components/schemas/ChallengeSummary'
+          - type: 'null'
         category:
           oneOf:
           - $ref: '#/components/schemas/CategoryRef'
           - type: 'null'
         title:
           type: string
+          description: Em branco até o líder cadastrar os dados do projeto (RF30).
           examples:
           - Monitoramento inteligente do consumo de água
         summary:
           type: string
+          description: Em branco até o líder cadastrar os dados do projeto (RF30).
           examples:
           - Sensores de baixo custo e um painel web para identificar vazamentos no campus.
         objective:
-          type:
-          - string
-          - 'null'
+          type: string
           examples:
           - Reduzir em 20% o desperdício de água no campus.
         status:
@@ -10622,17 +10698,19 @@ components:
       - courses
       - created_at
       - updated_at
-    ProjectWrite:
+    ChallengeSelection:
       type: object
       properties:
         challenge_id:
           type: integer
           examples:
           - 15
-        category_id:
-          type: integer
-          examples:
-          - 2
+      required:
+      - challenge_id
+      additionalProperties: false
+    ProjectDetailsWrite:
+      type: object
+      properties:
         title:
           type: string
           maxLength: 200
@@ -10645,14 +10723,10 @@ components:
           examples:
           - Sensores de baixo custo e um painel web para identificar vazamentos no campus.
         objective:
-          type:
-          - string
-          - 'null'
+          type: string
           examples:
           - Reduzir em 20% o desperdício de água no campus.
       required:
-      - challenge_id
-      - category_id
       - title
       - summary
       additionalProperties: false

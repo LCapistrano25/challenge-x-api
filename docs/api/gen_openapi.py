@@ -180,9 +180,9 @@ SC["ProjectRef"] = obj({"id": INT(ex=40), "title": STR(ex="Monitoramento intelig
 SC["StageRef"] = obj({"id": INT(ex=7), "name": STR(ex="Entrega Preliminar"), "position": INT(ex=3)}, ["id", "name", "position"])
 SC["CriterionRef"] = obj({"id": INT(ex=21), "name": STR(ex="Inovação")}, ["id", "name"])
 SC["CategoryRef"] = obj({"id": INT(ex=2), "name": STR(ex="Protótipos e Artefatos")}, ["id", "name"])
-SC["ChallengeSummary"] = obj({"id": INT(ex=15), "title": STR(ex="Uso eficiente de recursos hídricos no campus"),
+SC["ChallengeSummary"] = obj({"id": INT(ex=15), "description": TXT(ex="Propor uma solução para reduzir o desperdício de água nas instalações da universidade."),
                               "course": ref("CourseSummary"), "sdg": ref("SdgSummary")},
-                             ["id", "title", "course", "sdg"])
+                             ["id", "description", "course", "sdg"])
 
 # ---------------------------------------------------------------- auth
 SC["MicrosoftSessionRequest"] = obj({"code": STR("Authorization code recebido da Microsoft pelo frontend.", "0.AQ8A3x...")}, ["code"], strict=True)
@@ -378,9 +378,9 @@ SC["StageSchedule"] = obj({
     "starts_at": DT(ex="2026-04-01T00:00:00Z"), "ends_at": DT(ex="2026-04-20T23:59:00Z"),
     "scored": BOOL(ex=True), "points_value": nul(DEC(ex="3.00")), "phase_status": ref("PhaseStatus"),
 }, ["id", "position", "name", "type", "starts_at", "ends_at", "scored", "points_value", "phase_status"])
-SC["PublicChallenge"] = obj({"id": INT(ex=15), "title": STR(ex="Uso eficiente de recursos hídricos no campus"),
+SC["PublicChallenge"] = obj({"id": INT(ex=15),
                              "description": TXT(ex="Propor uma solução para reduzir o desperdício de água nas instalações da universidade."),
-                             "course": ref("CourseSummary"), "sdg": ref("SdgSummary")}, ["id", "title", "description", "course", "sdg"])
+                             "course": ref("CourseSummary"), "sdg": ref("SdgSummary")}, ["id", "description", "course", "sdg"])
 SC["PublicEdition"] = obj({
     "edition": ref("EditionSummary"), "notice_url": nul(URL(ex="https://storage.projetox.edu.br/editais/2026-1.pdf")),
     "stages": arr(ref("StageSchedule")), "sdgs": arr(ref("PublicSdg")), "challenges": arr(ref("PublicChallenge")),
@@ -450,19 +450,19 @@ SC["MemberNote"] = obj({"id": INT(ex=17), "member": ref("UserSummary"), "author"
 
 # ---------------------------------------------------------------- projects
 SC["Project"] = obj({
-    "id": INT(ex=40), "team_id": INT(ex=12), "edition_id": INT(ex=3), "challenge": ref("ChallengeSummary"), "category": nul(ref("CategoryRef")),
-    "title": STR(ex="Monitoramento inteligente do consumo de água"),
-    "summary": TXT(ex="Sensores de baixo custo e um painel web para identificar vazamentos no campus."),
-    "objective": nul(TXT(ex="Reduzir em 20% o desperdício de água no campus.")), "status": ref("ProjectStatus"),
+    "id": INT(ex=40), "team_id": INT(ex=12), "edition_id": INT(ex=3), "challenge": nul(ref("ChallengeSummary")), "category": nul(ref("CategoryRef")),
+    "title": STR("Em branco até o líder cadastrar os dados do projeto (RF30).", ex="Monitoramento inteligente do consumo de água"),
+    "summary": TXT("Em branco até o líder cadastrar os dados do projeto (RF30).", ex="Sensores de baixo custo e um painel web para identificar vazamentos no campus."),
+    "objective": TXT(ex="Reduzir em 20% o desperdício de água no campus."), "status": ref("ProjectStatus"),
     "courses": arr(ref("CourseSummary"), description="Cursos participantes (derivados dos integrantes ativos)."),
     "created_at": DT(), "updated_at": DT(),
 }, ["id", "team_id", "edition_id", "challenge", "category", "title", "summary", "objective", "status", "courses", "created_at", "updated_at"])
-SC["ProjectWrite"] = obj({
-    "challenge_id": INT(ex=15), "category_id": INT(ex=2),
+SC["ChallengeSelection"] = obj({"challenge_id": INT(ex=15)}, ["challenge_id"], strict=True)
+SC["ProjectDetailsWrite"] = obj({
     "title": STR(ex="Monitoramento inteligente do consumo de água", maxLength=200, minLength=1),
     "summary": TXT(ex="Sensores de baixo custo e um painel web para identificar vazamentos no campus.", minLength=1),
-    "objective": nul(TXT(ex="Reduzir em 20% o desperdício de água no campus.")),
-}, ["challenge_id", "category_id", "title", "summary"], strict=True)
+    "objective": TXT(ex="Reduzir em 20% o desperdício de água no campus."),
+}, ["title", "summary"], strict=True)
 SC["ProjectOptions"] = obj({"challenges": arr(ref("PublicChallenge"), description="Desafios ativos dos cursos dos integrantes ativos."),
                             "categories": arr(obj({"id": INT(ex=2), "name": STR(ex="Protótipos e Artefatos"), "description": nul(TXT(ex="Categoria A do Art. 2."))},
                                                   ["id", "name", "description"]), description="Categorias ativas da edição.")},
@@ -989,15 +989,21 @@ op("get", "/api/teams/{team_id}/project/options", "projectsGetOptions", "project
 op("get", "/api/teams/{team_id}/project", "projectsGetTeamProject", "projects", "Consultar projeto da equipe", ["RF30", "RF20"], ["STUDENT", "TEACHER", "ADMIN"],
    "Retorna o projeto da equipe.", params=["TeamId"], ok=ref("Project"), errs=["404"],
    authz="STUDENT: integrante ativo. TEACHER: vínculo ativo com o curso do desafio. ADMIN: qualquer.")
-op("put", "/api/teams/{team_id}/project", "projectsSaveTeamProject", "projects", "Cadastrar ou atualizar projeto (desafio, categoria e dados)",
-   ["RF29", "RF30", "RF50"], ["STUDENT"],
-   "Cria ou atualiza o projeto em uma única operação, pois o modelo exige desafio, título e resumo juntos (P-25).",
-   params=["TeamId"], body=ref("ProjectWrite"), ok=ref("Project"), ok_desc="Projeto atualizado.", errs=["404"], authz=LEADER,
-   more={"201": {"description": "Projeto criado.", "content": {"application/json": {"schema": ref("Project")}}}},
-   rules=["Somente durante a formação; depois os dados ficam congelados.", "Desafio deve pertencer a curso de integrante ativo (400 challenge_not_eligible).",
-          "Categoria ativa da edição (400 category_not_available).", "A ODS e o curso do desafio são vinculados automaticamente.",
+op("put", "/api/teams/{team_id}/project/challenge", "projectsSelectChallenge", "projects", "Escolher o desafio do projeto", ["RF29"], ["STUDENT"],
+   "Grava o desafio escolhido pela equipe e cria o projeto se ele ainda não existe. Não altera título, resumo nem categoria.",
+   params=["TeamId"], body=ref("ChallengeSelection"), ok=ref("Project"), errs=["404"], authz=LEADER + " Erro 403: not_team_leader.",
+   rules=["Somente durante a formação; depois o desafio fica congelado (409 formation_closed).",
+          "Desafio ativo da edição e de curso de integrante ativo (400 challenge_not_eligible).",
+          "A ODS e o curso do desafio são vinculados automaticamente."],
+   conflicts=[FORM_CLOSED])
+op("put", "/api/teams/{team_id}/project/details", "projectsSaveProjectDetails", "projects", "Cadastrar ou atualizar os dados do projeto", ["RF30"], ["STUDENT"],
+   "Grava título, resumo e objetivo do projeto; serve para cadastrar e para atualizar. Exige desafio já escolhido.",
+   params=["TeamId"], body=ref("ProjectDetailsWrite"), ok=ref("Project"), errs=["404"], authz=LEADER + " Erro 403: not_team_leader.",
+   rules=["Somente durante a formação; depois os dados ficam congelados (409 formation_closed).",
+          "O desafio deve ter sido escolhido antes (409 challenge_not_selected).",
           "Título único na edição, ignorando maiúsculas/minúsculas e espaços extras."],
-   conflicts=[FORM_CLOSED, ("project_title_taken", "Já existe projeto com título equivalente nesta edição.")], pend=["P-25"])
+   conflicts=[FORM_CLOSED, ("challenge_not_selected", "Escolha o desafio antes de cadastrar os dados do projeto."),
+              ("project_title_taken", "Já existe projeto com título equivalente nesta edição.")])
 op("get", "/api/projects/{project_id}/deliverables", "projectsListDeliverables", "projects", "Consultar entregas do projeto por etapa", ["RF31", "RF38"],
    ["STUDENT", "TEACHER", "ADMIN"], "Retorna, por etapa com campos de entrega, os campos exigidos, o status e o histórico de versões.",
    params=["ProjectId"], ok=arr(ref("StageDeliverable")), errs=["404"],
