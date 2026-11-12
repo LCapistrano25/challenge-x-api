@@ -10,6 +10,7 @@ from apps.core.use_cases.create_course import create_course
 from apps.core.use_cases.list_courses import list_courses
 from apps.core.use_cases.update_course import update_course
 from apps.core.use_cases.delete_course import delete_course
+from apps.core.use_cases.list_public_courses import list_public_courses
 
 class CourseCreateSerializer(serializers.Serializer):
     """Filtra e valida os dados que chegam da internet."""
@@ -127,3 +128,12 @@ class CourseDetailView(APIView):
             raise DRFValidationError(e.messages)
 
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+class CoursePublicListView(APIView):
+    """Endpoint público para listar apenas cursos ativos."""
+    
+    # Sem restrição de permissão (qualquer um pode aceder)
+    
+    def get(self, request):
+        courses_data = list_public_courses()
+        return Response(courses_data, status=status.HTTP_200_OK)

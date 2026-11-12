@@ -164,3 +164,24 @@ def test_api_delete_course_success(api_client, admin_user):
     assert response.status_code == status.HTTP_204_NO_CONTENT
     # Verifica se o curso realmente sumiu do banco de dados
     assert Course.objects.count() == 0
+
+@pytest.mark.django_db
+def test_api_list_public_courses(api_client):
+    """Testa se o endpoint público lista apenas cursos ativos e não exige login."""
+    from apps.core.models import Course
+    
+    # 1. Limpa o banco de testes
+    Course.objects.all().delete()
+    
+    # 2. Cria dois cursos: um ativo e um inativo
+    Course.objects.create(name="Física", term_count=8, active=True)
+    Course.objects.create(name="Química", term_count=8, active=False)
+    
+    # 3. Faz o pedido GET SEM AUTENTICAÇÃO (repare que não passamos o admin_user)
+    response = api_client.get("/api/courses")
+    
+    # 4. Verifica se deu 200 OK e se só trouxe a Física
+    from rest_framework import status
+    assert response.status_code == status.HTTP_200_OK
+    assert len(response.data) == 1
+    assert response.data[0]["name"] == "Física"
