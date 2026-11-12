@@ -1,7 +1,9 @@
 """Formato padrão de erro (P-37): cada caminho do custom_exception_handler."""
 
 import pytest
+from django.core.exceptions import PermissionDenied as DjangoPermissionDenied
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.http import Http404
 from rest_framework import exceptions, serializers
 from rest_framework.permissions import AllowAny
 from rest_framework.test import APIRequestFactory
@@ -123,6 +125,25 @@ def test_mensagem_personalizada_substitui_a_padrao():
 )
 def test_excecao_do_drf_sai_no_formato_padrao(error, status, code):
     assert_error(respond(error), status, code)
+
+
+# Exceções do Django (get_object_or_404, PermissionDenied): o DRF as converte, o
+# handler precisa tratá-las do mesmo jeito e no formato padrão.
+
+
+def test_http404_do_django_vira_404_not_found():
+    assert_error(respond(Http404()), 404, "not_found")
+
+
+def test_http404_com_mensagem_usa_a_mensagem():
+    resposta = respond(Http404("Edição não encontrada."))
+
+    assert_error(resposta, 404, "not_found")
+    assert resposta.data["error"]["message"] == "Edição não encontrada."
+
+
+def test_permission_denied_do_django_vira_403_permission_denied():
+    assert_error(respond(DjangoPermissionDenied()), 403, "permission_denied")
 
 
 # Erro inesperado
