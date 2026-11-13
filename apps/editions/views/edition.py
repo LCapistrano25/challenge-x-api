@@ -1,13 +1,15 @@
-from rest_framework import generics
+from rest_framework import generics, status
+from rest_framework.response import Response
 
 from apps.accounts.permissions import IsAdmin
 from apps.editions.models import Edition
 from apps.editions.selectors import list_editions
-from apps.editions.serializers import EditionSerializer
+from apps.editions.serializers import EditionCreateSerializer, EditionSerializer
+from apps.editions.use_cases.create_edition import create_edition
 
 
 class EditionListView(generics.ListAPIView):
-    """GET /api/admin/editions: lista curta, array simples (RF47)."""
+    """GET lista as edições (array simples); POST cadastra uma edição (RF47)."""
 
     permission_classes = [IsAdmin]
     serializer_class = EditionSerializer
@@ -15,6 +17,18 @@ class EditionListView(generics.ListAPIView):
 
     def get_queryset(self):
         return list_editions()
+
+    def post(self, request):
+        serializer = EditionCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        edition = create_edition(
+            actor=request.user,
+            year=data["year"],
+            semester=data["semester"],
+            name=data.get("name") or "",
+        )
+        return Response(EditionSerializer(edition).data, status=status.HTTP_201_CREATED)
 
 
 class EditionDetailView(generics.RetrieveAPIView):
