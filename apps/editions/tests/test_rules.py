@@ -5,6 +5,7 @@ from apps.accounts.factories import UserFactory
 from apps.editions.enums import EditionStatus
 from apps.editions.exceptions import (
     EditionAlreadyExists,
+    EditionClosed,
     EditionError,
     InvalidTeamLimits,
     NotAdminActor,
@@ -14,6 +15,7 @@ from apps.editions.factories import EditionFactory
 from apps.editions.rules import (
     ensure_actor_is_admin,
     ensure_edition_identification_is_free,
+    ensure_edition_not_closed,
     ensure_team_limits_editable,
     ensure_team_limits_valid,
 )
@@ -29,6 +31,7 @@ pytestmark = pytest.mark.django_db
     [
         (EditionAlreadyExists, "edition_exists"),
         (TeamLimitsLocked, "team_limits_locked"),
+        (EditionClosed, "edition_closed"),
         (InvalidTeamLimits, "invalid_team_limits"),
         (NotAdminActor, "not_admin_actor"),
     ],
@@ -109,3 +112,21 @@ def test_edicao_em_configuracao_aceita_mudar_limites():
 def test_edicao_publicada_ou_encerrada_trava_os_limites(status):
     with pytest.raises(TeamLimitsLocked):
         ensure_team_limits_editable(EditionFactory(status=status))
+
+
+# Edição encerrada (RF47, RN33)
+
+
+@pytest.mark.parametrize("status", [EditionStatus.SETUP, EditionStatus.PUBLISHED])
+def test_edicao_nao_encerrada_aceita_alteracao(status):
+    ensure_edition_not_closed(EditionFactory(status=status))
+
+
+def test_edicao_encerrada_recusa_qualquer_alteracao():
+    with pytest.raises(EditionClosed):
+        ensure_edition_not_closed(EditionFactory(status=EditionStatus.CLOSED))
+
+
+def test_edicao_encerrada_nao_e_o_mesmo_erro_dos_limites_travados():
+    assert not issubclass(EditionClosed, TeamLimitsLocked)
+    assert EditionClosed.http_status == TeamLimitsLocked.http_status == 409

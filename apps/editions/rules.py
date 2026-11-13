@@ -5,6 +5,7 @@ from apps.accounts.enums import UserRole
 from apps.editions.enums import EditionStatus
 from apps.editions.exceptions import (
     EditionAlreadyExists,
+    EditionClosed,
     InvalidTeamLimits,
     NotAdminActor,
     TeamLimitsLocked,
@@ -45,6 +46,12 @@ def ensure_edition_identification_is_free(year: int, semester: int) -> None:
     editions = apps.get_model("editions", "Edition").objects
     if editions.filter(year=year, semester=semester).exists():
         raise EditionAlreadyExists()
+
+
+def ensure_edition_not_closed(edition) -> None:
+    """Edição encerrada não aceita alteração alguma (RF47, RN33)."""
+    if edition.status == EditionStatus.CLOSED:
+        raise EditionClosed()
 
 
 def ensure_team_limits_valid(min_members: int, max_members: int) -> None:

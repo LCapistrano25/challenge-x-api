@@ -20,6 +20,13 @@ class TeamLimitsLocked(EditionError):
     default_message = "Os limites da equipe não podem ser alterados nesta edição."
 
 
+class EditionClosed(EditionError):
+    """Edição encerrada: nenhum dado pode ser alterado, nem pelo administrador."""
+
+    code = "edition_closed"
+    default_message = "A edição está encerrada e não pode ser alterada."
+
+
 class InvalidTeamLimits(EditionError):
     code = "invalid_team_limits"
     default_message = (

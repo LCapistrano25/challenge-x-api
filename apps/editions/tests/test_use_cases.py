@@ -1,5 +1,7 @@
 import pytest
 from django.core.exceptions import ValidationError
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 
 from apps.accounts.enums import UserRole
 from apps.accounts.factories import UserFactory
@@ -7,6 +9,7 @@ from apps.editions import use_cases
 from apps.editions.enums import EditionStatus
 from apps.editions.exceptions import (
     EditionAlreadyExists,
+    EditionClosed,
     InvalidTeamLimits,
     NotAdminActor,
     TeamLimitsLocked,
@@ -15,6 +18,7 @@ from apps.editions.factories import EditionFactory
 from apps.editions.models import Edition
 from apps.editions.use_cases.configure_team_limits import configure_team_limits
 from apps.editions.use_cases.create_edition import create_edition
+from apps.editions.use_cases.update_edition import UNSET, update_edition
 
 pytestmark = pytest.mark.django_db
 
@@ -170,3 +174,275 @@ def test_sem_ator_nao_configura_limites(edicao):
     with pytest.raises(NotAdminActor):
         configure_team_limits(actor=None, edition=edicao, min_members=2, max_members=4)
     assert limites(edicao) == (3, 5)
+
+
+# Atualização da edição (UC18, UC19, RF47, RF48, RN07, RN33)
+
+
+def estado(edicao):
+    edicao.refresh_from_db()
+    return edicao.name, edicao.min_members, edicao.max_members, edicao.status
+
+
+@pytest.fixture
+def edicao_nomeada():
+    return EditionFactory(name="Desafio X 2030/1")
+
+
+def test_atualiza_so_o_nome_e_preserva_os_limites(admin, edicao_nomeada):
+    resultado = update_edition(actor=admin, edition=edicao_nomeada, name="Novo nome")
+
+    assert resultado.name == "Novo nome"
+    assert estado(edicao_nomeada) == ("Novo nome", 3, 5, EditionStatus.SETUP)
+
+
+@pytest.mark.parametrize("name", [None, ""], ids=["null", "vazio"])
+def test_nome_nulo_ou_vazio_limpa_o_nome(admin, edicao_nomeada, name):
+    update_edition(actor=admin, edition=edicao_nomeada, name=name)
+
+    assert estado(edicao_nomeada)[0] == ""
+
+
+def test_ausencia_do_nome_nao_o_limpa(admin, edicao_nomeada):
+    update_edition(actor=admin, edition=edicao_nomeada, min_members=2, max_members=4)
+
+    assert estado(edicao_nomeada) == ("Desafio X 2030/1", 2, 4, EditionStatus.SETUP)
+
+
+def test_atualiza_nome_e_limites_juntos(admin, edicao_nomeada):
+    update_edition(
+        actor=admin, edition=edicao_nomeada, name="Outro", min_members=2, max_members=6
+    )
+
+    assert estado(edicao_nomeada) == ("Outro", 2, 6, EditionStatus.SETUP)
+
+
+@pytest.mark.parametrize(
+    ("campos", "esperado"),
+    [
+        ({"min_members": 4}, (4, 5)),
+        ({"max_members": 4}, (3, 4)),
+        ({"min_members": 5}, (5, 5)),
+        ({"max_members": 3}, (3, 3)),
+    ],
+)
+def test_limite_parcial_completa_o_outro_com_o_valor_atual(
+    admin, edicao_nomeada, campos, esperado
+):
+    update_edition(actor=admin, edition=edicao_nomeada, **campos)
+
+    assert estado(edicao_nomeada)[1:3] == esperado
+
+
+@pytest.mark.parametrize(
+    "campos",
+    [
+        {"min_members": 6},
+        {"max_members": 2},
+        {"min_members": 0},
+        {"max_members": 0},
+        {"min_members": -1, "max_members": 5},
+        {"min_members": 6, "max_members": 5},
+    ],
+)
+def test_limites_invalidos_nao_alteram_nada_nem_o_nome(admin, edicao_nomeada, campos):
+    with pytest.raises(InvalidTeamLimits):
+        update_edition(
+            actor=admin, edition=edicao_nomeada, name="Não deve gravar", **campos
+        )
+
+    assert estado(edicao_nomeada) == ("Desafio X 2030/1", 3, 5, EditionStatus.SETUP)
+
+
+def test_sem_campos_nao_altera_a_edicao(admin, edicao_nomeada):
+    update_edition(actor=admin, edition=edicao_nomeada)
+
+    assert estado(edicao_nomeada) == ("Desafio X 2030/1", 3, 5, EditionStatus.SETUP)
+
+
+def test_valor_padrao_unset_vale_como_ausente(admin, edicao_nomeada):
+    update_edition(
+        actor=admin,
+        edition=edicao_nomeada,
+        name=UNSET,
+        min_members=UNSET,
+        max_members=UNSET,
+    )
+
+    assert estado(edicao_nomeada) == ("Desafio X 2030/1", 3, 5, EditionStatus.SETUP)
+
+
+@pytest.mark.parametrize("campo", ["year", "semester", "status", "regulation_url"])
+def test_campos_fora_do_contrato_nao_sao_aceitos(admin, edicao_nomeada, campo):
+    with pytest.raises(TypeError):
+        update_edition(actor=admin, edition=edicao_nomeada, **{campo: 1})
+
+
+def test_atualizacao_avanca_updated_at(admin, edicao_nomeada):
+    antes = edicao_nomeada.updated_at
+
+    resultado = update_edition(actor=admin, edition=edicao_nomeada, name="Novo")
+
+    assert resultado.updated_at > antes
+
+
+# Edição publicada: só o nome muda (RF48)
+
+
+@pytest.fixture
+def edicao_publicada():
+    return EditionFactory(name="Publicada", status=EditionStatus.PUBLISHED)
+
+
+def test_publicada_aceita_mudar_so_o_nome(admin, edicao_publicada):
+    update_edition(actor=admin, edition=edicao_publicada, name="Renomeada")
+
+    assert estado(edicao_publicada) == ("Renomeada", 3, 5, EditionStatus.PUBLISHED)
+
+
+@pytest.mark.parametrize(
+    "campos",
+    [
+        {"min_members": 2},
+        {"max_members": 6},
+        {"min_members": 2, "max_members": 6},
+        {"min_members": 3, "max_members": 5},
+    ],
+)
+def test_publicada_trava_os_limites(admin, edicao_publicada, campos):
+    with pytest.raises(TeamLimitsLocked):
+        update_edition(actor=admin, edition=edicao_publicada, **campos)
+
+    assert estado(edicao_publicada) == ("Publicada", 3, 5, EditionStatus.PUBLISHED)
+
+
+def test_publicada_com_nome_e_limites_rejeita_tudo_sem_alteracao_parcial(
+    admin, edicao_publicada
+):
+    with pytest.raises(TeamLimitsLocked):
+        update_edition(
+            actor=admin,
+            edition=edicao_publicada,
+            name="Não deve gravar",
+            min_members=2,
+            max_members=4,
+        )
+
+    assert estado(edicao_publicada) == ("Publicada", 3, 5, EditionStatus.PUBLISHED)
+
+
+@pytest.mark.parametrize(
+    "campos",
+    [
+        {"min_members": 0},
+        {"max_members": 0},
+        {"min_members": 6},
+        {"max_members": 2},
+        {"min_members": -1, "max_members": 5},
+        {"min_members": 6, "max_members": 5},
+    ],
+)
+def test_publicada_com_limites_invalidos_responde_limites_travados(
+    admin, edicao_publicada, campos
+):
+    # A permissão de alterar limites vem antes da validade dos valores.
+    with pytest.raises(TeamLimitsLocked):
+        update_edition(
+            actor=admin, edition=edicao_publicada, name="Não deve gravar", **campos
+        )
+
+    assert estado(edicao_publicada) == ("Publicada", 3, 5, EditionStatus.PUBLISHED)
+
+
+# Edição encerrada: nada muda (RF47, RN33)
+
+
+@pytest.fixture
+def edicao_encerrada():
+    return EditionFactory(name="Encerrada", status=EditionStatus.CLOSED)
+
+
+@pytest.mark.parametrize(
+    "campos",
+    [
+        {"name": "Novo"},
+        {"name": None},
+        {"min_members": 2},
+        {"max_members": 6},
+        {"name": "Novo", "min_members": 2, "max_members": 6},
+    ],
+)
+def test_encerrada_recusa_qualquer_atualizacao(admin, edicao_encerrada, campos):
+    with pytest.raises(EditionClosed):
+        update_edition(actor=admin, edition=edicao_encerrada, **campos)
+
+    assert estado(edicao_encerrada) == ("Encerrada", 3, 5, EditionStatus.CLOSED)
+
+
+# Consistência: estado e limites valem os do banco, lidos com a linha travada
+
+
+def test_status_vale_o_do_banco_e_nao_o_do_objeto_recebido_na_atualizacao(
+    admin, edicao_nomeada
+):
+    Edition.objects.filter(pk=edicao_nomeada.pk).update(status=EditionStatus.CLOSED)
+    assert edicao_nomeada.status == EditionStatus.SETUP
+
+    with pytest.raises(EditionClosed):
+        update_edition(actor=admin, edition=edicao_nomeada, name="Novo")
+
+    assert estado(edicao_nomeada)[0] == "Desafio X 2030/1"
+
+
+def test_limites_travados_pelo_status_do_banco(admin, edicao_nomeada):
+    Edition.objects.filter(pk=edicao_nomeada.pk).update(status=EditionStatus.PUBLISHED)
+
+    with pytest.raises(TeamLimitsLocked):
+        update_edition(actor=admin, edition=edicao_nomeada, max_members=4)
+
+    assert estado(edicao_nomeada)[1:3] == (3, 5)
+
+
+def test_limite_parcial_usa_o_outro_limite_do_banco_e_nao_o_do_objeto(
+    admin, edicao_nomeada
+):
+    # O objeto em mãos ainda diz max=5, mas outra requisição já baixou para 4.
+    Edition.objects.filter(pk=edicao_nomeada.pk).update(max_members=4)
+    assert edicao_nomeada.max_members == 5
+
+    with pytest.raises(InvalidTeamLimits):
+        update_edition(actor=admin, edition=edicao_nomeada, min_members=5)
+
+    assert estado(edicao_nomeada)[1:3] == (3, 4)
+
+
+def test_atualizacao_trava_a_linha_da_edicao(admin, edicao_nomeada):
+    with CaptureQueriesContext(connection) as consultas:
+        update_edition(actor=admin, edition=edicao_nomeada, name="Novo")
+
+    assert any("FOR UPDATE" in q["sql"] for q in consultas)
+
+
+# Ator
+
+
+@pytest.mark.parametrize(
+    "role", [UserRole.STUDENT, UserRole.TEACHER, UserRole.EXTERNAL_REVIEWER]
+)
+def test_quem_nao_e_admin_nao_atualiza(edicao_nomeada, role):
+    with pytest.raises(NotAdminActor):
+        update_edition(actor=UserFactory(role=role), edition=edicao_nomeada, name="x")
+
+    assert estado(edicao_nomeada)[0] == "Desafio X 2030/1"
+
+
+def test_sem_ator_nao_atualiza(edicao_nomeada):
+    with pytest.raises(NotAdminActor):
+        update_edition(actor=None, edition=edicao_nomeada, name="Novo")
+
+
+def test_ator_invalido_vem_antes_do_estado_da_edicao(edicao_encerrada):
+    with pytest.raises(NotAdminActor):
+        update_edition(
+            actor=UserFactory(role=UserRole.STUDENT), edition=edicao_encerrada, name="x"
+        )
