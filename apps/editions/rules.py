@@ -1,6 +1,14 @@
 from django.apps import apps
 from django.core.exceptions import ValidationError
 
+from apps.editions.enums import EditionStatus
+from apps.editions.exceptions import (
+    EditionAlreadyExists,
+    EditionClosed,
+    InvalidTeamLimits,
+    TeamLimitsLocked,
+)
+
 # Os models importam estas regras; por isso elas pegam os models pelo registro
 # do Django (como a FK por string), sem import que fecharia o ciclo.
 
@@ -23,3 +31,42 @@ def ensure_criterion_in_stage_edition(stage, criterion) -> None:
     """Exige que critério e etapa sejam da mesma edição (RF08)."""
     if stage.edition_id != criterion.edition_id:
         raise ValidationError("O critério pertence a outra edição.")
+
+
+def ensure_edition_identification_is_free(year: int, semester: int) -> None:
+    """Impede duas edições com o mesmo ano e semestre (RN05)."""
+    editions = apps.get_model("editions", "Edition").objects
+    if editions.filter(year=year, semester=semester).exists():
+        raise EditionAlreadyExists()
+
+
+def ensure_team_limits_valid(min_members: int, max_members: int) -> None:
+    """Exige mínimo e máximo maiores que zero e mínimo não maior que o máximo (RN07).
+
+    O banco recusa o mesmo caso (edition_member_limits_valid); aqui sai o erro de
+    negócio em vez de IntegrityError.
+    """
+    if min_members <= 0 or max_members <= 0 or min_members > max_members:
+        raise InvalidTeamLimits()
+
+
+def ensure_team_limits_editable(edition) -> None:
+    """Só edição em configuração aceita mudar os limites (RF48, RN33).
+
+    Edição publicada já divulgou o edital; encerrada não aceita alteração alguma.
+    """
+    if edition.status != EditionStatus.SETUP:
+        raise TeamLimitsLocked()
+
+
+def ensure_edition_not_closed(edition) -> None:
+    """Edição encerrada não aceita alteração (RF11: o vínculo expira com ela)."""
+    if edition.status == EditionStatus.CLOSED:
+        raise EditionClosed()
+
+
+def ensure_course_is_active(course_id: int) -> None:
+    """Exige curso existente e ativo para a abrangência do avaliador (RF11)."""
+    courses = apps.get_model("core", "Course").objects
+    if not courses.filter(pk=course_id, active=True).exists():
+        raise ValidationError({"course_id": "Curso inválido."})

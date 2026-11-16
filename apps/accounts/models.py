@@ -1,10 +1,9 @@
 from django.contrib.auth.models import AbstractUser, BaseUserManager
-from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q
 
 from apps.accounts.enums import UserRole
-from apps.accounts.rules import ensure_role_change_allowed
+from apps.accounts.rules import ensure_role_change_allowed, ensure_term_within_course
 from apps.core.models import TimeStampedModel
 
 
@@ -121,10 +120,8 @@ class Student(TimeStampedModel):
 
     def clean(self):
         # O limite depende de outra tabela, então não cabe numa constraint (RN10).
-        if self.course_id and self.term and self.term > self.course.term_count:
-            raise ValidationError(
-                {"term": f"O período deve estar entre 1 e {self.course.term_count}."}
-            )
+        if self.course_id and self.term:
+            ensure_term_within_course(self.course, self.term)
 
     def __str__(self):
         return f"{self.user.email} ({self.registration_number})"

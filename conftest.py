@@ -9,6 +9,6 @@ def fast_password_hasher(settings):
 
 
 @pytest.fixture(autouse=True)
-def clear_throttle_cache():
-    # O limite de tentativas fica no cache; sem limpar, um teste herda as do outro.
+def clear_cache():
+    # O limite de tentativas do login conta no cache; sem limpar, os testes se somam.
     cache.clear()

@@ -212,7 +212,7 @@
 - O RF29 seleciona o desafio **antes** do RF30 (título e resumo), então a seleção do desafio não pode ser gravada sozinha.
 - O RF26 (regra 5) e o RF29 exigem **invalidar** o desafio quando o curso perde representante, o que é impossível com `challenge_id` NOT NULL.
 - **Decidir:** tornar esses campos anuláveis ou adotar um fluxo único (desafio + categoria + título + resumo numa só requisição), com outra forma de marcar a invalidação.
-- **Resolvida (25/10/2026):** `challenge` anulável e `title`/`summary` em branco até o RF30. O RF26 invalida o desafio gravando nulo. A entrega (RF31) exige os três preenchidos (`ensure_project_complete`), e o título único na edição ignora título em branco. Falta dividir `PUT /api/teams/{team_id}/project` em RF29 e RF30 no `gen_openapi.py`.
+- **Resolvida (25/10/2026):** `challenge` anulável e `title`/`summary` em branco até o RF30. O RF26 invalida o desafio gravando nulo. A entrega (RF31) exige os três preenchidos (`ensure_project_complete`), e o título único na edição ignora título em branco. O `PUT /api/teams/{team_id}/project` foi dividido (#65, #103) em `PUT .../project/challenge` (RF29) e `PUT .../project/details` (RF30); a categoria (RF50) fica para a seleção de categoria (UC39).
 
 ### P-26 — Transições de `project_status` · Média
 - `project_status` tem `IN_PROGRESS`, `SUBMITTED`, `UNDER_EVALUATION`, `APPROVED` e `REJECTED`, mas nenhum requisito define quando o projeto é aprovado ou reprovado, nem quem faz cada transição.
@@ -286,9 +286,11 @@ Estas são convenções que a especificação adota para ficar completa. Cada um
 - Nenhuma fonte define o corpo dos erros.
 - **Proposta:** `{"error": {"code": "<snake_case>", "message": "<texto>", "details": <objeto|null>}}` (schema `Error`). Em erros de validação, `details` é um mapa campo → lista de mensagens. Os conflitos de negócio (409) têm um `code` estável por regra (ex.: `formation_closed`, `team_full`).
 - **Impacto na implementação:** exige um `EXCEPTION_HANDLER` customizado no DRF, porque o formato padrão do DRF é diferente.
+- **Adotada (#90):** `config/exception.py`. Erro de validação sem campo vai em `details.non_field_errors`. As exceções da aplicação herdam de `AppError` (`apps/core/exceptions.py`) e trazem `code`, `default_message` e `http_status`; `BusinessRuleViolation` responde 409 e `ExternalServiceError`, 503.
 
 ### P-38 — Paginação · Baixa
 - **Proposta:** `page` e `page_size` (padrão 20, máximo 100), resposta `{count, next, previous, results}`, que é o `PageNumberPagination` do DRF. Só as listagens que podem crescer são paginadas. Listas curtas e de configuração (cursos, etapas, critérios) retornam um array simples.
+- **Adotada (#90):** `config/pagination.py`, padrão no `REST_FRAMEWORK`. A listagem curta desliga com `pagination_class = None`.
 
 ### P-39 — Decimais como string · Baixa
 - Campos `decimal(4,2)` (notas, pontos, `points_value`, `max_score`) são serializados como string (`"2.50"`), que é o padrão do `DecimalField` do DRF e evita erro de ponto flutuante. Confirmar com o frontend.
@@ -350,7 +352,7 @@ A especificação tem **109 operações em 79 caminhos**:
 | PATCH | `/api/admin/support/tickets/{ticket_id}` | P-06 |
 
 Duas decisões de desenho merecem atenção:
-- **`PUT /api/teams/{team_id}/project`** junta RF29 e RF30 numa operação, porque o modelo exige desafio, título e resumo juntos. Se P-25 tornar esses campos anuláveis, ela pode ser dividida.
+- **Projeto em duas operações:** `PUT /api/teams/{team_id}/project/challenge` (RF29) e `PUT .../project/details` (RF30), porque P-25 tornou desafio, título e resumo independentes. `CourseSummary` e `ChallengeSummary` seguem os models: curso sem `slug` e desafio sem `title` (usam `description`).
 - **Avaliador externo:** a criação (`POST /api/auth/external-evaluators`, do contrato) e o vínculo com a edição (`POST /api/admin/editions/{edition_id}/evaluators`) ficaram separados (P-05).
 
 Dois desvios do contrato de auth, ambos pela regra "DBML como referência":
@@ -377,7 +379,7 @@ Dois desvios do contrato de auth, ambos pela regra "DBML como referência":
 | RF19 | Coberto | `POST /api/auth/students` |
 | RF20 | Coberto (proposto) | `GET /api/me/dashboard` |
 | RF21–RF28 | Coberto | `/api/teams`, convites, solicitações, saída, liderança |
-| RF29, RF30, RF50 | Coberto (proposto) | `PUT /api/teams/{id}/project`, `/project/options` |
+| RF29, RF30, RF50 | Coberto (proposto) | `PUT /api/teams/{id}/project/challenge`, `PUT .../project/details`, `/project/options` |
 | RF31 | Coberto | entregas, versões e comprovante |
 | RF32 | Coberto | `GET /api/projects/{id}/scores` |
 | RF33, RF39 | Coberto | `/api/teams/{id}/member-notes` |
@@ -422,7 +424,7 @@ O validador oficial (`openapi-spec-validator`) **não pôde ser instalado**, por
 ## 14. O que impede considerar a especificação definitiva
 
 1. **Pendências altas que mudam contratos:** P-01, P-04, P-06, P-19, P-21, P-23, P-25, P-29, P-30 e P-31 (afetam as 14 operações propostas e a ausência de RF14 e de parte do RF17).
-2. **Convenções transversais ainda não aprovadas:** formato de erro (P-37), paginação (P-38), decimais (P-39) e multipart (P-43).
+2. **Convenções transversais ainda não aprovadas:** decimais (P-39) e multipart (P-43). Formato de erro (P-37) e paginação (P-38) foram adotados.
 3. **Contrato de auth:** nomes e valores alinhados ao DBML (P-02) e a ausência de definição para expiração, refresh e logout (P-03, P-42).
 4. **Validação oficial e importação no Apidog** ainda não executadas (seção 13).
 
@@ -441,3 +443,6 @@ O validador oficial (`openapi-spec-validator`) **não pôde ser instalado**, por
 | Data | Alteração | Motivo |
 | :- | :- | :- |
 | 24/10/2026 | `Course.period_count` → `term_count`; campo `period` do aluno → `term` (cadastro, perfil e atualização de aluno). | Glossário do guia de implementação: período do aluno é `term`. Alinha com `User.term` e `Course.term_count` no código. |
+| 08/11/2026 | Ids de usuário (`user_id`, `evaluator_id`, `student_id`, `assigned_to` e os parâmetros `UserId`, `EvaluatorId` e `assigned_to`) passam de UUID para inteiro; `registration_number` com no máximo 30 caracteres. | `User.id` é inteiro no código e no DBML (`usuario.id integer`), e a matrícula é `varchar(30)`. Ids de chamado e notificação continuam UUID. |
+| 08/11/2026 | `POST /api/auth/sessions/password` devolve o usuário da sessão (`user_id`, `name`, `email`, `role`) em vez de um JWT, com 403 `reviewer_not_in_current_edition` para o avaliador fora da edição vigente; entram `POST /api/auth/logout` e `GET /api/auth/me`. | A #91 usa sessão com CSRF; a credencial vai no cookie. O esquema de segurança do contrato (`bearerAuth`) e o login Microsoft continuam como estão até a decisão da #70. |
+| 10/11/2026 | `CourseSummary` (resumo do curso dentro de outros recursos) perde o `slug`. | O `Course` não tem mais `slug` desde a P-17. Os schemas do próprio curso (`Course`, cadastro e atualização) e o conflito `course_slug_taken` ainda têm o campo e ficam para a task de cursos (UC03). |
