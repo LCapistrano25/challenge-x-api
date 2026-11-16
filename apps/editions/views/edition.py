@@ -4,8 +4,13 @@ from rest_framework.response import Response
 from apps.accounts.permissions import IsAdmin
 from apps.editions.models import Edition
 from apps.editions.selectors import list_editions
-from apps.editions.serializers import EditionCreateSerializer, EditionSerializer
+from apps.editions.serializers import (
+    EditionCreateSerializer,
+    EditionSerializer,
+    EditionUpdateSerializer,
+)
 from apps.editions.use_cases.create_edition import create_edition
+from apps.editions.use_cases.update_edition import update_edition
 
 
 class EditionListView(generics.ListAPIView):
@@ -32,9 +37,18 @@ class EditionListView(generics.ListAPIView):
 
 
 class EditionDetailView(generics.RetrieveAPIView):
-    """GET /api/admin/editions/{edition_id}: consulta uma edição (RF47)."""
+    """GET consulta e PATCH atualiza nome e limites de uma edição (RF47, RF48)."""
 
     permission_classes = [IsAdmin]
     serializer_class = EditionSerializer
     queryset = Edition.objects.all()
     lookup_url_kwarg = "edition_id"
+
+    def patch(self, request, *args, **kwargs):
+        edition = self.get_object()
+        serializer = EditionUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        edition = update_edition(
+            actor=request.user, edition=edition, **serializer.validated_data
+        )
+        return Response(EditionSerializer(edition).data)
