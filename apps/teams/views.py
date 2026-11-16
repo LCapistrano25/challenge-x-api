@@ -1,3 +1,4 @@
+from django.db.models import Count, F, Q
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -8,22 +9,37 @@ from apps.accounts.models import TeacherCourse
 from apps.accounts.permissions import IsAdmin, IsStudent, IsTeacher
 from apps.editions.enums import EditionStatus
 from apps.editions.models import Edition
-from apps.teams.enums import MemberRole
-from apps.teams.models import Invitation, TeamMember
+from apps.teams.enums import (
+    MemberRole,
+    TeamStatus,
+)
+from apps.teams.models import Invitation, JoinRequest, TeamMember
 from apps.teams.models.team import Team
 from apps.teams.serializers import (
     InvitationCreateSerializer,
     InvitationResponseSerializer,
     InvitationSerializer,
     InvitationStatusFilterSerializer,
+    JoinRequestResponseSerializer,
+    JoinRequestSerializer,
+    JoinRequestStatusFilterSerializer,
+    TeamAvailabilitySerializer,
     TeamCreateSerializer,
     TeamSerializer,
 )
 from apps.teams.use_cases.create_team import create_team
 from apps.teams.use_cases.invite_member import invite_member
+from apps.teams.use_cases.request_to_join import (
+    JoinRequestRejected,
+    request_to_join,
+)
 from apps.teams.use_cases.respond_invitation import (
     InvitationResponseRejected,
     respond_invitation,
+)
+from apps.teams.use_cases.respond_join_request import (
+    JoinRequestResponseRejected,
+    respond_join_request,
 )
 
 
@@ -52,6 +68,31 @@ class TeamCreateView(APIView):
             TeamSerializer(team).data,
             status=status.HTTP_201_CREATED,
         )
+    
+    def get(self, request):
+        teams = (
+            Team.objects.filter(
+                status=TeamStatus.ACTIVE,
+                edition__status=EditionStatus.PUBLISHED,
+            )
+            .select_related("edition")
+            .annotate(
+                active_members_count=Count(
+                    "members",
+                    filter=Q(members__active=True),
+                )
+            )
+            .filter(
+                active_members_count__lt=F("edition__max_members")
+            )
+            .order_by("name")
+        )
+
+        return Response(
+            TeamAvailabilitySerializer(teams, many=True).data,
+            status=status.HTTP_200_OK,
+        )
+
 
 
 class TeamDetailView(APIView):
@@ -146,7 +187,89 @@ class TeamInvitationView(APIView):
             InvitationSerializer(invitations, many=True).data,
             status=status.HTTP_200_OK,
         )
+    
 
+class JoinRequestCreateView(APIView):
+    permission_classes = [IsAuthenticated, IsStudent]
+
+    def get(self, request, team_id):
+        leader = TeamMember.objects.filter(
+            team_id=team_id,
+            student__user=request.user,
+            role=MemberRole.LEADER,
+            active=True,
+        ).exists()
+
+        if not leader:
+            return Response(
+                {"detail": "Equipe não encontrada."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        filter_serializer = JoinRequestStatusFilterSerializer(
+            data=request.query_params,
+        )
+        filter_serializer.is_valid(raise_exception=True)
+
+        join_requests = JoinRequest.objects.filter(
+            team_id=team_id,
+        ).select_related("team", "student__user")
+
+        request_status = filter_serializer.validated_data.get("status")
+
+        if request_status:
+            join_requests = join_requests.filter(status=request_status)
+
+        return Response(
+            JoinRequestSerializer(join_requests, many=True).data,
+            status=status.HTTP_200_OK,
+        )
+
+    def post(self, request, team_id):
+        try:
+            join_request = request_to_join(
+                actor=request.user,
+                team_id=team_id,
+            )
+
+        except JoinRequestRejected as error:
+            message = str(error)
+
+            if message == "Equipe não encontrada.":
+                code = "team_not_found"
+                http_status = status.HTTP_404_NOT_FOUND
+            else:
+                error_codes = {
+    "Não existe prazo de formação aberto para esta equipe.":
+        "formation_closed",
+    "A equipe já atingiu o limite máximo de integrantes.": "team_full",
+    "O aluno já participa de uma equipe ativa nesta edição.":
+        "student_already_in_team",
+    "Já existe uma solicitação pendente para esta equipe.":
+        "request_already_pending",
+}
+
+                code = error_codes.get(
+                    message,
+                    "join_request_rejected",
+                )
+                http_status = status.HTTP_409_CONFLICT
+
+            return Response(
+                {
+                    "error": {
+                        "code": code,
+                        "message": message,
+                        "details": None,
+                    }
+                },
+                status=http_status,
+            )
+
+        return Response(
+            JoinRequestSerializer(join_request).data,
+            status=status.HTTP_201_CREATED,
+        )
 
 class MyInvitationsView(APIView):
     permission_classes = [IsAuthenticated, IsStudent]
@@ -238,5 +361,104 @@ class InvitationResponseView(APIView):
 
         return Response(
             InvitationSerializer(invitation).data,
+            status=status.HTTP_200_OK,
+        )
+class MyJoinRequestsView(APIView):
+    permission_classes = [IsAuthenticated, IsStudent]
+
+    def get(self, request):
+        filter_serializer = JoinRequestStatusFilterSerializer(
+            data=request.query_params,
+        )
+        filter_serializer.is_valid(raise_exception=True)
+
+        student = request.user.student
+
+        join_requests = JoinRequest.objects.filter(
+            student=student,
+        ).select_related("team", "student__user")
+
+        request_status = filter_serializer.validated_data.get("status")
+
+        if request_status:
+            join_requests = join_requests.filter(status=request_status)
+
+        return Response(
+            JoinRequestSerializer(join_requests, many=True).data,
+            status=status.HTTP_200_OK,
+        )
+    
+class TeamJoinRequestsView(APIView):
+    permission_classes = [IsAuthenticated, IsStudent]
+
+    def get(self, request, team_id):
+        leader = TeamMember.objects.filter(
+            team_id=team_id,
+            student__user=request.user,
+            role=MemberRole.LEADER,
+            active=True,
+        ).exists()
+
+        if not leader:
+            return Response(
+                {"detail": "Equipe não encontrada."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        filter_serializer = JoinRequestStatusFilterSerializer(
+            data=request.query_params,
+        )
+        filter_serializer.is_valid(raise_exception=True)
+
+        join_requests = JoinRequest.objects.filter(
+            team_id=team_id,
+        ).select_related("team", "student__user")
+
+        request_status = filter_serializer.validated_data.get("status")
+
+        if request_status:
+            join_requests = join_requests.filter(status=request_status)
+
+        return Response(
+            JoinRequestSerializer(join_requests, many=True).data,
+            status=status.HTTP_200_OK,
+        )
+    
+class JoinRequestResponseView(APIView):
+    permission_classes = [IsAuthenticated, IsStudent]
+
+    def post(self, request, join_request_id):
+        serializer = JoinRequestResponseSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            join_request = respond_join_request(
+                actor=request.user,
+                join_request_id=join_request_id,
+                approve=serializer.validated_data["approve"],
+            )
+        except JoinRequestResponseRejected as error:
+            message = str(error)
+
+            if message == "Solicitação não encontrada.":
+                code = "join_request_not_found"
+                http_status = status.HTTP_404_NOT_FOUND
+            else:
+                code = "join_request_response_rejected"
+                http_status = status.HTTP_409_CONFLICT
+
+            return Response(
+                {
+                    "error": {
+                        "code": code,
+                        "message": message,
+                        "details": None,
+                    }
+                },
+                status=http_status,
+            )
+
+        return Response(
+            JoinRequestSerializer(join_request).data,
             status=status.HTTP_200_OK,
         )

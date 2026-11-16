@@ -18,13 +18,18 @@ from apps.editions.factories import (
     StageFactory,
 )
 from apps.projects.models import Project
-from apps.teams.enums import InvitationStatus
+from apps.teams.enums import (
+    InvitationStatus,
+    MemberRole,
+    RequestStatus,
+)
 from apps.teams.factories import (
     InvitationFactory,
+    JoinRequestFactory,
     TeamFactory,
     TeamMemberFactory,
 )
-from apps.teams.models import Team
+from apps.teams.models import Team, TeamMember
 
 pytestmark = pytest.mark.django_db
 
@@ -462,3 +467,335 @@ def test_resposta_sem_campo_accept_retorna_400():
     )
 
     assert response.status_code == 400
+
+
+def test_aluno_lista_equipes_com_vagas():
+    student = StudentFactory()
+    team = TeamFactory()
+    team.edition.status = EditionStatus.PUBLISHED
+    team.edition.max_members = 5
+    team.edition.save()
+
+    client = authenticated_client(student.user)
+
+    response = client.get(TEAMS_URL)
+
+    assert response.status_code == 200
+    assert len(response.data) == 1
+    assert response.data[0]["id"] == team.id
+    assert response.data[0]["members_count"] == 1
+    assert response.data[0]["available_vacancies"] == 4
+
+def test_equipes_de_edicoes_nao_publicadas_nao_aparecem():
+    student = StudentFactory()
+    TeamFactory()
+
+    client = authenticated_client(student.user)
+
+    response = client.get(TEAMS_URL)
+
+    assert response.status_code == 200
+    assert len(response.data) == 0
+
+def test_equipes_lotadas_nao_aparecem_na_consulta():
+    student = StudentFactory()
+    team = TeamFactory()
+
+    team.edition.status = EditionStatus.PUBLISHED
+    team.edition.min_members = 1
+    team.edition.max_members = 2
+    team.edition.save()
+
+    TeamMemberFactory(team=team)
+
+    client = authenticated_client(student.user)
+    response = client.get(TEAMS_URL)
+
+    assert response.status_code == 200
+    assert len(response.data) == 0
+
+def test_aluno_solicita_entrada_em_equipe_pela_api():
+    team = TeamFactory()
+    create_open_formation(team.edition)
+    student = StudentFactory()
+
+    client = authenticated_client(student.user)
+
+    response = client.post(
+        f"{TEAMS_URL}/{team.id}/join-requests",
+        {},
+        format="json",
+    )
+
+    assert response.status_code == 201
+    assert response.data["status"] == RequestStatus.PENDING
+    assert response.data["team"]["id"] == team.id
+
+
+def test_aluno_nao_pode_solicitar_entrada_duas_vezes():
+    team = TeamFactory()
+    create_open_formation(team.edition)
+    student = StudentFactory()
+
+    client = authenticated_client(student.user)
+
+    first_response = client.post(
+        f"{TEAMS_URL}/{team.id}/join-requests",
+        {},
+        format="json",
+    )
+
+    second_response = client.post(
+        f"{TEAMS_URL}/{team.id}/join-requests",
+        {},
+        format="json",
+    )
+
+    assert first_response.status_code == 201
+    assert second_response.status_code == 409
+    assert second_response.data["error"]["code"] == "request_already_pending"
+
+
+def test_aluno_nao_pode_solicitar_entrada_em_equipe_lotada():
+    team = TeamFactory()
+    create_open_formation(team.edition)
+
+    team.edition.min_members = 1
+    team.edition.max_members = 1
+    team.edition.save()
+
+    student = StudentFactory()
+    client = authenticated_client(student.user)
+
+    response = client.post(
+        f"{TEAMS_URL}/{team.id}/join-requests",
+        {},
+        format="json",
+    )
+
+    assert response.status_code == 409
+    assert response.data["error"]["code"] == "team_full"
+
+
+def test_aluno_nao_pode_solicitar_entrada_com_formacao_encerrada():
+    team = TeamFactory()
+    student = StudentFactory()
+
+    now = timezone.now()
+    StageFactory(
+        edition=team.edition,
+        formation=True,
+        starts_at=now - timedelta(days=10),
+        ends_at=now - timedelta(days=1),
+    )
+
+    client = authenticated_client(student.user)
+
+    response = client.post(
+        f"{TEAMS_URL}/{team.id}/join-requests",
+        {},
+        format="json",
+    )
+
+    assert response.status_code == 409
+    assert response.data["error"]["code"] == "formation_closed"
+
+
+def test_usuario_que_nao_e_aluno_nao_solicita_entrada():
+    team = TeamFactory()
+    teacher = TeacherFactory()
+    client = authenticated_client(teacher.user)
+
+    response = client.post(
+        f"{TEAMS_URL}/{team.id}/join-requests",
+        {},
+        format="json",
+    )
+
+    assert response.status_code == 403
+
+def test_aluno_consulta_suas_solicitacoes_de_entrada():
+    student = StudentFactory()
+    join_request = JoinRequestFactory(student=student)
+
+    client = authenticated_client(student.user)
+
+    response = client.get("/api/me/join-requests")
+
+    assert response.status_code == 200
+    assert len(response.data) == 1
+    assert response.data[0]["id"] == join_request.id
+
+
+def test_aluno_filtra_suas_solicitacoes_por_status():
+    student = StudentFactory()
+    pending_request = JoinRequestFactory(
+        student=student,
+        status=RequestStatus.PENDING,
+    )
+    JoinRequestFactory(
+        student=student,
+        status=RequestStatus.REJECTED,
+    )
+
+    client = authenticated_client(student.user)
+
+    response = client.get(
+        "/api/me/join-requests",
+        {"status": RequestStatus.PENDING},
+    )
+
+    assert response.status_code == 200
+    assert len(response.data) == 1
+    assert response.data[0]["id"] == pending_request.id
+
+
+def test_aluno_nao_consulta_solicitacoes_de_outro_aluno():
+    student = StudentFactory()
+    JoinRequestFactory(student=StudentFactory())
+
+    client = authenticated_client(student.user)
+
+    response = client.get("/api/me/join-requests")
+
+    assert response.status_code == 200
+    assert len(response.data) == 0
+
+def test_lider_consulta_solicitacoes_recebidas_pela_equipe():
+    team = TeamFactory()
+    join_request = JoinRequestFactory(team=team)
+
+    leader = TeamMember.objects.get(
+    team=team,
+    role=MemberRole.LEADER,
+    active=True,
+)
+
+    client = authenticated_client(leader.student.user)
+
+    response = client.get(
+        f"{TEAMS_URL}/{team.id}/join-requests"
+    )
+
+    assert response.status_code == 200
+    assert len(response.data) == 1
+    assert response.data[0]["id"] == join_request.id
+
+
+def test_lider_filtra_solicitacoes_recebidas_por_status():
+    team = TeamFactory()
+    pending_request = JoinRequestFactory(
+        team=team,
+        status=RequestStatus.PENDING,
+    )
+    JoinRequestFactory(
+        team=team,
+        status=RequestStatus.REJECTED,
+    )
+
+    leader = TeamMember.objects.get(
+    team=team,
+    role=MemberRole.LEADER,
+    active=True,
+)
+
+    client = authenticated_client(leader.student.user)
+
+    response = client.get(
+        f"{TEAMS_URL}/{team.id}/join-requests",
+        {"status": RequestStatus.PENDING},
+    )
+
+    assert response.status_code == 200
+    assert len(response.data) == 1
+    assert response.data[0]["id"] == pending_request.id
+
+
+def test_aluno_que_nao_e_lider_nao_consulta_solicitacoes_da_equipe():
+    team = TeamFactory()
+    student = StudentFactory()
+
+    client = authenticated_client(student.user)
+
+    response = client.get(
+        f"{TEAMS_URL}/{team.id}/join-requests"
+    )
+
+    assert response.status_code == 404
+
+def test_lider_aprova_solicitacao_de_entrada_pela_api():
+    team = TeamFactory()
+
+    now = timezone.now()
+    StageFactory(
+        edition=team.edition,
+        formation=True,
+        starts_at=now - timedelta(days=1),
+        ends_at=now + timedelta(days=7),
+    )
+
+    join_request = JoinRequestFactory(team=team)
+
+    leader = TeamMember.objects.get(
+        team=team,
+        role=MemberRole.LEADER,
+        active=True,
+    )
+
+    client = authenticated_client(leader.student.user)
+
+    response = client.post(
+        f"/api/join-requests/{join_request.id}/respond",
+        {"approve": True},
+        format="json",
+    )
+
+    assert response.status_code == 200, response.data
+
+    join_request.refresh_from_db()
+    assert join_request.status == RequestStatus.APPROVED
+
+    assert TeamMember.objects.filter(
+        team=team,
+        student=join_request.student,
+        role=MemberRole.MEMBER,
+        active=True,
+    ).exists()
+
+def test_lider_rejeita_solicitacao_de_entrada_pela_api():
+    team = TeamFactory()
+
+    now = timezone.now()
+    StageFactory(
+        edition=team.edition,
+        formation=True,
+        starts_at=now - timedelta(days=1),
+        ends_at=now + timedelta(days=7),
+    )
+
+    join_request = JoinRequestFactory(team=team)
+
+    leader = TeamMember.objects.get(
+        team=team,
+        role=MemberRole.LEADER,
+        active=True,
+    )
+
+    client = authenticated_client(leader.student.user)
+
+    response = client.post(
+        f"/api/join-requests/{join_request.id}/respond",
+        {"approve": False},
+        format="json",
+    )
+
+    assert response.status_code == 200, response.data
+
+    join_request.refresh_from_db()
+    assert join_request.status == RequestStatus.REJECTED
+
+    assert not TeamMember.objects.filter(
+        team=team,
+        student=join_request.student,
+        active=True,
+    ).exists()
