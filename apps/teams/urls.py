@@ -10,6 +10,7 @@ from apps.teams.views import (
     TeamCreateView,
     TeamDetailView,
     TeamInvitationView,
+    TeamLeaveView,
 )
 
 urlpatterns = [
@@ -48,5 +49,10 @@ urlpatterns = [
     "join-requests/<int:join_request_id>/respond",
     JoinRequestResponseView.as_view(),
     name="join-request-respond",
+),
+    path(
+    "teams/<int:team_id>/leave",
+    TeamLeaveView.as_view(),
+    name="team-leave",
 ),
 ]
