@@ -9,10 +9,7 @@ from apps.accounts.models import TeacherCourse
 from apps.accounts.permissions import IsAdmin, IsStudent, IsTeacher
 from apps.editions.enums import EditionStatus
 from apps.editions.models import Edition
-from apps.teams.enums import (
-    MemberRole,
-    TeamStatus,
-)
+from apps.teams.enums import MemberRole, TeamStatus
 from apps.teams.models import Invitation, JoinRequest, TeamMember
 from apps.teams.models.team import Team
 from apps.teams.serializers import (
@@ -237,10 +234,18 @@ class JoinRequestCreateView(APIView):
                 http_status = status.HTTP_404_NOT_FOUND
             else:
                 error_codes = {
-                    "Não existe prazo de formação aberto para esta equipe.": "formation_closed",
-                    "A equipe já atingiu o limite máximo de integrantes.": "team_full",
-                    "O aluno já participa de uma equipe ativa nesta edição.": "student_already_in_team",
-                    "Já existe uma solicitação pendente para esta equipe.": "request_already_pending",
+                    (
+                        "Não existe prazo de formação aberto para esta equipe."
+                    ): "formation_closed",
+                    "A equipe já atingiu o limite máximo de integrantes.": (
+                        "team_full"
+                    ),
+                    (
+                        "O aluno já participa de uma equipe ativa nesta edição."
+                    ): "student_already_in_team",
+                    (
+                        "Já existe uma solicitação pendente para esta equipe."
+                    ): "request_already_pending",
                 }
 
                 code = error_codes.get(
@@ -315,28 +320,20 @@ class InvitationResponseView(APIView):
             ):
                 code = "not_found"
                 http_status = status.HTTP_404_NOT_FOUND
-
             else:
-                error_codes = dict(
-                    [
-                        (
-                            "Não existe prazo de formação aberto para esta equipe.",
-                            "formation_closed",
-                        ),
-                        (
-                            "A equipe já atingiu o limite máximo de integrantes.",
-                            "team_full",
-                        ),
-                        (
-                            "O estudante já participa de uma equipe ativa nesta edição.",
-                            "student_already_in_team",
-                        ),
-                        (
-                            "Este convite não está mais pendente.",
-                            "invitation_not_pending",
-                        ),
-                    ]
-                )
+                error_codes = {
+                    (
+                        "Não existe prazo de formação aberto para esta equipe."
+                    ): "formation_closed",
+                    "A equipe já atingiu o limite máximo de integrantes.": (
+                        "team_full"
+                    ),
+                    (
+                        "O estudante já participa de uma equipe ativa nesta edição."
+                    ): "student_already_in_team",
+                    "Este convite não está mais pendente.": ("invitation_not_pending"),
+                }
+
                 code = error_codes.get(
                     message,
                     "invitation_response_rejected",
@@ -436,6 +433,7 @@ class JoinRequestResponseView(APIView):
                 join_request_id=join_request_id,
                 approve=serializer.validated_data["approve"],
             )
+
         except JoinRequestResponseRejected as error:
             message = str(error)
 
