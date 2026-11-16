@@ -30,14 +30,17 @@ def create_open_formation(edition):
         ends_at=now + timedelta(days=1),
     )
 
+
 def test_leave_team_successfully():
     team = TeamFactory()
     create_open_formation(team.edition)
 
-    student = StudentFactory(course=team.members.get(
-        role=MemberRole.LEADER,
-        active=True,
-    ).student.course)
+    student = StudentFactory(
+        course=team.members.get(
+            role=MemberRole.LEADER,
+            active=True,
+        ).student.course
+    )
 
     TeamMemberFactory(
         team=team,
@@ -56,6 +59,7 @@ def test_leave_team_successfully():
     assert membership.left_at is not None
     assert membership.team_id == team.id
     assert membership.student == student
+
 
 def test_leave_team_rejects_leader():
     team = TeamFactory()
@@ -80,6 +84,7 @@ def test_leave_team_rejects_leader():
     assert leader_membership.active is True
     assert leader_membership.left_at is None
 
+
 def test_leave_team_rejects_non_member():
     team = TeamFactory()
     create_open_formation(team.edition)
@@ -94,7 +99,8 @@ def test_leave_team_rejects_non_member():
             actor=student.user,
             team_id=team.id,
         )
-    
+
+
 def test_leave_team_rejects_when_formation_is_closed():
     team = TeamFactory()
 
@@ -132,6 +138,7 @@ def test_leave_team_rejects_when_formation_is_closed():
     assert membership.active is True
     assert membership.left_at is None
 
+
 def test_leave_team_rejects_nonexistent_team():
     student = StudentFactory()
 
@@ -156,6 +163,8 @@ def test_leave_team_rejects_student_without_profile():
             actor=student_user,
             team_id=team.id,
         )
+
+
 def test_leave_team_invalidates_challenge_without_course_representative():
     team = TeamFactory()
     create_open_formation(team.edition)
@@ -172,15 +181,14 @@ def test_leave_team_invalidates_challenge_without_course_representative():
         challenge__course=student.course,
     )
 
-    with patch(
-        "apps.teams.use_cases.leave_team._invalidate_challenge"
-    ) as invalidate:
+    with patch("apps.teams.use_cases.leave_team._invalidate_challenge") as invalidate:
         leave_team(
             actor=student.user,
             team_id=team.id,
         )
 
     invalidate.assert_called_once_with(project)
+
 
 def test_leave_team_notifies_remaining_members():
     team = TeamFactory()
@@ -198,9 +206,7 @@ def test_leave_team_notifies_remaining_members():
         role=MemberRole.MEMBER,
     )
 
-    with patch(
-        "apps.teams.use_cases.leave_team.create_notification"
-    ) as notify:
+    with patch("apps.teams.use_cases.leave_team.create_notification") as notify:
         leave_team(
             actor=student.user,
             team_id=team.id,

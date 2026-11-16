@@ -72,7 +72,7 @@ class TeamCreateView(APIView):
             TeamSerializer(team).data,
             status=status.HTTP_201_CREATED,
         )
-    
+
     def get(self, request):
         teams = (
             Team.objects.filter(
@@ -86,9 +86,7 @@ class TeamCreateView(APIView):
                     filter=Q(members__active=True),
                 )
             )
-            .filter(
-                active_members_count__lt=F("edition__max_members")
-            )
+            .filter(active_members_count__lt=F("edition__max_members"))
             .order_by("name")
         )
 
@@ -96,7 +94,6 @@ class TeamCreateView(APIView):
             TeamAvailabilitySerializer(teams, many=True).data,
             status=status.HTTP_200_OK,
         )
-
 
 
 class TeamDetailView(APIView):
@@ -191,7 +188,7 @@ class TeamInvitationView(APIView):
             InvitationSerializer(invitations, many=True).data,
             status=status.HTTP_200_OK,
         )
-    
+
 
 class JoinRequestCreateView(APIView):
     permission_classes = [IsAuthenticated, IsStudent]
@@ -244,14 +241,11 @@ class JoinRequestCreateView(APIView):
                 http_status = status.HTTP_404_NOT_FOUND
             else:
                 error_codes = {
-    "Não existe prazo de formação aberto para esta equipe.":
-        "formation_closed",
-    "A equipe já atingiu o limite máximo de integrantes.": "team_full",
-    "O aluno já participa de uma equipe ativa nesta edição.":
-        "student_already_in_team",
-    "Já existe uma solicitação pendente para esta equipe.":
-        "request_already_pending",
-}
+                    "Não existe prazo de formação aberto para esta equipe.": "formation_closed",
+                    "A equipe já atingiu o limite máximo de integrantes.": "team_full",
+                    "O aluno já participa de uma equipe ativa nesta edição.": "student_already_in_team",
+                    "Já existe uma solicitação pendente para esta equipe.": "request_already_pending",
+                }
 
                 code = error_codes.get(
                     message,
@@ -274,6 +268,7 @@ class JoinRequestCreateView(APIView):
             JoinRequestSerializer(join_request).data,
             status=status.HTTP_201_CREATED,
         )
+
 
 class MyInvitationsView(APIView):
     permission_classes = [IsAuthenticated, IsStudent]
@@ -327,25 +322,25 @@ class InvitationResponseView(APIView):
 
             else:
                 error_codes = dict(
-    [
-        (
-            "Não existe prazo de formação aberto para esta equipe.",
-            "formation_closed",
-        ),
-        (
-            "A equipe já atingiu o limite máximo de integrantes.",
-            "team_full",
-        ),
-        (
-            "O estudante já participa de uma equipe ativa nesta edição.",
-            "student_already_in_team",
-        ),
-        (
-            "Este convite não está mais pendente.",
-            "invitation_not_pending",
-        ),
-    ]
-)
+                    [
+                        (
+                            "Não existe prazo de formação aberto para esta equipe.",
+                            "formation_closed",
+                        ),
+                        (
+                            "A equipe já atingiu o limite máximo de integrantes.",
+                            "team_full",
+                        ),
+                        (
+                            "O estudante já participa de uma equipe ativa nesta edição.",
+                            "student_already_in_team",
+                        ),
+                        (
+                            "Este convite não está mais pendente.",
+                            "invitation_not_pending",
+                        ),
+                    ]
+                )
                 code = error_codes.get(
                     message,
                     "invitation_response_rejected",
@@ -367,6 +362,8 @@ class InvitationResponseView(APIView):
             InvitationSerializer(invitation).data,
             status=status.HTTP_200_OK,
         )
+
+
 class MyJoinRequestsView(APIView):
     permission_classes = [IsAuthenticated, IsStudent]
 
@@ -391,7 +388,8 @@ class MyJoinRequestsView(APIView):
             JoinRequestSerializer(join_requests, many=True).data,
             status=status.HTTP_200_OK,
         )
-    
+
+
 class TeamJoinRequestsView(APIView):
     permission_classes = [IsAuthenticated, IsStudent]
 
@@ -427,7 +425,8 @@ class TeamJoinRequestsView(APIView):
             JoinRequestSerializer(join_requests, many=True).data,
             status=status.HTTP_200_OK,
         )
-    
+
+
 class JoinRequestResponseView(APIView):
     permission_classes = [IsAuthenticated, IsStudent]
 
@@ -466,6 +465,8 @@ class JoinRequestResponseView(APIView):
             JoinRequestSerializer(join_request).data,
             status=status.HTTP_200_OK,
         )
+
+
 class TeamLeaveView(APIView):
     permission_classes = [IsAuthenticated, IsStudent]
 
@@ -487,10 +488,8 @@ class TeamLeaveView(APIView):
                 http_status = status.HTTP_404_NOT_FOUND
             else:
                 error_codes = {
-                    "Não existe prazo de formação aberto para esta equipe.":
-                        "formation_closed",
-                    "Transfira a liderança antes de sair da equipe.":
-                        "leader_must_transfer",
+                    "Não existe prazo de formação aberto para esta equipe.": "formation_closed",
+                    "Transfira a liderança antes de sair da equipe.": "leader_must_transfer",
                 }
 
                 code = error_codes.get(

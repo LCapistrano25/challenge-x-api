@@ -44,19 +44,13 @@ def respond_join_request(
         raise JoinRequestResponseRejected("O perfil de aluno não foi encontrado.")
 
     request_ref = (
-        JoinRequest.objects.filter(pk=join_request_id)
-        .values("team_id")
-        .first()
+        JoinRequest.objects.filter(pk=join_request_id).values("team_id").first()
     )
 
     if request_ref is None:
         raise JoinRequestResponseRejected("Solicitação não encontrada.")
 
-    team = (
-        Team.objects.select_for_update()
-        .filter(pk=request_ref["team_id"])
-        .first()
-    )
+    team = Team.objects.select_for_update().filter(pk=request_ref["team_id"]).first()
 
     if team is None:
         raise JoinRequestResponseRejected("Equipe não encontrada.")
@@ -84,9 +78,7 @@ def respond_join_request(
         )
 
     if join_request.status != RequestStatus.PENDING:
-        raise JoinRequestResponseRejected(
-            "Esta solicitação não está mais pendente."
-        )
+        raise JoinRequestResponseRejected("Esta solicitação não está mais pendente.")
 
     now = timezone.now()
 
@@ -112,17 +104,15 @@ def respond_join_request(
     if not approve:
         join_request.status = RequestStatus.REJECTED
         join_request.responded_at = now
-        join_request.save(
-            update_fields=["status", "responded_at", "updated_at"]
-        )
+        join_request.save(update_fields=["status", "responded_at", "updated_at"])
 
         create_notification(
             user=student.user,
             notification_type=NotificationType.TEAM,
             title="Solicitação recusada",
             message=(
-    f"Sua solicitação para participar da equipe {team.name} foi recusada."
-),
+                f"Sua solicitação para participar da equipe {team.name} foi recusada."
+            ),
             link=f"/equipes/{team.id}",
         )
 
@@ -170,9 +160,7 @@ def respond_join_request(
 
     join_request.status = RequestStatus.APPROVED
     join_request.responded_at = now
-    join_request.save(
-        update_fields=["status", "responded_at", "updated_at"]
-    )
+    join_request.save(update_fields=["status", "responded_at", "updated_at"])
 
     Invitation.objects.filter(
         student=student,

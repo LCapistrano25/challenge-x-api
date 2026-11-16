@@ -1,4 +1,3 @@
-
 from django.db import transaction
 from django.utils import timezone
 
@@ -31,11 +30,7 @@ def leave_team(
     if student is None:
         raise LeaveTeamRejected("O perfil de aluno não foi encontrado.")
 
-    team = (
-        Team.objects.select_for_update()
-        .filter(pk=team_id)
-        .first()
-    )
+    team = Team.objects.select_for_update().filter(pk=team_id).first()
 
     if team is None:
         raise LeaveTeamRejected("Equipe não encontrada.")
@@ -51,9 +46,7 @@ def leave_team(
     )
 
     if membership is None:
-        raise LeaveTeamRejected(
-            "O aluno não possui vínculo ativo com esta equipe."
-        )
+        raise LeaveTeamRejected("O aluno não possui vínculo ativo com esta equipe.")
 
     now = timezone.now()
 
@@ -65,14 +58,10 @@ def leave_team(
     ).exists()
 
     if not formation_open:
-        raise LeaveTeamRejected(
-            "Não existe prazo de formação aberto para esta equipe."
-        )
+        raise LeaveTeamRejected("Não existe prazo de formação aberto para esta equipe.")
 
     if membership.role == MemberRole.LEADER:
-        raise LeaveTeamRejected(
-            "Transfira a liderança antes de sair da equipe."
-        )
+        raise LeaveTeamRejected("Transfira a liderança antes de sair da equipe.")
 
     membership.active = False
     membership.left_at = now
