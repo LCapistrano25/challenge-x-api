@@ -102,7 +102,7 @@ class CourseDetailView(APIView):
 class CoursePublicListView(APIView):
     """Endpoint público para listar apenas cursos ativos."""
 
-    # Sem restrição de permissão (qualquer um pode aceder)
+    permission_classes = []
 
     def get(self, request):
         courses_data = list_public_courses()
