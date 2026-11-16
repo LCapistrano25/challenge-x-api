@@ -102,7 +102,7 @@ def test_api_create_course_success(api_client, admin_user):
 
 @pytest.mark.django_db
 def test_api_create_course_forbidden(api_client, normal_user):
-    """Testa se a API devolve 403 para 
+    """Testa se a API devolve 403 para
     utilizadores sem permissão de admin."""
     api_client.force_authenticate(user=normal_user)
 
@@ -145,7 +145,7 @@ def test_api_list_courses_admin(api_client, admin_user):
 
 @pytest.mark.django_db
 def test_api_update_course_admin(api_client, admin_user):
-    """Testa se o admin atualiza nome 
+    """Testa se o admin atualiza nome
     e períodos de um curso via PATCH."""
     api_client.force_authenticate(user=admin_user)
 

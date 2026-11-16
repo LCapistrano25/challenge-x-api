@@ -6,7 +6,7 @@ from apps.core.models import Course
 def list_courses(*, actor) -> list[dict[str, Any]]:
     """
     Lista todos os cursos cadastrados.
-    Regra: Apenas administradores podem ver esta lista 
+    Regra: Apenas administradores podem ver esta lista
     (já garantido pela View, mas mantemos o actor para auditoria futura).
     """
     if not actor.is_staff and not actor.is_superuser:

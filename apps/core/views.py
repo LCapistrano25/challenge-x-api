@@ -57,6 +57,7 @@ class CourseUpdateSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=150, required=False)
     term_count = serializers.IntegerField(required=False)
 
+
 class CourseDetailView(APIView):
     """Endpoint para atualizar (PATCH) e excluir (DELETE) um curso."""
 
