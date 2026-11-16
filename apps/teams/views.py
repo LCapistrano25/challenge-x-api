@@ -41,7 +41,10 @@ from apps.teams.use_cases.respond_join_request import (
     JoinRequestResponseRejected,
     respond_join_request,
 )
-
+from apps.teams.use_cases.leave_team import (
+    LeaveTeamRejected,
+    leave_team,
+)
 
 class TeamCreateView(APIView):
     permission_classes = [IsAuthenticated, IsStudent]
@@ -462,3 +465,48 @@ class JoinRequestResponseView(APIView):
             JoinRequestSerializer(join_request).data,
             status=status.HTTP_200_OK,
         )
+class TeamLeaveView(APIView):
+    permission_classes = [IsAuthenticated, IsStudent]
+
+    def post(self, request, team_id):
+        try:
+            leave_team(
+                actor=request.user,
+                team_id=team_id,
+            )
+        except LeaveTeamRejected as error:
+            message = str(error)
+
+            if message in (
+                "Equipe não encontrada.",
+                "O perfil de aluno não foi encontrado.",
+                "O aluno não possui vínculo ativo com esta equipe.",
+            ):
+                code = "not_found"
+                http_status = status.HTTP_404_NOT_FOUND
+            else:
+                error_codes = {
+                    "Não existe prazo de formação aberto para esta equipe.":
+                        "formation_closed",
+                    "Transfira a liderança antes de sair da equipe.":
+                        "leader_must_transfer",
+                }
+
+                code = error_codes.get(
+                    message,
+                    "leave_team_rejected",
+                )
+                http_status = status.HTTP_409_CONFLICT
+
+            return Response(
+                {
+                    "error": {
+                        "code": code,
+                        "message": message,
+                        "details": None,
+                    }
+                },
+                status=http_status,
+            )
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
