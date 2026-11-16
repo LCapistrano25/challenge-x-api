@@ -121,6 +121,8 @@ def test_aluno_que_nao_e_integrante_recebe_404():
     response = client.get(f"{TEAMS_URL}/{team.id}")
 
     assert response.status_code == 404
+
+
 def test_professor_sem_vinculo_ativo_recebe_404():
     team = TeamFactory()
     teacher = TeacherFactory()
@@ -193,4 +195,4 @@ def test_criacao_sem_nome_retorna_400():
         format="json",
     )
 
-    assert response.status_code == 400    
+    assert response.status_code == 400

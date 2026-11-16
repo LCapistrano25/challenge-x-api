@@ -1,4 +1,3 @@
-
 from datetime import timedelta
 from unittest.mock import patch
 
@@ -331,11 +330,14 @@ def test_nao_pode_enviar_convite_duplicado():
             student_id=invited_student.pk,
         )
 
-    assert Invitation.objects.filter(
-        team=team,
-        student=invited_student,
-        status=InvitationStatus.PENDING,
-    ).count() == 1
+    assert (
+        Invitation.objects.filter(
+            team=team,
+            student=invited_student,
+            status=InvitationStatus.PENDING,
+        ).count()
+        == 1
+    )
 
 
 def test_reverte_operacao_se_ocorrer_erro_ao_criar_convite():

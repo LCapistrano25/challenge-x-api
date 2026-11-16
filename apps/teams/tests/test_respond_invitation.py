@@ -64,6 +64,8 @@ def test_estudante_aceita_convite_com_sucesso():
         role=MemberRole.MEMBER,
         active=True,
     ).exists()
+
+
 def test_estudante_recusa_convite_com_sucesso():
     team = TeamFactory()
     create_open_formation(team.edition)
@@ -91,7 +93,9 @@ def test_estudante_recusa_convite_com_sucesso():
         team=team,
         student=invited_student,
         active=True,
-    ).exists()   
+    ).exists()
+
+
 def test_usuario_que_nao_e_aluno_nao_pode_responder_convite():
     from apps.accounts.enums import UserRole
     from apps.accounts.factories import UserFactory
@@ -158,7 +162,9 @@ def test_aluno_nao_pode_responder_convite_de_outro_estudante():
             actor=another_student.user,
             invitation_id=invitation.pk,
             accept=True,
-        )    
+        )
+
+
 def test_aluno_inativo_nao_pode_responder_convite():
     team = TeamFactory()
     create_open_formation(team.edition)
@@ -196,7 +202,9 @@ def test_aluno_com_email_nao_confirmado_nao_pode_responder_convite():
             actor=invited_student.user,
             invitation_id=invitation.pk,
             accept=True,
-        )        
+        )
+
+
 def test_convite_inexistente_nao_pode_ser_respondido():
     student = StudentFactory()
 
@@ -249,7 +257,9 @@ def test_convite_de_equipe_desclassificada_nao_pode_ser_respondido():
             actor=student.user,
             invitation_id=invitation.pk,
             accept=True,
-        )        
+        )
+
+
 def test_nao_pode_responder_convite_sem_formacao_aberta():
     team = TeamFactory()
     student = StudentFactory()
@@ -266,7 +276,9 @@ def test_nao_pode_responder_convite_sem_formacao_aberta():
             actor=student.user,
             invitation_id=invitation.pk,
             accept=True,
-        )      
+        )
+
+
 def test_aluno_que_ja_participa_de_outra_equipe_nao_pode_aceitar_convite():
     team = TeamFactory()
     another_team = TeamFactory(edition=team.edition)
@@ -299,6 +311,8 @@ def test_aluno_que_ja_participa_de_outra_equipe_nao_pode_aceitar_convite():
         student=student,
         active=True,
     ).exists()
+
+
 def test_nao_pode_aceitar_convite_quando_equipe_atingiu_limite_maximo():
     team = TeamFactory()
     create_open_formation(team.edition)
@@ -326,7 +340,9 @@ def test_nao_pode_aceitar_convite_quando_equipe_atingiu_limite_maximo():
         team=team,
         student=student,
         active=True,
-    ).exists()    
+    ).exists()
+
+
 def test_aceitar_convite_cancela_outros_convites_pendentes():
     team = TeamFactory()
     another_team = TeamFactory(edition=team.edition)
@@ -355,6 +371,8 @@ def test_aceitar_convite_cancela_outros_convites_pendentes():
 
     assert invitation.status == InvitationStatus.ACCEPTED
     assert another_invitation.status == InvitationStatus.CANCELLED
+
+
 def test_aceitar_convite_cancela_solicitacoes_pendentes_de_outras_equipes():
     team = TeamFactory()
     another_team = TeamFactory(edition=team.edition)
@@ -383,5 +401,3 @@ def test_aceitar_convite_cancela_solicitacoes_pendentes_de_outras_equipes():
 
     assert invitation.status == InvitationStatus.ACCEPTED
     assert join_request.status == RequestStatus.CANCELLED
-        
-    

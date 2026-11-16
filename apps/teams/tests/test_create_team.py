@@ -1,4 +1,3 @@
-
 from datetime import timedelta
 from unittest.mock import patch
 
@@ -51,6 +50,7 @@ def test_aluno_cria_equipe_e_se_torna_lider():
     assert membership.role == MemberRole.LEADER
     assert membership.left_at is None
 
+
 def test_usuario_que_nao_e_aluno_nao_pode_criar_equipe():
     user = UserFactory(role=UserRole.TEACHER)
     edition = EditionFactory()
@@ -66,6 +66,7 @@ def test_usuario_que_nao_e_aluno_nao_pode_criar_equipe():
         )
 
     assert Team.objects.count() == 0
+
 
 def test_nao_pode_criar_equipe_fora_do_periodo_de_formacao():
     student = StudentFactory()
@@ -91,7 +92,7 @@ def test_nao_pode_criar_equipe_fora_do_periodo_de_formacao():
 
     assert Team.objects.count() == 0
 
-    
+
 def test_aluno_nao_pode_criar_equipe_se_ja_participa_de_uma_ativa():
     student = StudentFactory()
     edition = EditionFactory()
@@ -123,6 +124,7 @@ def test_aluno_nao_pode_criar_equipe_se_ja_participa_de_uma_ativa():
 
     assert Team.objects.filter(edition=edition).count() == 1
 
+
 def test_nao_pode_criar_equipe_com_nome_vazio():
     student = StudentFactory()
     edition = EditionFactory()
@@ -145,7 +147,9 @@ def test_nao_pode_criar_equipe_com_nome_vazio():
             name="   ",
         )
 
-    assert Team.objects.count() == 0    
+    assert Team.objects.count() == 0
+
+
 def test_permite_criar_equipe_abaixo_do_minimo_durante_formacao():
     student = StudentFactory()
     edition = EditionFactory(
@@ -167,17 +171,22 @@ def test_permite_criar_equipe_abaixo_do_minimo_durante_formacao():
         name="Equipe Inicial",
     )
 
-    assert TeamMember.objects.filter(
-        team=team,
-        active=True,
-    ).count() == 1
+    assert (
+        TeamMember.objects.filter(
+            team=team,
+            active=True,
+        ).count()
+        == 1
+    )
 
     assert TeamMember.objects.filter(
         team=team,
         student=student,
         role=MemberRole.LEADER,
         active=True,
-    ).exists()    
+    ).exists()
+
+
 def test_nao_pode_criar_equipe_com_nome_duplicado_na_edicao():
     student = StudentFactory()
     edition = EditionFactory()
@@ -205,10 +214,14 @@ def test_nao_pode_criar_equipe_com_nome_duplicado_na_edicao():
             name="Equipe Teste",
         )
 
-    assert Team.objects.filter(
-        edition=edition,
-        name="Equipe Teste",
-    ).count() == 1    
+    assert (
+        Team.objects.filter(
+            edition=edition,
+            name="Equipe Teste",
+        ).count()
+        == 1
+    )
+
 
 def test_nao_pode_criar_equipe_para_edicao_inexistente():
     student = StudentFactory()
@@ -225,6 +238,7 @@ def test_nao_pode_criar_equipe_para_edicao_inexistente():
 
     assert Team.objects.count() == 0
 
+
 def test_nao_pode_criar_equipe_sem_perfil_de_aluno():
     user = UserFactory(role=UserRole.STUDENT)
     edition = EditionFactory()
@@ -239,7 +253,9 @@ def test_nao_pode_criar_equipe_sem_perfil_de_aluno():
             name="Equipe Teste",
         )
 
-    assert Team.objects.count() == 0    
+    assert Team.objects.count() == 0
+
+
 def test_remove_espacos_do_nome_da_equipe():
     student = StudentFactory()
     edition = EditionFactory()
@@ -258,7 +274,8 @@ def test_remove_espacos_do_nome_da_equipe():
         name="  Equipe Teste  ",
     )
 
-    assert team.name == "Equipe Teste"    
+    assert team.name == "Equipe Teste"
+
 
 def test_tenta_novo_codigo_quando_codigo_ja_existe(monkeypatch):
     existing_team = TeamFactory()
@@ -288,6 +305,7 @@ def test_tenta_novo_codigo_quando_codigo_ja_existe(monkeypatch):
 
     assert team.code == "NOVO01"
     assert team.code != existing_team.code
+
 
 def test_rejeita_criacao_quando_nao_consegue_gerar_codigo_unico(
     monkeypatch,
@@ -321,6 +339,7 @@ def test_rejeita_criacao_quando_nao_consegue_gerar_codigo_unico(
 
     assert Team.objects.count() == 1
 
+
 def test_reverte_criacao_da_equipe_se_falhar_ao_criar_lider():
     student = StudentFactory()
     edition = EditionFactory()
@@ -348,4 +367,4 @@ def test_reverte_criacao_da_equipe_se_falhar_ao_criar_lider():
             )
 
     assert Team.objects.count() == 0
-    assert TeamMember.objects.count() == 0    
+    assert TeamMember.objects.count() == 0

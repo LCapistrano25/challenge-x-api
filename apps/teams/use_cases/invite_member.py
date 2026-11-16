@@ -1,4 +1,3 @@
-
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
@@ -60,9 +59,7 @@ def invite_member(
         )
 
     if team.status != TeamStatus.ACTIVE:
-        raise InvitationRejected(
-            "Equipes desclassificadas não podem enviar convites."
-        )
+        raise InvitationRejected("Equipes desclassificadas não podem enviar convites.")
 
     current_members = TeamMember.objects.filter(
         team=team,
@@ -70,14 +67,10 @@ def invite_member(
     ).count()
 
     if current_members >= team.edition.max_members:
-        raise InvitationRejected(
-            "A equipe já atingiu o limite máximo de integrantes."
-        )
+        raise InvitationRejected("A equipe já atingiu o limite máximo de integrantes.")
 
     invited_student = (
-        Student.objects.select_related("user")
-        .filter(pk=student_id)
-        .first()
+        Student.objects.select_related("user").filter(pk=student_id).first()
     )
 
     if invited_student is None:
@@ -88,9 +81,7 @@ def invite_member(
         or not invited_student.user.is_active
         or not invited_student.user.email_confirmed
     ):
-        raise InvitationRejected(
-            "O estudante não possui cadastro ativo e confirmado."
-        )
+        raise InvitationRejected("O estudante não possui cadastro ativo e confirmado.")
 
     already_in_team = TeamMember.objects.filter(
         edition=team.edition,

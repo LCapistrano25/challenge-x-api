@@ -20,9 +20,7 @@ class TeamCreateView(APIView):
         serializer = TeamCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        edition = Edition.objects.filter(
-            status=EditionStatus.PUBLISHED
-        ).first()
+        edition = Edition.objects.filter(status=EditionStatus.PUBLISHED).first()
 
         if edition is None:
             return Response(

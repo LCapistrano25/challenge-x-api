@@ -54,4 +54,3 @@ class TeamSerializer(serializers.ModelSerializer):
 
     def get_qualification(self, obj):
         return None
-    
