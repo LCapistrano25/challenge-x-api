@@ -1,9 +1,13 @@
 from django.core.exceptions import ValidationError
 from django.db import transaction
+
 from apps.core.models import Course
 
+
 @transaction.atomic
-def update_course(*, actor, course_id: int, name: str = None, term_count: int = None) -> Course:
+def update_course(
+    *, actor, course_id: int, name: str = None, term_count: int = None
+) -> Course:
     """
     Atualiza os dados de um curso existente.
     Regras de negócio:
@@ -32,5 +36,5 @@ def update_course(*, actor, course_id: int, name: str = None, term_count: int = 
 
     # 5. Guarda as alterações no banco de dados
     course.save()
-    
+
     return course

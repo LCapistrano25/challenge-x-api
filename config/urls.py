@@ -25,4 +25,3 @@ urlpatterns = [
     path("api/teams/", include("apps.projects.urls")),
     path("api/admin/editions/", include("apps.editions.urls")),
 ]
-

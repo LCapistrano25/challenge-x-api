@@ -1,6 +1,8 @@
-from django.db import transaction
 from django.core.exceptions import ValidationError
+from django.db import transaction
+
 from apps.core.models import Course
+
 
 @transaction.atomic
 def create_course(*, actor, name: str, term_count: int) -> Course:
@@ -24,9 +26,6 @@ def create_course(*, actor, name: str, term_count: int) -> Course:
         raise ValidationError("Já existe um curso cadastrado com este nome.")
 
     # 4. Salva o curso na base de dados
-    course = Course.objects.create(
-        name=name,
-        term_count=term_count
-    )
+    course = Course.objects.create(name=name, term_count=term_count)
 
     return course

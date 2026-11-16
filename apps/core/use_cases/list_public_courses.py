@@ -1,7 +1,9 @@
-from typing import List, Dict, Any
+from typing import Any
+
 from apps.core.models import Course
 
-def list_public_courses() -> List[Dict[str, Any]]:
+
+def list_public_courses() -> list[dict[str, Any]]:
     """
     Lista os cursos para o público geral.
     Regra: Retorna APENAS os cursos marcados como ativos.
