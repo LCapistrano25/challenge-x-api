@@ -6,6 +6,7 @@ from apps.accounts.exceptions import (
     DomainRoleMismatch,
     InvalidCredentials,
     InvalidEmailDomain,
+    NotAdminActor,
     ReviewerNotInCurrentEdition,
 )
 
@@ -89,3 +90,9 @@ def ensure_password_login_allowed(user) -> None:
         raise InvalidCredentials()
     if user.role == UserRole.EXTERNAL_REVIEWER:
         ensure_reviewer_in_current_edition(user)
+
+
+def ensure_actor_is_admin(actor) -> None:
+    """Exige que quem age seja administrador (RF11, RF47, RF48)."""
+    if actor is None or actor.role != UserRole.ADMIN:
+        raise NotAdminActor()

@@ -47,23 +47,13 @@ def respond_invitation(
         )
 
     invitation_ref = (
-        Invitation.objects.filter(
-            pk=invitation_id,
-        )
-        .values("team_id")
-        .first()
+        Invitation.objects.filter(pk=invitation_id).values("team_id").first()
     )
 
     if invitation_ref is None:
         raise InvitationResponseRejected("Convite não encontrado.")
 
-    team = (
-        Team.objects.select_for_update()
-        .filter(
-            pk=invitation_ref["team_id"],
-        )
-        .first()
-    )
+    team = Team.objects.select_for_update().filter(pk=invitation_ref["team_id"]).first()
 
     if team is None:
         raise InvitationResponseRejected("Equipe não encontrada.")
@@ -177,9 +167,7 @@ def respond_invitation(
         student=student,
         team__edition=invitation.team.edition,
         status=InvitationStatus.PENDING,
-    ).exclude(
-        pk=invitation.pk,
-    ).update(
+    ).exclude(pk=invitation.pk).update(
         status=InvitationStatus.CANCELLED,
         updated_at=now,
     )
@@ -188,9 +176,7 @@ def respond_invitation(
         student=student,
         team__edition=invitation.team.edition,
         status=RequestStatus.PENDING,
-    ).exclude(
-        team_id=invitation.team_id,
-    ).update(
+    ).exclude(team_id=invitation.team_id).update(
         status=RequestStatus.CANCELLED,
         updated_at=now,
     )

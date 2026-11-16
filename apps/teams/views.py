@@ -199,26 +199,19 @@ class InvitationResponseView(APIView):
                 http_status = status.HTTP_404_NOT_FOUND
 
             else:
-                error_codes = dict(
-                    [
-                        (
-                            "Não existe prazo de formação aberto para esta equipe.",
-                            "formation_closed",
-                        ),
-                        (
-                            "A equipe já atingiu o limite máximo de integrantes.",
-                            "team_full",
-                        ),
-                        (
-                            "O estudante já participa de uma equipe ativa nesta edição.",
-                            "student_already_in_team",
-                        ),
-                        (
-                            "Este convite não está mais pendente.",
-                            "invitation_not_pending",
-                        ),
-                    ]
-                )
+                error_codes = {
+                    "Não existe prazo de formação aberto para esta equipe.": (
+                        "formation_closed"
+                    ),
+                    "A equipe já atingiu o limite máximo de integrantes.": (
+                        "team_full"
+                    ),
+                    (
+                        "O estudante já participa de uma equipe ativa nesta edição."
+                    ): "student_already_in_team",
+                    "Este convite não está mais pendente.": ("invitation_not_pending"),
+                }
+
                 code = error_codes.get(
                     message,
                     "invitation_response_rejected",
