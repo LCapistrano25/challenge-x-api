@@ -1,4 +1,3 @@
-
 from datetime import timedelta
 from unittest.mock import patch
 
@@ -205,11 +204,14 @@ def test_nao_pode_enviar_solicitacao_duplicada():
     ):
         request_to_join(actor=student.user, team_id=team.id)
 
-    assert JoinRequest.objects.filter(
-        team=team,
-        student=student,
-        status=RequestStatus.PENDING,
-    ).count() == 1
+    assert (
+        JoinRequest.objects.filter(
+            team=team,
+            student=student,
+            status=RequestStatus.PENDING,
+        ).count()
+        == 1
+    )
 
 
 def test_equipe_desclassificada_nao_pode_receber_solicitacao():

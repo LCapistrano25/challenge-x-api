@@ -1,4 +1,3 @@
-
 from django.urls import path
 
 from apps.teams.views import (
@@ -45,8 +44,8 @@ urlpatterns = [
         name="my-join-requests",
     ),
     path(
-    "join-requests/<int:join_request_id>/respond",
-    JoinRequestResponseView.as_view(),
-    name="join-request-respond",
-),
+        "join-requests/<int:join_request_id>/respond",
+        JoinRequestResponseView.as_view(),
+        name="join-request-respond",
+    ),
 ]

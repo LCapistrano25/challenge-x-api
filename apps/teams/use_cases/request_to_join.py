@@ -41,7 +41,7 @@ def request_to_join(
     if team.status != TeamStatus.ACTIVE:
         raise JoinRequestRejected(
             "Não é possível solicitar entrada em uma equipe desclassificada."
-    )
+        )
 
     now = timezone.now()
 

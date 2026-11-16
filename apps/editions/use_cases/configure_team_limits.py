@@ -3,9 +3,9 @@
 from django.db import transaction
 
 from apps.accounts.models import User
+from apps.accounts.rules import ensure_actor_is_admin
 from apps.editions.models import Edition
 from apps.editions.rules import (
-    ensure_actor_is_admin,
     ensure_team_limits_editable,
     ensure_team_limits_valid,
 )

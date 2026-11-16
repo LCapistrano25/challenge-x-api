@@ -486,6 +486,7 @@ def test_aluno_lista_equipes_com_vagas():
     assert response.data[0]["members_count"] == 1
     assert response.data[0]["available_vacancies"] == 4
 
+
 def test_equipes_de_edicoes_nao_publicadas_nao_aparecem():
     student = StudentFactory()
     TeamFactory()
@@ -496,6 +497,7 @@ def test_equipes_de_edicoes_nao_publicadas_nao_aparecem():
 
     assert response.status_code == 200
     assert len(response.data) == 0
+
 
 def test_equipes_lotadas_nao_aparecem_na_consulta():
     student = StudentFactory()
@@ -513,6 +515,7 @@ def test_equipes_lotadas_nao_aparecem_na_consulta():
 
     assert response.status_code == 200
     assert len(response.data) == 0
+
 
 def test_aluno_solicita_entrada_em_equipe_pela_api():
     team = TeamFactory()
@@ -614,6 +617,7 @@ def test_usuario_que_nao_e_aluno_nao_solicita_entrada():
 
     assert response.status_code == 403
 
+
 def test_aluno_consulta_suas_solicitacoes_de_entrada():
     student = StudentFactory()
     join_request = JoinRequestFactory(student=student)
@@ -661,21 +665,20 @@ def test_aluno_nao_consulta_solicitacoes_de_outro_aluno():
     assert response.status_code == 200
     assert len(response.data) == 0
 
+
 def test_lider_consulta_solicitacoes_recebidas_pela_equipe():
     team = TeamFactory()
     join_request = JoinRequestFactory(team=team)
 
     leader = TeamMember.objects.get(
-    team=team,
-    role=MemberRole.LEADER,
-    active=True,
-)
+        team=team,
+        role=MemberRole.LEADER,
+        active=True,
+    )
 
     client = authenticated_client(leader.student.user)
 
-    response = client.get(
-        f"{TEAMS_URL}/{team.id}/join-requests"
-    )
+    response = client.get(f"{TEAMS_URL}/{team.id}/join-requests")
 
     assert response.status_code == 200
     assert len(response.data) == 1
@@ -694,10 +697,10 @@ def test_lider_filtra_solicitacoes_recebidas_por_status():
     )
 
     leader = TeamMember.objects.get(
-    team=team,
-    role=MemberRole.LEADER,
-    active=True,
-)
+        team=team,
+        role=MemberRole.LEADER,
+        active=True,
+    )
 
     client = authenticated_client(leader.student.user)
 
@@ -717,11 +720,10 @@ def test_aluno_que_nao_e_lider_nao_consulta_solicitacoes_da_equipe():
 
     client = authenticated_client(student.user)
 
-    response = client.get(
-        f"{TEAMS_URL}/{team.id}/join-requests"
-    )
+    response = client.get(f"{TEAMS_URL}/{team.id}/join-requests")
 
     assert response.status_code == 404
+
 
 def test_lider_aprova_solicitacao_de_entrada_pela_api():
     team = TeamFactory()
@@ -761,6 +763,7 @@ def test_lider_aprova_solicitacao_de_entrada_pela_api():
         role=MemberRole.MEMBER,
         active=True,
     ).exists()
+
 
 def test_lider_rejeita_solicitacao_de_entrada_pela_api():
     team = TeamFactory()

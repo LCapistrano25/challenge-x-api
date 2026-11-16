@@ -5,11 +5,26 @@ from django.views.decorators.csrf import csrf_protect
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.throttling import ScopedRateThrottle
+from rest_framework.throttling import SimpleRateThrottle
 from rest_framework.views import APIView
 
 from apps.accounts.rules import ensure_password_login_allowed
 from apps.accounts.serializers import LoginSerializer
+
+
+class EmailRateThrottle(SimpleRateThrottle):
+    """Limita tentativas por e-mail, não por IP: o campus sai por um IP só.
+
+    A taxa fica em REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"]["login"].
+    """
+
+    scope = "login"
+
+    def get_cache_key(self, request, view):
+        email = str(request.data.get("email", "")).strip().lower()
+        return (
+            self.cache_format % {"scope": self.scope, "ident": email} if email else None
+        )
 
 
 def user_data(user):
@@ -28,9 +43,8 @@ class LoginView(APIView):
 
     permission_classes = [AllowAny]
     authentication_classes = []
-    # Limita tentativas por IP contra força bruta na senha (taxa em REST_FRAMEWORK).
-    throttle_classes = [ScopedRateThrottle]
-    throttle_scope = "login"
+    # Contra força bruta na senha de uma conta.
+    throttle_classes = [EmailRateThrottle]
 
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
