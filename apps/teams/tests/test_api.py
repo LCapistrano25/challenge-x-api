@@ -30,6 +30,7 @@ from apps.teams.factories import (
     TeamMemberFactory,
 )
 from apps.teams.models import Team, TeamMember
+from apps.teams.use_cases.leave_team import LeaveTeamRejected
 
 pytestmark = pytest.mark.django_db
 
@@ -799,3 +800,109 @@ def test_lider_rejeita_solicitacao_de_entrada_pela_api():
         student=join_request.student,
         active=True,
     ).exists()
+
+def test_aluno_sai_da_equipe_pela_api():
+    team = TeamFactory()
+    create_open_formation(team.edition)
+
+    leader = team.members.get(
+        role=MemberRole.LEADER,
+        active=True,
+    )
+
+    student = StudentFactory(course=leader.student.course)
+
+    membership = TeamMemberFactory(
+        team=team,
+        student=student,
+        role=MemberRole.MEMBER,
+    )
+
+    client = authenticated_client(student.user)
+
+    response = client.post(f"{TEAMS_URL}/{team.id}/leave")
+
+    assert response.status_code == 204
+
+    membership.refresh_from_db()
+    assert membership.active is False
+    assert membership.left_at is not None
+
+def create_open_formation(edition):
+    now = timezone.now()
+
+    return StageFactory(
+        edition=edition,
+        formation=True,
+        starts_at=now - timedelta(days=1),
+        ends_at=now + timedelta(days=7),
+    )
+def test_lider_nao_consegue_sair_pela_api():
+    team = TeamFactory()
+    create_open_formation(team.edition)
+
+    leader = team.members.get(
+        role=MemberRole.LEADER,
+        active=True,
+    )
+
+    client = authenticated_client(leader.student.user)
+
+    response = client.post(f"{TEAMS_URL}/{team.id}/leave")
+
+    assert response.status_code == 409
+    assert response.data["error"]["code"] == "leader_must_transfer"
+
+def test_aluno_que_nao_e_integrante_nao_consegue_sair_pela_api():
+    team = TeamFactory()
+    create_open_formation(team.edition)
+
+    student = StudentFactory()
+    client = authenticated_client(student.user)
+
+    response = client.post(f"{TEAMS_URL}/{team.id}/leave")
+
+    assert response.status_code == 404
+
+def test_aluno_nao_consegue_sair_apos_formacao_pela_api():
+    team = TeamFactory()
+
+    StageFactory(
+        edition=team.edition,
+        formation=True,
+        starts_at=timezone.now() - timedelta(days=3),
+        ends_at=timezone.now() - timedelta(days=1),
+    )
+
+    leader = team.members.get(
+        role=MemberRole.LEADER,
+        active=True,
+    )
+
+    student = StudentFactory(course=leader.student.course)
+
+    membership = TeamMemberFactory(
+        team=team,
+        student=student,
+        role=MemberRole.MEMBER,
+    )
+
+    client = authenticated_client(student.user)
+
+    response = client.post(f"{TEAMS_URL}/{team.id}/leave")
+
+    assert response.status_code == 409
+
+    membership.refresh_from_db()
+    assert membership.active is True
+    assert membership.left_at is None
+
+def test_professor_nao_consegue_sair_pela_api():
+    team = TeamFactory()
+    teacher = TeacherFactory()
+
+    client = authenticated_client(teacher.user)
+
+    response = client.post(f"{TEAMS_URL}/{team.id}/leave")
+
+    assert response.status_code == 403
