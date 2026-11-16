@@ -30,7 +30,6 @@ from apps.teams.factories import (
     TeamMemberFactory,
 )
 from apps.teams.models import Team, TeamMember
-from apps.teams.use_cases.leave_team import LeaveTeamRejected
 
 pytestmark = pytest.mark.django_db
 
@@ -828,15 +827,6 @@ def test_aluno_sai_da_equipe_pela_api():
     assert membership.active is False
     assert membership.left_at is not None
 
-def create_open_formation(edition):
-    now = timezone.now()
-
-    return StageFactory(
-        edition=edition,
-        formation=True,
-        starts_at=now - timedelta(days=1),
-        ends_at=now + timedelta(days=7),
-    )
 def test_lider_nao_consegue_sair_pela_api():
     team = TeamFactory()
     create_open_formation(team.edition)

@@ -29,6 +29,10 @@ from apps.teams.serializers import (
 )
 from apps.teams.use_cases.create_team import create_team
 from apps.teams.use_cases.invite_member import invite_member
+from apps.teams.use_cases.leave_team import (
+    LeaveTeamRejected,
+    leave_team,
+)
 from apps.teams.use_cases.request_to_join import (
     JoinRequestRejected,
     request_to_join,
@@ -41,10 +45,7 @@ from apps.teams.use_cases.respond_join_request import (
     JoinRequestResponseRejected,
     respond_join_request,
 )
-from apps.teams.use_cases.leave_team import (
-    LeaveTeamRejected,
-    leave_team,
-)
+
 
 class TeamCreateView(APIView):
     permission_classes = [IsAuthenticated, IsStudent]

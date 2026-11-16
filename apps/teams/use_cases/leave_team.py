@@ -115,4 +115,4 @@ def _invalidate_challenge(project) -> None:
     """Encaminha a invalidação ao caso de uso do app projects."""
     from apps.projects.use_cases.invalidate_challenge import invalidate_challenge
 
-    invalidate_challenge(project)
+    invalidate_challenge(project=project)
