@@ -14,10 +14,12 @@ from apps.editions.factories import (
     StageFactory,
 )
 from apps.projects.exceptions import (
+    CategoryNotAvailable,
     ChallengeNotEligible,
     ChallengeNotSelected,
     FormationClosed,
     NotTeamLeader,
+    ProjectNotFound,
     ProjectTitleTaken,
 )
 from apps.projects.factories import ProjectFactory
@@ -25,6 +27,7 @@ from apps.projects.models import Project
 from apps.projects.use_cases import save_project_details as save_module
 from apps.projects.use_cases.invalidate_challenge import invalidate_challenge
 from apps.projects.use_cases.save_project_details import save_project_details
+from apps.projects.use_cases.select_category import select_category
 from apps.projects.use_cases.select_challenge import select_challenge
 from apps.teams.enums import MemberRole
 from apps.teams.factories import TeamFactory, TeamMemberFactory
@@ -311,3 +314,117 @@ def test_depois_de_invalidar_o_lider_escolhe_de_novo(team, leader, challenge):
 
     project.refresh_from_db()
     assert project.challenge == challenge
+
+
+# Escolher a categoria (UC39, RF30, RF49)
+
+
+@pytest.fixture
+def category(team):
+    return CategoryFactory(edition=team.edition)
+
+
+def test_categoria_grava_no_projeto(team, leader, challenge, category):
+    project_with_challenge(team, challenge)
+
+    result = select_category(actor=leader, team=team, category=category)
+
+    result.refresh_from_db()
+    assert result.category == category
+
+
+def test_categoria_pode_ser_trocada(team, leader, challenge, category):
+    project_with_challenge(team, challenge, category=category)
+    outra = CategoryFactory(edition=team.edition)
+
+    result = select_category(actor=leader, team=team, category=outra)
+
+    assert Project.objects.get(pk=result.pk).category == outra
+
+
+def test_categoria_repetida_nao_e_erro(team, leader, challenge, category):
+    project_with_challenge(team, challenge)
+    select_category(actor=leader, team=team, category=category)
+
+    result = select_category(actor=leader, team=team, category=category)
+
+    assert Project.objects.get(pk=result.pk).category == category
+
+
+def test_categoria_preserva_desafio_titulo_resumo_e_objetivo(
+    team, leader, challenge, category
+):
+    project_with_challenge(
+        team, challenge, title="Meu projeto", summary="Resumo", objective="Meta"
+    )
+
+    result = select_category(actor=leader, team=team, category=category)
+
+    result.refresh_from_db()
+    assert (result.challenge, result.title, result.summary, result.objective) == (
+        challenge,
+        "Meu projeto",
+        "Resumo",
+        "Meta",
+    )
+
+
+def test_categoria_recusa_quem_nao_e_lider(team, challenge, category):
+    project_with_challenge(team, challenge)
+    membro = TeamMemberFactory(team=team)
+    with pytest.raises(NotTeamLeader):
+        select_category(actor=membro.student.user, team=team, category=category)
+
+
+def test_categoria_recusa_admin(team, challenge, category):
+    project_with_challenge(team, challenge)
+    with pytest.raises(NotTeamLeader):
+        select_category(
+            actor=UserFactory(role=UserRole.ADMIN), team=team, category=category
+        )
+
+
+def test_categoria_recusa_fora_do_prazo(team, leader, challenge, category):
+    project_with_challenge(team, challenge)
+    stage = team.edition.stages.get()
+    stage.starts_at = timezone.now() - timedelta(days=3)
+    stage.ends_at = timezone.now() - timedelta(days=1)
+    stage.save()
+    with pytest.raises(FormationClosed):
+        select_category(actor=leader, team=team, category=category)
+
+
+def test_categoria_recusa_sem_etapa_de_formacao(team, leader, challenge, category):
+    project_with_challenge(team, challenge)
+    team.edition.stages.all().delete()
+    with pytest.raises(FormationClosed):
+        select_category(actor=leader, team=team, category=category)
+
+
+def test_categoria_recusa_equipe_sem_projeto(team, leader, category):
+    with pytest.raises(ProjectNotFound):
+        select_category(actor=leader, team=team, category=category)
+
+
+def test_categoria_recusa_categoria_inativa(team, leader, challenge):
+    project_with_challenge(team, challenge)
+    inativa = CategoryFactory(edition=team.edition, active=False)
+    with pytest.raises(CategoryNotAvailable):
+        select_category(actor=leader, team=team, category=inativa)
+
+
+def test_categoria_recusa_categoria_de_outra_edicao(team, leader, challenge):
+    project_with_challenge(team, challenge)
+    with pytest.raises(CategoryNotAvailable):
+        select_category(actor=leader, team=team, category=CategoryFactory())
+
+
+def test_falha_nao_grava_a_categoria(team, leader, challenge, category):
+    project = project_with_challenge(team, challenge, category=category)
+    inativa = CategoryFactory(edition=team.edition, active=False)
+
+    with pytest.raises(CategoryNotAvailable):
+        select_category(actor=leader, team=team, category=inativa)
+
+    project.refresh_from_db()
+    assert project.category == category
