@@ -221,6 +221,7 @@
 ### P-27 — Status de entrega e nota zero automática · Média
 - O RF31 define os status "Não enviada", "Enviada" e "Não entregue", que não estão persistidos.
 - **Suposição:** são derivados (sem versão + prazo aberto = Não enviada; com versão = Enviada; sem versão + prazo encerrado = Não entregue).
+- **Implementado (#106):** o status é derivado em `get_delivery_status` (selectors de `projects`), sem gravar nada; `official_version_id` só aparece depois do prazo da equipe.
 - **Decidir:** como aplicar a nota zero (RF31/RF32). O `stage_score` com `value = 0` é gravado por um job ao fim do prazo ou calculado na consulta? Com que `status`?
 
 ### P-28 — Visibilidade pública do acervo · Baixa
@@ -311,6 +312,7 @@ Estas são convenções que a especificação adota para ficar completa. Cada um
 ### P-43 — Uploads em multipart · Média
 - **Entrega de etapa:** `items` vai como string JSON com `field_id` e `link` ou `file_index`, e os arquivos vão em `files[]`. Isso é necessário porque a etapa tem um número variável de campos LINK e FILE.
 - **Edital (RF09)** e **modelo de certificado (RF17):** um campo de arquivo único.
+- **Atualização (#106):** nesta sprint a entrega aceita só links, em JSON (`{"items": [{"field_id", "link"}], "notes"}`). O `multipart` volta com os arquivos (FILE) na V5.
 - Também é preciso definir onde os arquivos são armazenados (ex.: Azure Blob) e se as URLs devolvidas (`notice_url`, `file_url`, `template_url`) são públicas ou assinadas e com validade. Entregas e certificados não devem ficar com URL pública permanente.
 
 ### P-44 — Anonimato do professor nos feedbacks · Média
