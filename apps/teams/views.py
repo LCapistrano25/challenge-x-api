@@ -233,7 +233,6 @@ class JoinRequestCreateView(APIView):
                 code = "team_not_found"
                 http_status = status.HTTP_404_NOT_FOUND
             else:
-           
                 error_codes = {
                     "Não existe prazo de formação aberto para esta equipe.": (
                         "formation_closed"
