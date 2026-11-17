@@ -9,10 +9,25 @@ class LoginSerializer(serializers.Serializer):
         return value.strip().lower()
 
 
+class MicrosoftLoginSerializer(serializers.Serializer):
+    code = serializers.CharField()
+
+
 class StudentProfileSerializer(serializers.Serializer):
     registration_number = serializers.CharField(max_length=30)
     course_id = serializers.IntegerField()
     term = serializers.IntegerField(min_value=1)
+
+
+class TeacherProfileSerializer(serializers.Serializer):
+    course_ids = serializers.ListField(
+        child=serializers.IntegerField(), allow_empty=False
+    )
+
+    def validate_course_ids(self, value):
+        if len(set(value)) != len(value):
+            raise serializers.ValidationError("Curso repetido.")
+        return value
 
 
 class ExternalReviewSerializer(serializers.Serializer):

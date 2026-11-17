@@ -100,6 +100,12 @@ AUTH_USER_MODEL = "accounts.User"
 
 DEFAULT_FROM_EMAIL = "noreply@desafiox.local"
 
+# Login de aluno e professor com a conta Microsoft (RF18, RF36), app web no Entra ID.
+MICROSOFT_TENANT_ID = env("MICROSOFT_TENANT_ID", default="")
+MICROSOFT_CLIENT_ID = env("MICROSOFT_CLIENT_ID", default="")
+MICROSOFT_CLIENT_SECRET = env("MICROSOFT_CLIENT_SECRET", default="")
+MICROSOFT_REDIRECT_URI = env("MICROSOFT_REDIRECT_URI", default="")
+
 # Sessão com expiração por inatividade
 SESSION_COOKIE_AGE = 1800
 SESSION_SAVE_EVERY_REQUEST = True
