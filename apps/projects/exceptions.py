@@ -52,3 +52,29 @@ class CategoryNotAvailable(ProjectError):
     code = "category_not_available"
     default_message = "A categoria não está disponível para esta edição."
     http_status = HTTPStatus.BAD_REQUEST
+
+
+class TeamDisqualified(ProjectError):
+    code = "team_disqualified"
+    default_message = "A equipe está desclassificada."
+
+
+class TeamIncomplete(ProjectError):
+    code = "team_incomplete"
+    default_message = "Equipes incompletas não podem realizar entregas."
+
+
+class StageDeadlineClosed(ProjectError):
+    code = "stage_deadline_closed"
+    default_message = "O prazo da etapa está encerrado."
+
+
+class StageNotOpen(ProjectError):
+    code = "stage_not_open"
+    default_message = "A etapa ainda não está aberta."
+
+
+class StageNotFound(ProjectError):
+    code = "stage_not_found"
+    default_message = "Etapa de entrega não encontrada neste projeto."
+    http_status = HTTPStatus.NOT_FOUND

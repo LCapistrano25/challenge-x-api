@@ -3,7 +3,7 @@ from django.core.exceptions import ValidationError
 from django.utils import timezone
 
 from apps.accounts.enums import UserRole
-from apps.editions.enums import StageKind
+from apps.editions.enums import FieldKind, StageKind
 from apps.projects.exceptions import (
     CategoryNotAvailable,
     ChallengeNotEligible,
@@ -13,7 +13,13 @@ from apps.projects.exceptions import (
     ProjectAccessDenied,
     ProjectNotFound,
     ProjectTitleTaken,
+    StageDeadlineClosed,
+    StageNotFound,
+    StageNotOpen,
+    TeamDisqualified,
+    TeamIncomplete,
 )
+from apps.teams.enums import TeamSituation, TeamStatus
 
 # Os models importam estas regras; por isso as que consultam outro app pegam os
 # models pelo registro do Django, sem import que fecharia o ciclo.
@@ -155,3 +161,57 @@ def ensure_actor_can_view_project(team, actor) -> None:
     )
     if not is_course_teacher:
         raise ProjectAccessDenied()
+
+
+def ensure_team_not_disqualified(team) -> None:
+    """Equipe desclassificada não envia entrega (RF31)."""
+    if team.status == TeamStatus.DISQUALIFIED:
+        raise TeamDisqualified()
+
+
+def ensure_team_not_incomplete(team) -> None:
+    """Equipe incompleta não envia entrega; sem situação apurada, pode (RF31, RF51)."""
+    blocked = {TeamSituation.INCOMPLETE, TeamSituation.REQUIREMENTS_NOT_MET}
+    if team.situation in blocked:
+        raise TeamIncomplete()
+
+
+def ensure_stage_accepts_delivery(project, stage) -> None:
+    """A etapa é de entrega e da edição do projeto (RF31)."""
+    if stage.kind != StageKind.SUBMISSION or stage.edition_id != project.edition_id:
+        raise StageNotFound()
+
+
+def ensure_stage_deadline_open(project, stage) -> None:
+    """Só entrega do início da etapa até o prazo da equipe, com prorrogação (RF31)."""
+    # Import aqui: selectors importa os models de projects, que importam este módulo.
+    from apps.projects.selectors import get_submission_deadline
+
+    now = timezone.now()
+    if now < stage.starts_at:
+        raise StageNotOpen()
+    if now > get_submission_deadline(project, stage):
+        raise StageDeadlineClosed()
+
+
+def ensure_items_match_stage_fields(stage, items: list[dict]) -> None:
+    """Cada item responde a um campo LINK da etapa, sem repetir, e os obrigatórios
+    são respondidos (RF31). Arquivos ficam para a V5.
+
+    `items` é uma lista de {"field": StageSubmissionField, "link": str}.
+    """
+    if not items:
+        raise ValidationError({"items": "Informe ao menos um item."})
+
+    fields = [item["field"] for item in items]
+    if any(f.stage_id != stage.pk for f in fields):
+        raise ValidationError({"items": "O campo é de outra etapa."})
+    if any(f.kind != FieldKind.LINK for f in fields):
+        raise ValidationError({"items": "Nesta versão só há envio de links."})
+    if len({f.pk for f in fields}) != len(fields):
+        raise ValidationError({"items": "O campo foi enviado mais de uma vez."})
+
+    required = stage.submission_fields.filter(kind=FieldKind.LINK, required=True)
+    missing = required.exclude(pk__in=[f.pk for f in fields])
+    if missing.exists():
+        raise ValidationError({"items": "Preencha todos os campos obrigatórios."})
