@@ -41,3 +41,14 @@ class ProjectAccessDenied(ProjectError):
     code = "project_access_denied"
     default_message = "Você não tem acesso ao projeto desta equipe."
     http_status = HTTPStatus.FORBIDDEN
+
+
+class ProjectNotFound(ProjectError):
+    code = "project_not_found"
+    default_message = "A equipe ainda não tem projeto. Escolha o desafio primeiro."
+
+
+class CategoryNotAvailable(ProjectError):
+    code = "category_not_available"
+    default_message = "A categoria não está disponível para esta edição."
+    http_status = HTTPStatus.BAD_REQUEST

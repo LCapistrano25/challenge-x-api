@@ -5,11 +5,13 @@ from django.utils import timezone
 from apps.accounts.enums import UserRole
 from apps.editions.enums import StageKind
 from apps.projects.exceptions import (
+    CategoryNotAvailable,
     ChallengeNotEligible,
     ChallengeNotSelected,
     FormationClosed,
     NotTeamLeader,
     ProjectAccessDenied,
+    ProjectNotFound,
     ProjectTitleTaken,
 )
 
@@ -100,6 +102,19 @@ def ensure_project_has_challenge(project) -> None:
     """Os dados do projeto só se cadastram depois de escolhido o desafio (RF30)."""
     if not project.challenge_id:
         raise ChallengeNotSelected()
+
+
+def ensure_team_has_project(team) -> None:
+    """A categoria só se escolhe com o projeto já criado, junto do desafio (RF30)."""
+    projects = apps.get_model("projects", "Project").objects
+    if not projects.filter(team=team).exists():
+        raise ProjectNotFound()
+
+
+def ensure_category_available(team, category) -> None:
+    """A categoria é ativa e da edição da equipe (RF30, RF49)."""
+    if category.edition_id != team.edition_id or not category.active:
+        raise CategoryNotAvailable()
 
 
 def ensure_project_title_is_free(project, title: str) -> None:
