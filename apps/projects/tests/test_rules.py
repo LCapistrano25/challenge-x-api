@@ -6,19 +6,28 @@ from django.utils import timezone
 from apps.accounts.enums import UserRole
 from apps.accounts.factories import StudentFactory, UserFactory
 from apps.core.factories import CourseFactory
-from apps.editions.factories import ChallengeFactory, EditionFactory, StageFactory
+from apps.editions.factories import (
+    CategoryFactory,
+    ChallengeFactory,
+    EditionFactory,
+    StageFactory,
+)
 from apps.projects.exceptions import (
+    CategoryNotAvailable,
     ChallengeNotEligible,
     ChallengeNotSelected,
     FormationClosed,
     NotTeamLeader,
+    ProjectNotFound,
 )
 from apps.projects.factories import ProjectFactory
 from apps.projects.rules import (
     ensure_actor_is_team_leader,
+    ensure_category_available,
     ensure_challenge_eligible,
     ensure_formation_period_is_open,
     ensure_project_has_challenge,
+    ensure_team_has_project,
 )
 from apps.teams.enums import MemberRole
 from apps.teams.factories import TeamFactory, TeamMemberFactory
@@ -180,3 +189,34 @@ def test_projeto_com_desafio_passa():
 def test_projeto_sem_desafio_e_recusado():
     with pytest.raises(ChallengeNotSelected):
         ensure_project_has_challenge(ProjectFactory(challenge=None))
+
+
+# Projeto da equipe já existe (RF30)
+
+
+def test_equipe_com_projeto_passa(team):
+    ProjectFactory(team=team)
+    ensure_team_has_project(team)
+
+
+def test_equipe_sem_projeto_e_recusada(team):
+    with pytest.raises(ProjectNotFound):
+        ensure_team_has_project(team)
+
+
+# Categoria disponível (RF30, RF49)
+
+
+def test_categoria_ativa_da_edicao_passa(team):
+    ensure_category_available(team, CategoryFactory(edition=team.edition))
+
+
+def test_categoria_inativa_e_recusada(team):
+    categoria = CategoryFactory(edition=team.edition, active=False)
+    with pytest.raises(CategoryNotAvailable):
+        ensure_category_available(team, categoria)
+
+
+def test_categoria_de_outra_edicao_e_recusada(team):
+    with pytest.raises(CategoryNotAvailable):
+        ensure_category_available(team, CategoryFactory())

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from apps.editions.models import Challenge
+from apps.editions.models import Category, Challenge
 from apps.projects.selectors import get_team_courses
 
 
@@ -8,6 +8,13 @@ class ChallengeSelectionSerializer(serializers.Serializer):
     # Desafio inexistente sai como erro de validação; a elegibilidade é do caso de uso.
     challenge_id = serializers.PrimaryKeyRelatedField(
         queryset=Challenge.objects.all(), source="challenge"
+    )
+
+
+class CategorySelectionSerializer(serializers.Serializer):
+    # Categoria inexistente sai como erro de validação; o resto é do caso de uso.
+    category_id = serializers.PrimaryKeyRelatedField(
+        queryset=Category.objects.all(), source="category"
     )
 
 

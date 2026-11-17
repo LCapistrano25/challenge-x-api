@@ -10,12 +10,14 @@ from apps.projects.rules import (
 )
 from apps.projects.selectors import get_active_categories, get_eligible_challenges
 from apps.projects.serializers import (
+    CategorySelectionSerializer,
     ChallengeSelectionSerializer,
     ProjectDetailsSerializer,
     ProjectOptionsSerializer,
     ProjectSerializer,
 )
 from apps.projects.use_cases.save_project_details import save_project_details
+from apps.projects.use_cases.select_category import select_category
 from apps.projects.use_cases.select_challenge import select_challenge
 from apps.teams.models import Team
 
@@ -85,5 +87,21 @@ class ProjectDetailsView(APIView):
 
         project = save_project_details(
             actor=request.user, team=team, **serializer.validated_data
+        )
+        return Response(ProjectSerializer(project).data)
+
+
+class ProjectCategoryView(APIView):
+    permission_classes = [IsStudent]
+
+    def put(self, request, team_id):
+        team = get_team(team_id)
+        serializer = CategorySelectionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        project = select_category(
+            actor=request.user,
+            team=team,
+            category=serializer.validated_data["category"],
         )
         return Response(ProjectSerializer(project).data)
