@@ -2,7 +2,10 @@ from django.urls import path
 
 from apps.teams.views import (
     InvitationResponseView,
+    JoinRequestCreateView,
+    JoinRequestResponseView,
     MyInvitationsView,
+    MyJoinRequestsView,
     TeamCreateView,
     TeamDetailView,
     TeamInvitationView,
@@ -29,5 +32,20 @@ urlpatterns = [
         "invitations/<int:invitation_id>/respond",
         InvitationResponseView.as_view(),
         name="invitation-respond",
+    ),
+    path(
+        "teams/<int:team_id>/join-requests",
+        JoinRequestCreateView.as_view(),
+        name="join-request-create",
+    ),
+    path(
+        "me/join-requests",
+        MyJoinRequestsView.as_view(),
+        name="my-join-requests",
+    ),
+    path(
+        "join-requests/<int:join_request_id>/respond",
+        JoinRequestResponseView.as_view(),
+        name="join-request-respond",
     ),
 ]
