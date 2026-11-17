@@ -2,10 +2,18 @@ from django.urls import path
 
 from apps.teams.views import (
     InvitationResponseView,
+    JoinRequestCreateView,
+    JoinRequestResponseView,
+    LeadershipRequestCreateView,
+    LeadershipRequestReviewView,
+    LeadershipTransferView,
     MyInvitationsView,
+    MyJoinRequestsView,
+    TeacherLeadershipRequestsView,
     TeamCreateView,
     TeamDetailView,
     TeamInvitationView,
+    TeamLeaveView,
 )
 
 urlpatterns = [
@@ -29,5 +37,45 @@ urlpatterns = [
         "invitations/<int:invitation_id>/respond",
         InvitationResponseView.as_view(),
         name="invitation-respond",
+    ),
+    path(
+        "teams/<int:team_id>/join-requests",
+        JoinRequestCreateView.as_view(),
+        name="join-request-create",
+    ),
+    path(
+        "me/join-requests",
+        MyJoinRequestsView.as_view(),
+        name="my-join-requests",
+    ),
+    path(
+        "join-requests/<int:join_request_id>/respond",
+        JoinRequestResponseView.as_view(),
+        name="join-request-respond",
+    ),
+    path(
+        "teams/<int:team_id>/leave",
+        TeamLeaveView.as_view(),
+        name="team-leave",
+    ),
+    path(
+        "teams/<int:team_id>/leadership-transfer",
+        LeadershipTransferView.as_view(),
+        name="team-leadership-transfer",
+    ),
+    path(
+        "teams/<int:team_id>/leadership-requests",
+        LeadershipRequestCreateView.as_view(),
+        name="leadership-request-create",
+    ),
+    path(
+        "teacher/leadership-requests",
+        TeacherLeadershipRequestsView.as_view(),
+        name="teacher-leadership-requests",
+    ),
+    path(
+        "leadership-requests/<int:leadership_request_id>/decide",
+        LeadershipRequestReviewView.as_view(),
+        name="leadership-request-decide",
     ),
 ]
