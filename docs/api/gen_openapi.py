@@ -458,6 +458,7 @@ SC["Project"] = obj({
     "created_at": DT(), "updated_at": DT(),
 }, ["id", "team_id", "edition_id", "challenge", "category", "title", "summary", "objective", "status", "courses", "created_at", "updated_at"])
 SC["ChallengeSelection"] = obj({"challenge_id": INT(ex=15)}, ["challenge_id"], strict=True)
+SC["CategorySelection"] = obj({"category_id": INT(ex=2)}, ["category_id"], strict=True)
 SC["ProjectDetailsWrite"] = obj({
     "title": STR(ex="Monitoramento inteligente do consumo de água", maxLength=200, minLength=1),
     "summary": TXT(ex="Sensores de baixo custo e um painel web para identificar vazamentos no campus.", minLength=1),
@@ -996,6 +997,14 @@ op("put", "/api/teams/{team_id}/project/challenge", "projectsSelectChallenge", "
           "Desafio ativo da edição e de curso de integrante ativo (400 challenge_not_eligible).",
           "A ODS e o curso do desafio são vinculados automaticamente."],
    conflicts=[FORM_CLOSED])
+op("put", "/api/teams/{team_id}/project/category", "projectsSelectCategory", "projects", "Escolher a categoria do projeto", ["RF30", "RF49"], ["STUDENT"],
+   "Grava a categoria escolhida pela equipe. Não altera desafio, título, resumo nem objetivo.",
+   params=["TeamId"], body=ref("CategorySelection"), ok=ref("Project"), errs=["404"], authz=LEADER + " Erro 403: not_team_leader.",
+   rules=["Somente durante a formação; depois a categoria fica congelada (409 formation_closed).",
+          "O projeto já existe, criado ao escolher o desafio (409 project_not_found).",
+          "Categoria ativa da edição da equipe (400 category_not_available).",
+          "Pode trocar de categoria até o fim da formação; não é possível limpá-la."],
+   conflicts=[FORM_CLOSED, ("project_not_found", "A equipe ainda não tem projeto. Escolha o desafio primeiro.")])
 op("put", "/api/teams/{team_id}/project/details", "projectsSaveProjectDetails", "projects", "Cadastrar ou atualizar os dados do projeto", ["RF30"], ["STUDENT"],
    "Grava título, resumo e objetivo do projeto; serve para cadastrar e para atualizar. Exige desafio já escolhido.",
    params=["TeamId"], body=ref("ProjectDetailsWrite"), ok=ref("Project"), errs=["404"], authz=LEADER + " Erro 403: not_team_leader.",
