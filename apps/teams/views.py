@@ -331,11 +331,13 @@ class InvitationResponseView(APIView):
                     "Não existe prazo de formação aberto para esta equipe.": (
                         "formation_closed"
                     ),
-                    "A equipe já atingiu o limite máximo de integrantes.": "team_full",
-                    "O estudante já participa de uma equipe ativa nesta edição.": (
-                        "student_already_in_team"
+                    "A equipe já atingiu o limite máximo de integrantes.": (
+                        "team_full"
                     ),
-                    "Este convite não está mais pendente.": "invitation_not_pending",
+                    (
+                        "O estudante já participa de uma equipe ativa nesta edição."
+                    ): "student_already_in_team",
+                    "Este convite não está mais pendente.": ("invitation_not_pending"),
                 }
                 code = error_codes.get(
                     message,
