@@ -24,6 +24,7 @@ from apps.teams.use_cases.review_leadership_request import (
 
 pytestmark = pytest.mark.django_db
 
+
 def create_leadership_request():
     team = TeamFactory(leader=False)
     project = ProjectFactory(team=team)
