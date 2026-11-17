@@ -4,6 +4,11 @@ from apps.accounts import views
 
 urlpatterns = [
     path("sessions/password", views.LoginView.as_view(), name="password-session"),
+    path(
+        "sessions/microsoft",
+        views.MicrosoftLoginView.as_view(),
+        name="microsoft-session",
+    ),
     path("logout", views.LogoutView.as_view(), name="logout"),
     path("me", views.MeView.as_view(), name="me"),
     path("csrf", views.CsrfView.as_view(), name="csrf"),

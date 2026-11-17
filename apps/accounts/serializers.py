@@ -9,6 +9,10 @@ class LoginSerializer(serializers.Serializer):
         return value.strip().lower()
 
 
+class MicrosoftLoginSerializer(serializers.Serializer):
+    code = serializers.CharField()
+
+
 class StudentProfileSerializer(serializers.Serializer):
     registration_number = serializers.CharField(max_length=30)
     course_id = serializers.IntegerField()

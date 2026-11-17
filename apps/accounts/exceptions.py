@@ -57,6 +57,18 @@ class NotAdminActor(BusinessRuleViolation):
     http_status = HTTPStatus.FORBIDDEN
 
 
+class MicrosoftIdentityMismatch(BusinessRuleViolation):
+    code = "microsoft_identity_mismatch"
+    default_message = "O e-mail já está vinculado a outra identidade Microsoft."
+    http_status = HTTPStatus.CONFLICT
+
+
+class InactiveAccount(BusinessRuleViolation):
+    code = "inactive_account"
+    default_message = "Conta inativa."
+    http_status = HTTPStatus.FORBIDDEN
+
+
 class EmailTaken(BusinessRuleViolation):
     code = "email_taken"
     default_message = "E-mail já cadastrado."

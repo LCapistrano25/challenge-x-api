@@ -187,10 +187,11 @@ SC["ChallengeSummary"] = obj({"id": INT(ex=15), "description": TXT(ex="Propor um
 # ---------------------------------------------------------------- auth
 SC["MicrosoftSessionRequest"] = obj({"code": STR("Authorization code recebido da Microsoft pelo frontend.", "0.AQ8A3x...")}, ["code"], strict=True)
 SC["MicrosoftSessionResponse"] = obj({
-    "token": STR("JWT da aplicação.", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."),
+    "user_id": USER_ID(), "name": STR(ex="Ana Ribeiro"), "email": EMAIL(ex="ana@a.catolica-to.edu.br"),
     "role": ref("UserRole"),
     "profile_completed": BOOL("Indica se o perfil acadêmico (student) ou docente (teacher) já foi configurado. Proposta (P-42).", False),
-}, ["token", "role", "profile_completed"])
+}, ["user_id", "name", "email", "role", "profile_completed"],
+    "Usuário da sessão, como em SessionResponse. A credencial vai no cookie de sessão, não no corpo (#70, P-03).")
 SC["PasswordSessionRequest"] = obj({"email": EMAIL(ex="avaliador@instituicao.com"), "password": STR(ex="********", format="password")}, ["email", "password"], strict=True)
 SC["SessionResponse"] = obj({"user_id": USER_ID(), "name": STR(ex="Ana Ribeiro"), "email": EMAIL(ex="avaliador@instituicao.com"),
                             "role": ref("UserRole")}, ["user_id", "name", "email", "role"],
@@ -651,15 +652,17 @@ EV = "A edição vigente é a edição com status PUBLISHED ou IN_PROGRESS (P-41
 
 # ---------- auth
 op("post", "/api/auth/sessions/microsoft", "authCreateMicrosoftSession", "auth", "Autenticar aluno ou professor com a Microsoft",
-   ["RF18", "RF36"], [], "Troca o authorization code da Microsoft por um JWT da aplicação. A troca do código e a consulta ao Microsoft Graph ocorrem no backend.",
+   ["RF18", "RF36"], [], "Troca o authorization code da Microsoft pela identidade do usuário e cria a sessão (cookie), como o login com senha. A troca do código ocorre no backend, com o client secret do app (plataforma Web no Entra ID). Exige o cabeçalho X-CSRFToken, obtido em GET /api/auth/csrf.",
    public=True, body=ref("MicrosoftSessionRequest"), ok=ref("MicrosoftSessionResponse"), ok_desc="Sessão criada.",
-   rules=["Domínio @a.catolica-to.edu.br define o perfil STUDENT; @p.catolica-to.edu.br define TEACHER. Outros domínios são rejeitados (403).",
-          "No primeiro acesso, cria users e accounts (provider MICROSOFT, provider_account_id = identidade Microsoft), sem criar student/teacher.",
+   rules=["Só contas do tenant da instituição são aceitas; código inválido, expirado, já usado ou de outro tenant retorna 401 invalid_credentials.",
+          "Domínio @a.catolica-to.edu.br define o perfil STUDENT; @p.catolica-to.edu.br define TEACHER. Outros domínios são rejeitados (403 domain_role_mismatch).",
+          "No primeiro acesso, cria o usuário com a identidade Microsoft (oid), sem senha e sem criar student/teacher. Usuário já cadastrado com o mesmo e-mail (ex.: professor criado pelo administrador) é vinculado à identidade.",
           "Se o e-mail já estiver vinculado a outra identidade Microsoft, a autenticação é recusada (409).",
-          "Usuários inativos não recebem sessão (403).",
+          "Usuários inativos não recebem sessão (403 inactive_account).",
           "profile_completed=false indica que o frontend deve conduzir ao autocadastro (RF19) ou à configuração do professor (RF36.1).",
-          "Expiração do token pendente (P-03)."],
-   errs=["403"], conflicts=[("microsoft_identity_mismatch", "O e-mail já está vinculado a outra identidade Microsoft.")],
+          "Microsoft indisponível ou login não configurado: 503 external_service_error.",
+          "A sessão expira após 30 minutos de inatividade, renovados a cada requisição (P-03)."],
+   errs=["401", "403"], conflicts=[("microsoft_identity_mismatch", "O e-mail já está vinculado a outra identidade Microsoft.")],
    pend=["P-02", "P-03", "P-42"])
 op("post", "/api/auth/sessions/password", "authCreatePasswordSession", "auth", "Autenticar administrador ou avaliador externo com e-mail e senha",
    ["RF01", "RF41"], [], "Autentica contas com senha local (ADMIN e EXTERNAL_EVALUATOR) e cria a sessão (cookie). Exige o cabeçalho X-CSRFToken, obtido em GET /api/auth/csrf.", public=True,

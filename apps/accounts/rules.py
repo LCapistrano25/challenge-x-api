@@ -22,6 +22,7 @@ PROFILE_BY_ROLE = {
 
 # Aluno e professor entram pela Microsoft (RF18, RF36).
 PASSWORD_ROLES = {UserRole.ADMIN, UserRole.EXTERNAL_REVIEWER}
+MICROSOFT_ROLES = {UserRole.STUDENT, UserRole.TEACHER}
 
 
 def ensure_institutional_domain(email: str, role: str) -> None:
@@ -41,6 +42,23 @@ def ensure_institutional_domain(email: str, role: str) -> None:
 
     if domain.role != role:
         raise DomainRoleMismatch("Perfil não autorizado para este domínio.")
+
+
+def ensure_microsoft_domain(email: str) -> str:
+    """Devolve o papel do domínio institucional, só de aluno ou professor (RN02).
+
+    Domínio desconhecido, inativo ou de outro papel sai como DomainRoleMismatch.
+    """
+    domain_name = email.rsplit("@", 1)[-1].lower()
+    domains = apps.get_model("accounts", "EmailDomain").objects
+    role = (
+        domains.filter(name__iexact=domain_name, active=True)
+        .values_list("role", flat=True)
+        .first()
+    )
+    if role not in MICROSOFT_ROLES:
+        raise DomainRoleMismatch()
+    return role
 
 
 def has_role_profile(user) -> bool:
