@@ -19,7 +19,7 @@
 | P-01 | `users` sem os campos nativos do Django | Alta | `accounts`, 1ª migration |
 | P-02 | Contrato de auth com valores e campos fora do DBML | Média | `accounts` |
 | P-03 | Expiração por inatividade × JWT de 7 dias | Média | `accounts` |
-| P-04 | Professor define o próprio escopo de avaliação | Alta | `accounts`, `evaluations` |
+| P-04 | Professor define o próprio escopo de avaliação — **resolvida** | Alta | `accounts`, `evaluations` |
 | P-05 | Criação de avaliador externo sem vínculo à edição | Média | `accounts`, `evaluations` |
 | P-06 | Status de chamado divergentes | Alta | `support` |
 | P-07 | Justificativa de recusa e histórico do chamado | Média | `support` |
@@ -88,6 +88,7 @@
 - Pelo RFXX ("Atualizar cadastro de professor"), o vínculo com cursos define quais projetos ele avalia, e somente o Administrador altera esse vínculo.
 - **Impacto:** do jeito atual, o professor ganha permissão de avaliação sem validação administrativa. O próprio contrato de auth já sinaliza esse risco.
 - **Decidir:** se o vínculo criado no RF36.1 nasce ativo ou pendente de aprovação do Admin (por exemplo, gravado com `active = false`, sem mudar o schema).
+- **Resolvida (16/11/2026, #68):** o vínculo nasce ativo. A escolha é única, no primeiro acesso: uma nova tentativa recebe 409 `teacher_profile_exists`. Depois disso, só o Admin altera os cursos. O frontend confirma a escolha antes de salvar.
 
 ### P-05 — Criação de avaliador externo sem vínculo à edição · Média
 - O RF11 pede cadastrar o avaliador **e** vinculá-lo à edição com uma abrangência (todos os cursos ou um curso), o que envolve `edition_evaluator`.
@@ -330,14 +331,13 @@ Estas são convenções que a especificação adota para ficar completa. Cada um
 
 ## 11. Endpoints confirmados e propostos
 
-A especificação tem **109 operações em 79 caminhos**:
-- **95 confirmadas** (`x-status: confirmed`): podem ter pendências de severidade média ou baixa, com uma suposição registrada que não muda o contrato de forma estrutural.
-- **14 propostas** (`x-status: proposed`): dependem de uma pendência de severidade alta e podem mudar.
+A especificação tem **112 operações em 83 caminhos**:
+- **100 confirmadas** (`x-status: confirmed`): podem ter pendências de severidade média ou baixa, com uma suposição registrada que não muda o contrato de forma estrutural.
+- **12 propostas** (`x-status: proposed`): dependem de uma pendência de severidade alta e podem mudar.
 
 | Método | Caminho | Depende de |
 |---|---|---|
 | POST | `/api/auth/sessions/password` | P-01 (campos nativos de `users`) |
-| POST | `/api/auth/teachers` | P-04 (escopo do professor) |
 | POST | `/api/admin/editions/{edition_id}/stages` | P-19 (prazo de avaliação) |
 | PATCH | `/api/admin/stages/{stage_id}` | P-21 (prorrogação individual) |
 | GET | `/api/me/dashboard` | P-23 (equipe incompleta) |
@@ -423,7 +423,7 @@ O validador oficial (`openapi-spec-validator`) **não pôde ser instalado**, por
 
 ## 14. O que impede considerar a especificação definitiva
 
-1. **Pendências altas que mudam contratos:** P-01, P-04, P-06, P-19, P-21, P-23, P-25, P-29, P-30 e P-31 (afetam as 14 operações propostas e a ausência de RF14 e de parte do RF17).
+1. **Pendências altas que mudam contratos:** P-01, P-06, P-19, P-21, P-23, P-25, P-29, P-30 e P-31 (afetam as 12 operações propostas e a ausência de RF14 e de parte do RF17).
 2. **Convenções transversais ainda não aprovadas:** decimais (P-39) e multipart (P-43). Formato de erro (P-37) e paginação (P-38) foram adotados.
 3. **Contrato de auth:** nomes e valores alinhados ao DBML (P-02) e a ausência de definição para expiração, refresh e logout (P-03, P-42).
 4. **Validação oficial e importação no Apidog** ainda não executadas (seção 13).

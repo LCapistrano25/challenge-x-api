@@ -233,18 +233,23 @@ class JoinRequestCreateView(APIView):
                 code = "team_not_found"
                 http_status = status.HTTP_404_NOT_FOUND
             else:
+           
                 error_codes = {
-                    (
-                        "Não existe prazo de formação aberto para esta equipe."
-                    ): "formation_closed",
+                    "Não existe prazo de formação aberto para esta equipe.": (
+                        "formation_closed"
+                    ),
                     "A equipe já atingiu o limite máximo de integrantes.": (
                         "team_full"
                     ),
+                    "O aluno já participa de uma equipe ativa nesta edição.": (
+                        "student_already_in_team"
+                    ),
+                    "Já existe uma solicitação pendente para esta equipe.": (
+                        "request_already_pending"
+                    ),
                     (
-                        "O aluno já participa de uma equipe ativa nesta edição."
-                    ): "student_already_in_team",
-                    (
-                        "Já existe uma solicitação pendente para esta equipe."
+                        "Não foi possível registrar a solicitação. "
+                        "Verifique se já existe uma solicitação pendente."
                     ): "request_already_pending",
                 }
 
@@ -322,9 +327,9 @@ class InvitationResponseView(APIView):
                 http_status = status.HTTP_404_NOT_FOUND
             else:
                 error_codes = {
-                    (
-                        "Não existe prazo de formação aberto para esta equipe."
-                    ): "formation_closed",
+                    "Não existe prazo de formação aberto para esta equipe.": (
+                        "formation_closed"
+                    ),
                     "A equipe já atingiu o limite máximo de integrantes.": (
                         "team_full"
                     ),
