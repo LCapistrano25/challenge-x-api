@@ -403,3 +403,91 @@ def test_fluxo_escolher_e_cadastrar_e_consultar(team, leader, challenge):
     assert response.status_code == 200
     assert response.data["challenge"]["id"] == challenge.pk
     assert response.data["title"] == "Água limpa"
+
+
+# PUT /api/teams/{team_id}/project/category (RF30, RF49)
+
+
+@pytest.fixture
+def category(team):
+    return CategoryFactory(edition=team.edition)
+
+
+def put_category(user, team, payload):
+    return client_for(user).put(url(team, "/category"), payload, format="json")
+
+
+def test_lider_escolhe_a_categoria(team, leader, project, category):
+    response = put_category(leader, team, {"category_id": category.pk})
+
+    assert response.status_code == 200
+    assert response.data["category"] == {"id": category.pk, "name": category.name}
+    assert response.data["team_id"] == team.pk
+
+
+def test_escolher_categoria_exige_login(team, project, category):
+    response = APIClient().put(
+        url(team, "/category"), {"category_id": category.pk}, format="json"
+    )
+    assert response.status_code == 403
+
+
+def test_admin_nao_escolhe_categoria(team, project, category):
+    admin = UserFactory(role=UserRole.ADMIN)
+    response = put_category(admin, team, {"category_id": category.pk})
+    assert response.status_code == 403
+    project.refresh_from_db()
+    assert project.category is None
+
+
+def test_categoria_recusa_quem_nao_e_lider(team, member, project, category):
+    response = put_category(member, team, {"category_id": category.pk})
+    assert response.status_code == 403
+    assert error_code(response) == "not_team_leader"
+
+
+def test_categoria_em_equipe_inexistente(leader, category):
+    response = client_for(leader).put(
+        "/api/teams/999999/project/category",
+        {"category_id": category.pk},
+        format="json",
+    )
+    assert response.status_code == 404
+
+
+def test_categoria_inexistente_e_erro_de_validacao(team, leader, project):
+    response = put_category(leader, team, {"category_id": 999999})
+    assert response.status_code == 400
+    assert error_code(response) == "validation_error"
+    assert "category_id" in response.data["error"]["details"]
+
+
+@pytest.mark.parametrize("payload", [{}, {"category_id": None}])
+def test_categoria_ausente_ou_nula_e_erro_de_validacao(team, leader, project, payload):
+    response = put_category(leader, team, payload)
+    assert response.status_code == 400
+    assert error_code(response) == "validation_error"
+
+
+@pytest.mark.parametrize("kind", ["inativa", "outra_edicao"])
+def test_categoria_indisponivel(team, leader, project, kind):
+    if kind == "inativa":
+        category = CategoryFactory(edition=team.edition, active=False)
+    else:
+        category = CategoryFactory()
+    response = put_category(leader, team, {"category_id": category.pk})
+    assert response.status_code == 400
+    assert error_code(response) == "category_not_available"
+
+
+def test_categoria_fora_do_prazo(team, leader, project, category):
+    team.edition.stages.all().delete()
+    response = put_category(leader, team, {"category_id": category.pk})
+    assert response.status_code == 409
+    assert error_code(response) == "formation_closed"
+
+
+def test_categoria_sem_projeto(team, leader, category):
+    response = put_category(leader, team, {"category_id": category.pk})
+    assert response.status_code == 409
+    assert error_code(response) == "project_not_found"
