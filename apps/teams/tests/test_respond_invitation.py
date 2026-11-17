@@ -5,6 +5,7 @@ from django.utils import timezone
 
 from apps.accounts.factories import StudentFactory
 from apps.editions.factories import StageFactory
+from apps.notifications.models import Notification, NotificationType
 from apps.teams.enums import (
     InvitationStatus,
     MemberRole,
@@ -401,3 +402,73 @@ def test_aceitar_convite_cancela_solicitacoes_pendentes_de_outras_equipes():
 
     assert invitation.status == InvitationStatus.ACCEPTED
     assert join_request.status == RequestStatus.CANCELLED
+
+
+def test_aceitar_convite_notifica_lider():
+    team = TeamFactory()
+    create_open_formation(team.edition)
+    invited_student = StudentFactory()
+
+    leader_membership = team.members.get(
+        role=MemberRole.LEADER,
+        active=True,
+    )
+
+    invitation = InvitationFactory(
+        team=team,
+        student=invited_student,
+        status=InvitationStatus.PENDING,
+    )
+
+    respond_invitation(
+        actor=invited_student.user,
+        invitation_id=invitation.pk,
+        accept=True,
+    )
+
+    notification = Notification.objects.get(
+        user=leader_membership.student.user,
+    )
+
+    assert notification.type == NotificationType.TEAM
+    assert notification.title == "Convite aceito"
+    assert notification.message == (
+        f"{invited_student.user.name} aceitou o convite "
+        f"para participar da equipe {team.name}."
+    )
+    assert notification.link == f"/equipes/{team.id}"
+
+
+def test_recusar_convite_notifica_lider():
+    team = TeamFactory()
+    create_open_formation(team.edition)
+    invited_student = StudentFactory()
+
+    leader_membership = team.members.get(
+        role=MemberRole.LEADER,
+        active=True,
+    )
+
+    invitation = InvitationFactory(
+        team=team,
+        student=invited_student,
+        status=InvitationStatus.PENDING,
+    )
+
+    respond_invitation(
+        actor=invited_student.user,
+        invitation_id=invitation.pk,
+        accept=False,
+    )
+
+    notification = Notification.objects.get(
+        user=leader_membership.student.user,
+    )
+
+    assert notification.type == NotificationType.TEAM
+    assert notification.title == "Convite recusado"
+    assert notification.message == (
+        f"{invited_student.user.name} recusou o convite "
+        f"para participar da equipe {team.name}."
+    )
+    assert notification.link == f"/equipes/{team.id}"

@@ -5,6 +5,8 @@ from apps.accounts.enums import UserRole
 from apps.accounts.models import Student, User
 from apps.editions.enums import StageKind
 from apps.editions.models import Stage
+from apps.notifications.models import NotificationType
+from apps.notifications.services import create_notification
 from apps.teams.enums import InvitationStatus, MemberRole, TeamStatus
 from apps.teams.models import Invitation, Team, TeamMember
 
@@ -18,7 +20,8 @@ def invite_member(
     *,
     actor: User,
     team_id: int,
-    student_id: int,
+    student_id: int | None = None,
+    email: str | None = None,
 ) -> Invitation:
     """Envia um convite do líder para um estudante."""
     if actor.role != UserRole.STUDENT:
@@ -69,9 +72,21 @@ def invite_member(
     if current_members >= team.edition.max_members:
         raise InvitationRejected("A equipe já atingiu o limite máximo de integrantes.")
 
-    invited_student = (
-        Student.objects.select_related("user").filter(pk=student_id).first()
-    )
+    if student_id is not None and email is not None:
+        raise InvitationRejected("Informe apenas o ID ou o e-mail do estudante.")
+
+    if student_id is not None:
+        invited_student = (
+            Student.objects.select_related("user").filter(pk=student_id).first()
+        )
+    elif email is not None:
+        invited_student = (
+            Student.objects.select_related("user")
+            .filter(user__email__iexact=email.strip())
+            .first()
+        )
+    else:
+        raise InvitationRejected("Informe o ID ou o e-mail do estudante.")
 
     if invited_student is None:
         raise InvitationRejected("Estudante não encontrado.")
@@ -116,5 +131,11 @@ def invite_member(
             "Não foi possível enviar o convite. "
             "Verifique se já existe um convite pendente."
         ) from error
-
+    create_notification(
+        user=invited_student.user,
+        notification_type=NotificationType.TEAM,
+        title="Novo convite para equipe",
+        message=f"Você recebeu um convite para participar da equipe {team.name}.",
+        link=f"/convites/{invitation.id}",
+    )
     return invitation
