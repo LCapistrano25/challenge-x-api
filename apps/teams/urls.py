@@ -4,8 +4,12 @@ from apps.teams.views import (
     InvitationResponseView,
     JoinRequestCreateView,
     JoinRequestResponseView,
+    LeadershipRequestCreateView,
+    LeadershipRequestReviewView,
+    LeadershipTransferView,
     MyInvitationsView,
     MyJoinRequestsView,
+    TeacherLeadershipRequestsView,
     TeamCreateView,
     TeamDetailView,
     TeamInvitationView,
@@ -53,5 +57,25 @@ urlpatterns = [
         "teams/<int:team_id>/leave",
         TeamLeaveView.as_view(),
         name="team-leave",
+    ),
+    path(
+        "teams/<int:team_id>/leadership-transfer",
+        LeadershipTransferView.as_view(),
+        name="team-leadership-transfer",
+    ),
+    path(
+        "teams/<int:team_id>/leadership-requests",
+        LeadershipRequestCreateView.as_view(),
+        name="leadership-request-create",
+    ),
+    path(
+        "teacher/leadership-requests",
+        TeacherLeadershipRequestsView.as_view(),
+        name="teacher-leadership-requests",
+    ),
+    path(
+        "leadership-requests/<int:leadership_request_id>/decide",
+        LeadershipRequestReviewView.as_view(),
+        name="leadership-request-decide",
     ),
 ]
