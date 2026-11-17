@@ -7,6 +7,7 @@ from apps.accounts.views.login import (
     MicrosoftLoginView,
 )
 from apps.accounts.views.student_profile import StudentProfileView
+from apps.accounts.views.teacher_profile import TeacherProfileView
 
 __all__ = [
     "CsrfView",
@@ -15,5 +16,6 @@ __all__ = [
     "MeView",
     "MicrosoftLoginView",
     "StudentProfileView",
+    "TeacherProfileView",
     "ExternalReviewProfileView",
 ]

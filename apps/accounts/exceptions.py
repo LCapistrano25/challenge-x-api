@@ -27,6 +27,18 @@ class NotStudentActor(BusinessRuleViolation):
     http_status = HTTPStatus.FORBIDDEN
 
 
+class NotTeacherActor(BusinessRuleViolation):
+    code = "not_teacher_actor"
+    default_message = "Apenas professores podem configurar o perfil de professor."
+    http_status = HTTPStatus.FORBIDDEN
+
+
+class TeacherProfileExists(BusinessRuleViolation):
+    code = "teacher_profile_exists"
+    default_message = "O perfil de professor já foi configurado."
+    http_status = HTTPStatus.CONFLICT
+
+
 class RegistrationRejected(BusinessRuleViolation):
     code = "registration_rejected"
     default_message = "Não foi possível realizar o cadastro com esses dados."

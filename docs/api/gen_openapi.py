@@ -690,9 +690,9 @@ op("post", "/api/auth/teachers", "authCompleteTeacherProfile", "auth", "Configur
    ["RF36.1"], ["TEACHER"], "Cria o perfil de professor (teacher) e os vínculos teacher_course com os cursos informados.",
    authz="Somente o próprio usuário autenticado.",
    body=ref("TeacherProfileCreate"), ok=ref("TeacherProfileCreated"), ok_code="201", ok_desc="Perfil criado.",
-   rules=["Todos os cursos devem existir e estar ativos; não há vínculos duplicados.", "Operação transacional.",
-          "Se o vínculo criado concede escopo de avaliação imediatamente ou depende de aprovação do ADMIN está pendente (P-04)."],
-   conflicts=[("teacher_profile_exists", "O perfil de professor já foi configurado.")], pend=["P-02", "P-04"])
+   rules=["Todos os cursos devem existir e estar ativos (400 registration_rejected); não há vínculos duplicados.", "Operação transacional.",
+          "A escolha é única, no primeiro acesso: os vínculos já nascem ativos e concedem o escopo de avaliação. Depois disso, só o ADMIN altera os cursos (P-04, #68)."],
+   conflicts=[("teacher_profile_exists", "O perfil de professor já foi configurado.")], pend=["P-02"])
 
 # ---------- accounts
 op("post", "/api/auth/external-evaluators", "accountsCreateExternalEvaluator", "accounts", "Cadastrar avaliador externo",
