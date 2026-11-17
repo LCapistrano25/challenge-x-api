@@ -4158,8 +4158,6 @@ paths:
       operationId: authCompleteTeacherProfile
       summary: Configurar perfil do professor
       description: |-
-        **Status: PROPOSTO** — o contrato depende da decisão de P-04 e pode mudar.
-
         Cria o perfil de professor (teacher) e os vínculos teacher_course com os cursos informados.
 
         **Requisitos:** RF36.1
@@ -4171,19 +4169,18 @@ paths:
         **Autorização adicional:** Somente o próprio usuário autenticado.
 
         **Regras de negócio:**
-        - Todos os cursos devem existir e estar ativos; não há vínculos duplicados.
+        - Todos os cursos devem existir e estar ativos (400 registration_rejected); não há vínculos duplicados.
         - Operação transacional.
-        - Se o vínculo criado concede escopo de avaliação imediatamente ou depende de aprovação do ADMIN está pendente (P-04).
+        - A escolha é única, no primeiro acesso: os vínculos já nascem ativos e concedem o escopo de avaliação. Depois disso, só o ADMIN altera os cursos (P-04, #68).
 
-        **Pendências relacionadas (api-pendencias.md):** P-02, P-04
-      x-status: proposed
+        **Pendências relacionadas (api-pendencias.md):** P-02
+      x-status: confirmed
       x-requirements:
       - RF36.1
       x-roles:
       - TEACHER
       x-pendencias:
       - P-02
-      - P-04
       requestBody:
         required: true
         content:
