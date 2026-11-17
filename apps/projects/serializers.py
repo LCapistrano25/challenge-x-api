@@ -94,7 +94,7 @@ class DeliverableSubmissionSerializer(serializers.Serializer):
 
 
 class UserSummarySerializer(serializers.Serializer):
-    user_id = serializers.UUIDField(source="pk")
+    user_id = serializers.IntegerField(source="pk")
     name = serializers.CharField()
 
 

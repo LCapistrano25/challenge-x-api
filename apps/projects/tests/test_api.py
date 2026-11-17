@@ -554,7 +554,10 @@ def test_lider_envia_a_entrega(dproject, dleader, dstage, dfield):
     assert response.status_code == 201
     assert response.data["version_number"] == 1
     assert response.data["notes"] == "Ok"
-    assert response.data["submitted_by"]["name"] == dleader.name
+    assert response.data["submitted_by"] == {
+        "user_id": dleader.pk,
+        "name": dleader.name,
+    }
     item = response.data["items"][0]
     assert item["field_id"] == dfield.pk
     assert item["type"] == "LINK"
