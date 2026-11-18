@@ -1,7 +1,9 @@
 import json
 
+from django.urls import reverse
 from rest_framework import serializers
 
+from apps.editions.enums import FieldKind
 from apps.editions.models import Category, Challenge, StageSubmissionField
 from apps.projects.models import SubmissionVersion
 from apps.projects.selectors import (
@@ -171,7 +173,10 @@ class DeliverableItemSerializer(serializers.Serializer):
         return item.link or None
 
     def get_file_url(self, item):
-        return item.file_url or None
+        # Caminho autenticado da API; a chave do armazenamento nunca sai daqui.
+        if item.kind != FieldKind.FILE:
+            return None
+        return reverse("deliverable-item-file", args=[item.pk])
 
     def get_file_name(self, item):
         return item.file_name or None

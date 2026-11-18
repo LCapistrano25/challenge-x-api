@@ -1,11 +1,16 @@
+import mimetypes
+
+from django.http import FileResponse
 from rest_framework.exceptions import NotFound
 from rest_framework.parsers import JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts.permissions import IsAdmin, IsStudent, IsTeacher
+from apps.editions.enums import FieldKind
 from apps.editions.models import Stage
-from apps.projects.models import Project
+from apps.projects.files import open_delivery_file
+from apps.projects.models import Project, SubmissionItem
 from apps.projects.rules import (
     ensure_actor_can_view_project,
     ensure_actor_is_team_member,
@@ -129,6 +134,39 @@ def get_stage(stage_id):
         return Stage.objects.get(pk=stage_id)
     except Stage.DoesNotExist:
         raise NotFound("Etapa não encontrada.") from None
+
+
+def get_file_item(item_id):
+    try:
+        return SubmissionItem.objects.select_related(
+            "version__submission__project__team"
+        ).get(pk=item_id, kind=FieldKind.FILE)
+    except SubmissionItem.DoesNotExist:
+        raise NotFound("Arquivo não encontrado.") from None
+
+
+class DeliverableItemFileView(APIView):
+    permission_classes = [IsStudent | IsTeacher | IsAdmin]
+
+    def get(self, request, item_id):
+        item = get_file_item(item_id)
+        ensure_actor_can_view_project(
+            item.version.submission.project.team, request.user
+        )
+        try:
+            stream = open_delivery_file(item.file_url)
+        except FileNotFoundError:
+            raise NotFound("Arquivo não encontrado.") from None
+        content_type = mimetypes.guess_type(item.file_name)[0]
+        response = FileResponse(
+            stream,
+            as_attachment=True,
+            filename=item.file_name,
+            content_type=content_type or "application/octet-stream",
+        )
+        response["X-Content-Type-Options"] = "nosniff"
+        response["Cache-Control"] = "private, no-store"
+        return response
 
 
 class ProjectDeliverablesView(APIView):

@@ -1035,3 +1035,97 @@ def test_multipart_com_armazenamento_fora_do_ar_da_503(
     assert response.status_code == 503
     assert error_code(response) == "storage_unavailable"
     assert stored_keys(delivery_storage_root) == []
+
+
+# Download do arquivo da entrega (#107)
+
+
+def file_item_url(item_id):
+    return f"/api/deliverable-items/{item_id}/file"
+
+
+@pytest.fixture
+def sent_file(dproject, dleader, dstage, ffield):
+    """Envia um PDF e devolve o item do arquivo, como a API o mostra."""
+    response = post_multipart(
+        dleader,
+        dproject,
+        dstage,
+        [{"field_id": ffield.pk, "file_index": 0}],
+        [pdf_upload("Meu Relatório.pdf")],
+    )
+    assert response.status_code == 201, response.data
+    return response.data["items"][0]
+
+
+def test_file_url_do_item_e_a_rota_de_download(sent_file):
+    assert sent_file["file_url"] == file_item_url(sent_file["id"])
+
+
+def test_consulta_de_entregas_mostra_o_arquivo_sem_a_chave_do_armazenamento(
+    dproject, dleader, sent_file
+):
+    response = client_for(dleader).get(deliverables_url(dproject))
+
+    item = response.data[0]["versions"][0]["items"][0]
+    assert item["file_url"] == file_item_url(sent_file["id"])
+    assert item["file_name"] == "Meu_Relatório.pdf"
+    assert "deliveries/" not in json.dumps(response.data)
+
+
+def test_integrante_baixa_o_arquivo(dleader, sent_file):
+    response = client_for(dleader).get(sent_file["file_url"])
+
+    assert response.status_code == 200
+    assert b"".join(response.streaming_content) == PDF_BYTES
+    assert response["Content-Type"] == "application/pdf"
+    assert "attachment" in response["Content-Disposition"]
+    assert "Meu_Relat" in response["Content-Disposition"]
+    assert response["X-Content-Type-Options"] == "nosniff"
+    assert response["Cache-Control"] == "private, no-store"
+
+
+def test_professor_do_curso_e_admin_baixam_o_arquivo(dproject, sent_file):
+    link = TeacherCourseFactory(course=dproject.challenge.course)
+    admin = UserFactory(role=UserRole.ADMIN)
+    for user in (link.teacher.user, admin):
+        response = client_for(user).get(sent_file["file_url"])
+        assert response.status_code == 200
+        assert b"".join(response.streaming_content) == PDF_BYTES
+
+
+def test_download_recusa_quem_nao_pode_ver_o_projeto(sent_file):
+    outsiders = (StudentFactory().user, TeacherFactory().user)
+    for user in outsiders:
+        response = client_for(user).get(sent_file["file_url"])
+        assert response.status_code == 403
+        assert error_code(response) == "project_access_denied"
+
+
+def test_download_recusa_perfil_sem_permissao(sent_file):
+    reviewer = ExternalReviewerFactory().user
+    assert client_for(reviewer).get(sent_file["file_url"]).status_code == 403
+
+
+def test_download_exige_login(sent_file):
+    assert APIClient().get(sent_file["file_url"]).status_code == 403
+
+
+def test_download_de_item_inexistente_da_404(dleader):
+    assert client_for(dleader).get(file_item_url(999999)).status_code == 404
+
+
+def test_download_de_item_de_link_da_404(dproject, dleader, dstage, dfield):
+    response = post_version(dleader, dproject, dstage, payload(dfield))
+    link_item_id = response.data["items"][0]["id"]
+    assert client_for(dleader).get(file_item_url(link_item_id)).status_code == 404
+
+
+def test_download_com_arquivo_removido_do_armazenamento_da_404(
+    dleader, sent_file, delivery_storage_root
+):
+    for path in delivery_storage_root.rglob("*.pdf"):
+        path.unlink()
+    response = client_for(dleader).get(sent_file["file_url"])
+    assert response.status_code == 404
+    assert "deliveries/" not in json.dumps(response.data)
