@@ -5512,6 +5512,7 @@ paths:
         - FINALIZED só depois do prazo de entrega da equipe, para não travar a nota numa versão que ela ainda pode substituir; o rascunho (DRAFT) pode ser salvo antes.
         - Ao finalizar, recalcula stage_score (média simples; FINALIZED quando evaluation_count ≥ min_evaluators). A retificação do admin (RF14) também recalcula.
         - Respeita o prazo de avaliação (P-19).
+        - Violações de regra (avaliação finalizada, prazo, entrega inválida, critério repetido) voltam como 400 validation_error; professor sem vínculo com o curso volta 403 teacher_not_in_course.
 
         **Pendências relacionadas (api-pendencias.md):** P-19, P-21, P-33
       x-status: proposed
@@ -5574,20 +5575,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
               examples:
-                evaluation_already_finalized:
-                  summary: A avaliação já foi finalizada.
-                  value:
-                    error:
-                      code: evaluation_already_finalized
-                      message: A avaliação já foi finalizada.
-                      details: null
-                evaluation_period_closed:
-                  summary: O prazo de avaliação está encerrado.
-                  value:
-                    error:
-                      code: evaluation_period_closed
-                      message: O prazo de avaliação está encerrado.
-                      details: null
                 edition_closed:
                   summary: A edição está encerrada e não pode ser alterada.
                   value:

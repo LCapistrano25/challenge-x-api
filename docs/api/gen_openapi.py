@@ -1040,8 +1040,9 @@ op("put", "/api/projects/{project_id}/stages/{stage_id}/evaluation", "evaluation
           "FINALIZED exige todos os critérios e torna a avaliação imutável; retificação é escopo do RF14 (P-21).",
           "FINALIZED só depois do prazo de entrega da equipe, para não travar a nota numa versão que ela ainda pode substituir; o rascunho (DRAFT) pode ser salvo antes.",
           "Ao finalizar, recalcula stage_score (média simples; FINALIZED quando evaluation_count ≥ min_evaluators). A retificação do admin (RF14) também recalcula.",
-          "Respeita o prazo de avaliação (P-19)."],
-   conflicts=[("evaluation_already_finalized", "A avaliação já foi finalizada."), ("evaluation_period_closed", "O prazo de avaliação está encerrado."), CLOSED],
+          "Respeita o prazo de avaliação (P-19).",
+          "Violações de regra (avaliação finalizada, prazo, entrega inválida, critério repetido) voltam como 400 validation_error; professor sem vínculo com o curso volta 403 teacher_not_in_course."],
+   conflicts=[CLOSED],
    pend=["P-19", "P-21", "P-33"])
 op("get", "/api/projects/{project_id}/scores", "evaluationsGetProjectScores", "evaluations", "Notas e feedbacks das etapas", ["RF32"],
    ["STUDENT", "TEACHER", "ADMIN"], "Retorna, por etapa pontuada, nota, status, média por critério e feedbacks dos professores.",
