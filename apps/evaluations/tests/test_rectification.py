@@ -11,7 +11,8 @@ from apps.accounts.factories import UserFactory
 from apps.editions.factories import StageCriterionFactory
 from apps.evaluations.enums import EvaluationStatus
 from apps.evaluations.factories import EvaluationFactory, EvaluationItemFactory
-from apps.evaluations.models import ScoreRectification
+from apps.evaluations.models import ScoreRectification, StageScore
+from apps.evaluations.use_cases.recalculate_stage_score import recalculate_stage_score
 from apps.evaluations.use_cases.rectify_score import rectify_score
 
 pytestmark = pytest.mark.django_db
@@ -107,3 +108,13 @@ def test_professor_finaliza_dentro_do_prazo():
     avaliacao.status = EvaluationStatus.FINALIZED
     avaliacao.finalized_at = timezone.now()
     avaliacao.full_clean()
+
+
+def test_retificacao_recalcula_a_nota_da_etapa(admin, item):
+    avaliacao = item.evaluation
+    recalculate_stage_score(project=avaliacao.project, stage=avaliacao.stage)
+
+    rectify_score(actor=admin, item=item, new_points=Decimal("1.50"), reason="Recurso.")
+
+    nota = StageScore.objects.get(project=avaliacao.project, stage=avaliacao.stage)
+    assert nota.value == Decimal("1.50")

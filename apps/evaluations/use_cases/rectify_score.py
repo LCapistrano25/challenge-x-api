@@ -5,7 +5,9 @@ from decimal import Decimal
 from django.db import transaction
 
 from apps.accounts.models import User
+from apps.evaluations.enums import EvaluationStatus
 from apps.evaluations.models import EvaluationItem, ScoreRectification
+from apps.evaluations.use_cases.recalculate_stage_score import recalculate_stage_score
 
 
 @transaction.atomic
@@ -30,4 +32,8 @@ def rectify_score(
     rectification.save()
     item.points = new_points
     item.save(update_fields=["points", "updated_at"])
+    evaluation = item.evaluation
+    if evaluation.status == EvaluationStatus.FINALIZED:
+        # A nota que a equipe vê acompanha o ajuste.
+        recalculate_stage_score(project=evaluation.project, stage=evaluation.stage)
     return rectification
