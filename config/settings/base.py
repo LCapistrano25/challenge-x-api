@@ -27,6 +27,7 @@ INSTALLED_APPS = [
     "apps.projects.apps.ProjectsConfig",
     "apps.evaluations.apps.EvaluationsConfig",
     "apps.results.apps.ResultsConfig",
+    "apps.notifications",
 ]
 
 MIDDLEWARE = [

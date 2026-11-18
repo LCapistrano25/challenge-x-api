@@ -7,6 +7,7 @@ from apps.editions.enums import EditionStatus, StageKind
 from apps.editions.models import Stage
 from apps.evaluations.enums import EvaluationStatus
 from apps.evaluations.models import Evaluation
+from apps.projects.enums import DeliveryStatus
 from apps.projects.models import DeadlineExtension, Project, SubmissionVersion
 
 
@@ -25,7 +26,9 @@ def list_teacher_rows(
     encerrado = não entregue.
 
     shortcut: monta as linhas em memória, em poucas consultas; trocar por
-    paginação no banco se a edição passar de alguns milhares de projetos.
+    paginação no banco se a edição passar de alguns milhares de projetos. A regra
+    é a de projects.selectors.get_delivery_status, aqui em lote para evitar uma
+    consulta por linha.
     """
     course_ids = set(
         teacher.course_links.filter(active=True).values_list("course_id", flat=True)
@@ -79,14 +82,15 @@ def list_teacher_rows(
             key = (project.pk, stage.pk)
             deadline = extensions.get(key, stage.ends_at)
             if any(at <= deadline for at in sent_at[key]):
-                deliverable = "SUBMITTED"
+                deliverable = DeliveryStatus.SUBMITTED
             elif now <= deadline:
-                deliverable = "NOT_SUBMITTED"
+                deliverable = DeliveryStatus.NOT_SUBMITTED
             else:
-                deliverable = "NOT_DELIVERED"
+                deliverable = DeliveryStatus.NOT_DELIVERED
             my_status = mine.get(key, "NOT_STARTED")
             if pending_only and (
-                deliverable != "SUBMITTED" or my_status == EvaluationStatus.FINALIZED
+                deliverable != DeliveryStatus.SUBMITTED
+                or my_status == EvaluationStatus.FINALIZED
             ):
                 continue
             rows.append(

@@ -15,6 +15,11 @@ urlpatterns = [
         name="project-challenge",
     ),
     path(
+        "<int:team_id>/project/category",
+        views.ProjectCategoryView.as_view(),
+        name="project-category",
+    ),
+    path(
         "<int:team_id>/project/details",
         views.ProjectDetailsView.as_view(),
         name="project-details",

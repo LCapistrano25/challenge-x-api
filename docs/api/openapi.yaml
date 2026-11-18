@@ -4634,7 +4634,7 @@ paths:
                   code: DXA7K2
                 student:
                   user_id: 42
-                  name: Maria Souza
+                  name: João Lima
                 invited_email: null
                 status: PENDING
                 created_at: '2026-10-22T16:00:00Z'
@@ -5090,7 +5090,7 @@ paths:
                   code: DXA7K2
                 student:
                   user_id: 42
-                  name: Maria Souza
+                  name: João Lima
                 invited_email: null
                 status: PENDING
                 created_at: '2026-10-22T16:00:00Z'
@@ -5602,8 +5602,9 @@ paths:
         **Autorização adicional:** O usuário deve ser o LEADER ativo da equipe.
 
         **Regras de negócio:**
-        - Somente dentro do prazo da etapa.
-        - Todos os campos obrigatórios preenchidos e válidos (formatos e tamanho máximo).
+        - Somente dentro do prazo da etapa, incluindo a prorrogação da equipe (409 stage_deadline_closed); antes do início, 409 stage_not_open.
+        - Nesta versão só links: todos os campos LINK obrigatórios preenchidos e cada item de um campo da etapa (400 validation_error). Arquivos ficam para a V5.
+        - O projeto precisa ter desafio, título e resumo (400 validation_error).
         - Cada envio cria version_number sequencial; versões anteriores são preservadas.
         - Equipe desclassificada ou incompleta não envia (P-23).
 
@@ -5622,9 +5623,14 @@ paths:
       requestBody:
         required: true
         content:
-          multipart/form-data:
+          application/json:
             schema:
               $ref: '#/components/schemas/DeliverableSubmission'
+            example:
+              items:
+              - field_id: 31
+                link: https://github.com/equipe/projeto
+              notes: Correção do relatório.
       responses:
         '201':
           description: Versão registrada.
@@ -5687,6 +5693,13 @@ paths:
                     error:
                       code: team_incomplete
                       message: Equipes incompletas não podem realizar entregas.
+                      details: null
+                stage_not_open:
+                  summary: A etapa ainda não está aberta.
+                  value:
+                    error:
+                      code: stage_not_open
+                      message: A etapa ainda não está aberta.
                       details: null
                 edition_closed:
                   summary: A edição está encerrada e não pode ser alterada.
@@ -6599,7 +6612,7 @@ paths:
                   code: DXA7K2
                 student:
                   user_id: 42
-                  name: Maria Souza
+                  name: João Lima
                 invited_email: null
                 status: PENDING
                 created_at: '2026-10-22T16:00:00Z'
@@ -6687,7 +6700,7 @@ paths:
                   code: DXA7K2
                 student:
                   user_id: 42
-                  name: Maria Souza
+                  name: João Lima
                 invited_email: null
                 status: PENDING
                 created_at: '2026-10-22T16:00:00Z'
@@ -7319,6 +7332,106 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+  /api/teams/{team_id}/project/category:
+    put:
+      tags:
+      - projects
+      operationId: projectsSelectCategory
+      summary: Escolher a categoria do projeto
+      description: |-
+        Grava a categoria escolhida pela equipe. Não altera desafio, título, resumo nem objetivo.
+
+        **Requisitos:** RF30, RF49
+
+        **Autenticação:** obrigatória (Bearer JWT).
+
+        **Perfis permitidos:** STUDENT
+
+        **Autorização adicional:** O usuário deve ser o LEADER ativo da equipe. Erro 403: not_team_leader.
+
+        **Regras de negócio:**
+        - Somente durante a formação; depois a categoria fica congelada (409 formation_closed).
+        - O projeto já existe, criado ao escolher o desafio (409 project_not_found).
+        - Categoria ativa da edição da equipe (400 category_not_available).
+        - Pode trocar de categoria até o fim da formação; não é possível limpá-la.
+      x-status: confirmed
+      x-requirements:
+      - RF30
+      - RF49
+      x-roles:
+      - STUDENT
+      parameters:
+      - $ref: '#/components/parameters/TeamId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategorySelection'
+            example:
+              category_id: 2
+      responses:
+        '200':
+          description: Operação concluída.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+              example:
+                id: 40
+                team_id: 12
+                edition_id: 3
+                challenge:
+                  id: 15
+                  description: Propor uma solução para reduzir o desperdício de água nas instalações da universidade.
+                  course:
+                    id: 1
+                    name: Engenharia de Software
+                  sdg:
+                    id: 9
+                    number: 9
+                    title: Indústria, Inovação e Infraestrutura
+                category:
+                  id: 2
+                  name: Protótipos e Artefatos
+                title: Monitoramento inteligente do consumo de água
+                summary: Sensores de baixo custo e um painel web para identificar vazamentos no campus.
+                objective: Reduzir em 20% o desperdício de água no campus.
+                status: IN_PROGRESS
+                courses:
+                - id: 1
+                  name: Engenharia de Software
+                created_at: '2026-10-22T16:00:00Z'
+                updated_at: '2026-10-22T16:00:00Z'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Conflito com uma regra de negócio.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                formation_closed:
+                  summary: O prazo de formação de equipes está encerrado.
+                  value:
+                    error:
+                      code: formation_closed
+                      message: O prazo de formação de equipes está encerrado.
+                      details: null
+                project_not_found:
+                  summary: A equipe ainda não tem projeto. Escolha o desafio primeiro.
+                  value:
+                    error:
+                      code: project_not_found
+                      message: A equipe ainda não tem projeto. Escolha o desafio primeiro.
+                      details: null
   /api/teams/{team_id}/project/challenge:
     put:
       tags:
@@ -10390,9 +10503,20 @@ components:
         team:
           $ref: '#/components/schemas/TeamRef'
         student:
-          oneOf:
-          - $ref: '#/components/schemas/UserSummary'
-          - type: 'null'
+          type: object
+          properties:
+            user_id:
+              type: integer
+              minimum: 1
+              examples:
+              - 42
+            name:
+              type: string
+              examples:
+              - João Lima
+          required:
+          - user_id
+          - name
         invited_email:
           type:
           - string
@@ -10723,6 +10847,16 @@ components:
       required:
       - challenge_id
       additionalProperties: false
+    CategorySelection:
+      type: object
+      properties:
+        category_id:
+          type: integer
+          examples:
+          - 2
+      required:
+      - category_id
+      additionalProperties: false
     ProjectDetailsWrite:
       type: object
       properties:
@@ -10922,30 +11056,39 @@ components:
       - status
       - official_version_id
       - versions
+    DeliverableSubmissionItem:
+      type: object
+      properties:
+        field_id:
+          type: integer
+          examples:
+          - 31
+        link:
+          type: string
+          format: uri
+          examples:
+          - https://github.com/equipe/projeto
+      required:
+      - field_id
+      - link
+      additionalProperties: false
     DeliverableSubmission:
       type: object
-      description: Formato multipart proposto (P-43).
+      description: Nesta versão só links, em JSON. Arquivos (FILE) voltam em multipart na V5 (P-43).
       properties:
         items:
-          type: string
-          description: 'JSON (string) com a lista de itens: [{"field_id": int, "link": string}] para LINK e [{"field_id":
-            int, "file_index": int}] para FILE, onde file_index aponta para a posição em files.'
-          contentMediaType: application/json
-          examples:
-          - '[{"field_id":31,"file_index":0},{"field_id":32,"link":"https://youtu.be/abc123"}]'
-        files:
           type: array
           items:
-            type: string
-            format: binary
-            contentMediaType: application/octet-stream
-          description: Arquivos referenciados por file_index.
+            $ref: '#/components/schemas/DeliverableSubmissionItem'
+          minItems: 1
+          description: Um link por campo LINK da etapa; campos obrigatórios devem constar.
         notes:
           type: string
           examples:
           - Correção do relatório.
       required:
       - items
+      additionalProperties: false
     Receipt:
       type: object
       properties:

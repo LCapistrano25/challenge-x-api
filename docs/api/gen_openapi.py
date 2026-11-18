@@ -423,9 +423,32 @@ SC["InvitationCreate"] = {
     ],
     "description": "Informe exatamente um entre student_id e email institucional.",
 }
-SC["Invitation"] = obj({"id": INT(ex=88), "team": ref("TeamRef"), "student": nul(ref("UserSummary")), "invited_email": nul(EMAIL(ex=None)),
-                        "status": ref("InvitationStatus"), "created_at": DT(), "responded_at": nul(DT(ex=None))},
-                       ["id", "team", "student", "invited_email", "status", "created_at", "responded_at"])
+SC["Invitation"] = obj(
+    {
+        "id": INT(ex=88),
+        "team": ref("TeamRef"),
+        "student": obj(
+            {
+                "user_id": USER_ID(),
+                "name": STR(ex="João Lima"),
+            },
+            ["user_id", "name"],
+        ),
+        "invited_email": nul(EMAIL(ex=None)),
+        "status": ref("InvitationStatus"),
+        "created_at": DT(),
+        "responded_at": nul(DT(ex=None)),
+    },
+    [
+        "id",
+        "team",
+        "student",
+        "invited_email",
+        "status",
+        "created_at",
+        "responded_at",
+    ],
+)
 SC["InvitationResponse"] = obj({"status": STR(ex="ACCEPTED", enum=["ACCEPTED", "DECLINED"])}, ["status"], strict=True)
 SC["JoinRequest"] = obj({"id": INT(ex=45), "team": ref("TeamRef"),
                          "student": obj({"user_id": USER_ID(), "name": STR(ex="Pedro Alves"), "course": ref("CourseSummary")}, ["user_id", "name", "course"]),
@@ -459,6 +482,7 @@ SC["Project"] = obj({
     "created_at": DT(), "updated_at": DT(),
 }, ["id", "team_id", "edition_id", "challenge", "category", "title", "summary", "objective", "status", "courses", "created_at", "updated_at"])
 SC["ChallengeSelection"] = obj({"challenge_id": INT(ex=15)}, ["challenge_id"], strict=True)
+SC["CategorySelection"] = obj({"category_id": INT(ex=2)}, ["category_id"], strict=True)
 SC["ProjectDetailsWrite"] = obj({
     "title": STR(ex="Monitoramento inteligente do consumo de água", maxLength=200, minLength=1),
     "summary": TXT(ex="Sensores de baixo custo e um painel web para identificar vazamentos no campus.", minLength=1),
@@ -482,12 +506,12 @@ SC["StageDeliverable"] = obj({
     "official_version_id": nul(INT("Versão vigente no encerramento do prazo (nula enquanto aberto ou sem envio).", None)),
     "versions": arr(ref("DeliverableVersion"), description="Histórico completo, da mais recente para a mais antiga."),
 }, ["stage", "fields", "status", "official_version_id", "versions"])
+SC["DeliverableSubmissionItem"] = obj({"field_id": INT(ex=31), "link": URL(ex="https://github.com/equipe/projeto")},
+                                      ["field_id", "link"], strict=True)
 SC["DeliverableSubmission"] = obj({
-    "items": STR("JSON (string) com a lista de itens: [{\"field_id\": int, \"link\": string}] para LINK e [{\"field_id\": int, \"file_index\": int}] para FILE, onde file_index aponta para a posição em files.",
-                 '[{"field_id":31,"file_index":0},{"field_id":32,"link":"https://youtu.be/abc123"}]', contentMediaType="application/json"),
-    "files": arr(STR(format="binary", contentMediaType="application/octet-stream"), description="Arquivos referenciados por file_index."),
-    "notes": STR(ex="Correção do relatório."),
-}, ["items"], desc="Formato multipart proposto (P-43).")
+    "items": arr(ref("DeliverableSubmissionItem"), minItems=1, description="Um link por campo LINK da etapa; campos obrigatórios devem constar."),
+    "notes": TXT(ex="Correção do relatório."),
+}, ["items"], strict=True, desc="Nesta versão só links, em JSON. Arquivos (FILE) voltam em multipart na V5 (P-43).")
 SC["Receipt"] = obj({
     "id": INT(ex=55), "version_id": INT(ex=77), "version_number": INT(ex=2), "verification_code": STR(ex="DX-2026-1-7F3K9Q"),
     "file_url": nul(URL(ex="https://storage.projetox.edu.br/comprovantes/DX-2026-1-7F3K9Q.pdf")), "generated_at": DT(),
@@ -999,6 +1023,14 @@ op("put", "/api/teams/{team_id}/project/challenge", "projectsSelectChallenge", "
           "Desafio ativo da edição e de curso de integrante ativo (400 challenge_not_eligible).",
           "A ODS e o curso do desafio são vinculados automaticamente."],
    conflicts=[FORM_CLOSED])
+op("put", "/api/teams/{team_id}/project/category", "projectsSelectCategory", "projects", "Escolher a categoria do projeto", ["RF30", "RF49"], ["STUDENT"],
+   "Grava a categoria escolhida pela equipe. Não altera desafio, título, resumo nem objetivo.",
+   params=["TeamId"], body=ref("CategorySelection"), ok=ref("Project"), errs=["404"], authz=LEADER + " Erro 403: not_team_leader.",
+   rules=["Somente durante a formação; depois a categoria fica congelada (409 formation_closed).",
+          "O projeto já existe, criado ao escolher o desafio (409 project_not_found).",
+          "Categoria ativa da edição da equipe (400 category_not_available).",
+          "Pode trocar de categoria até o fim da formação; não é possível limpá-la."],
+   conflicts=[FORM_CLOSED, ("project_not_found", "A equipe ainda não tem projeto. Escolha o desafio primeiro.")])
 op("put", "/api/teams/{team_id}/project/details", "projectsSaveProjectDetails", "projects", "Cadastrar ou atualizar os dados do projeto", ["RF30"], ["STUDENT"],
    "Grava título, resumo e objetivo do projeto; serve para cadastrar e para atualizar. Exige desafio já escolhido.",
    params=["TeamId"], body=ref("ProjectDetailsWrite"), ok=ref("Project"), errs=["404"], authz=LEADER + " Erro 403: not_team_leader.",
@@ -1013,12 +1045,14 @@ op("get", "/api/projects/{project_id}/deliverables", "projectsListDeliverables",
    authz="STUDENT: integrante ativo da equipe. TEACHER: vínculo ativo com o curso do desafio. ADMIN: qualquer.", pend=["P-27"])
 op("post", "/api/projects/{project_id}/stages/{stage_id}/versions", "projectsSubmitDeliverableVersion", "projects", "Enviar ou atualizar entrega da etapa",
    ["RF31"], ["STUDENT"], "Registra nova versão imutável da entrega e gera o comprovante. A confirmação prévia é responsabilidade do frontend.",
-   params=["ProjectId", "StageId"], body=ref("DeliverableSubmission"), ct="multipart/form-data", ok=ref("DeliverableVersion"), ok_code="201",
+   params=["ProjectId", "StageId"], body=ref("DeliverableSubmission"), ok=ref("DeliverableVersion"), ok_code="201",
    ok_desc="Versão registrada.", errs=["404"], authz=LEADER,
-   rules=["Somente dentro do prazo da etapa.", "Todos os campos obrigatórios preenchidos e válidos (formatos e tamanho máximo).",
+   rules=["Somente dentro do prazo da etapa, incluindo a prorrogação da equipe (409 stage_deadline_closed); antes do início, 409 stage_not_open.",
+          "Nesta versão só links: todos os campos LINK obrigatórios preenchidos e cada item de um campo da etapa (400 validation_error). Arquivos ficam para a V5.",
+          "O projeto precisa ter desafio, título e resumo (400 validation_error).",
           "Cada envio cria version_number sequencial; versões anteriores são preservadas.", "Equipe desclassificada ou incompleta não envia (P-23)."],
    conflicts=[("stage_deadline_closed", "O prazo da etapa está encerrado."), ("team_disqualified", "A equipe está desclassificada."),
-              ("team_incomplete", "Equipes incompletas não podem realizar entregas."), CLOSED], pend=["P-23", "P-43"])
+              ("team_incomplete", "Equipes incompletas não podem realizar entregas."), ("stage_not_open", "A etapa ainda não está aberta."), CLOSED], pend=["P-23", "P-43"])
 op("get", "/api/deliverable-versions/{version_id}/receipt", "projectsGetReceipt", "projects", "Consultar comprovante de envio", ["RF31"], ["STUDENT", "ADMIN"],
    "Retorna o comprovante digital da versão.", params=["VersionId"], ok=ref("Receipt"), errs=["404"],
    authz="STUDENT: integrante ativo da equipe do projeto. ADMIN: qualquer.")
