@@ -50,18 +50,6 @@ class ConstraintTests(TestCase):
         with self.assertRaises(IntegrityError):
             User.objects.create_user("a@teste.com", "x")
 
-    def test_microsoft_id_unico(self):
-        User.objects.create_user("a@teste.com", microsoft_id="oid")
-
-        with self.assertRaises(IntegrityError):
-            User.objects.create_user("b@teste.com", microsoft_id="oid")
-
-    def test_microsoft_id_nulo_nao_conflita(self):
-        User.objects.create_user("a@teste.com", "x")
-        User.objects.create_user("b@teste.com", "x")
-
-        self.assertEqual(User.objects.filter(microsoft_id__isnull=True).count(), 2)
-
     def test_dominio_unico(self):
         EmailDomain.objects.create(name="teste.edu.br", role=UserRole.STUDENT)
 

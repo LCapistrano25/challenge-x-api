@@ -169,7 +169,7 @@ SC["Error"] = obj({
 }, ["error"], "Formato padrão de erro (P-37).")
 
 # ---------------------------------------------------------------- refs compactas
-SC["CourseSummary"] = obj({"id": INT(ex=1), "name": STR(ex="Engenharia de Software")}, ["id", "name"])
+SC["CourseSummary"] = obj({"id": INT(ex=1), "name": STR(ex="Engenharia de Software"), "slug": STR(ex="ES")}, ["id", "name", "slug"])
 SC["SdgSummary"] = obj({"id": INT(ex=9), "number": INT(ex=9, minimum=1, maximum=17), "title": STR(ex="Indústria, Inovação e Infraestrutura")}, ["id", "number", "title"])
 SC["EditionSummary"] = obj({"id": INT(ex=3), "year": INT(ex=2026), "semester": INT(ex=1, enum=[1, 2]),
                             "name": nul(STR(ex="Desafio X 2026/1")), "status": ref("EditionStatus")},
@@ -180,18 +180,17 @@ SC["ProjectRef"] = obj({"id": INT(ex=40), "title": STR(ex="Monitoramento intelig
 SC["StageRef"] = obj({"id": INT(ex=7), "name": STR(ex="Entrega Preliminar"), "position": INT(ex=3)}, ["id", "name", "position"])
 SC["CriterionRef"] = obj({"id": INT(ex=21), "name": STR(ex="Inovação")}, ["id", "name"])
 SC["CategoryRef"] = obj({"id": INT(ex=2), "name": STR(ex="Protótipos e Artefatos")}, ["id", "name"])
-SC["ChallengeSummary"] = obj({"id": INT(ex=15), "description": TXT(ex="Propor uma solução para reduzir o desperdício de água nas instalações da universidade."),
+SC["ChallengeSummary"] = obj({"id": INT(ex=15), "title": STR(ex="Uso eficiente de recursos hídricos no campus"),
                               "course": ref("CourseSummary"), "sdg": ref("SdgSummary")},
-                             ["id", "description", "course", "sdg"])
+                             ["id", "title", "course", "sdg"])
 
 # ---------------------------------------------------------------- auth
 SC["MicrosoftSessionRequest"] = obj({"code": STR("Authorization code recebido da Microsoft pelo frontend.", "0.AQ8A3x...")}, ["code"], strict=True)
 SC["MicrosoftSessionResponse"] = obj({
-    "user_id": USER_ID(), "name": STR(ex="Ana Ribeiro"), "email": EMAIL(ex="ana@a.catolica-to.edu.br"),
+    "token": STR("JWT da aplicação.", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."),
     "role": ref("UserRole"),
     "profile_completed": BOOL("Indica se o perfil acadêmico (student) ou docente (teacher) já foi configurado. Proposta (P-42).", False),
-}, ["user_id", "name", "email", "role", "profile_completed"],
-    "Usuário da sessão, como em SessionResponse. A credencial vai no cookie de sessão, não no corpo (#70, P-03).")
+}, ["token", "role", "profile_completed"])
 SC["PasswordSessionRequest"] = obj({"email": EMAIL(ex="avaliador@instituicao.com"), "password": STR(ex="********", format="password")}, ["email", "password"], strict=True)
 SC["SessionResponse"] = obj({"user_id": USER_ID(), "name": STR(ex="Ana Ribeiro"), "email": EMAIL(ex="avaliador@instituicao.com"),
                             "role": ref("UserRole")}, ["user_id", "name", "email", "role"],
@@ -235,12 +234,12 @@ SC["ExternalEvaluatorAdmin"] = obj({
     "editions": arr(ref("ExternalEvaluatorEditionLink")), "created_at": DT(), "updated_at": DT(),
 }, ["user_id", "name", "email", "active", "institution", "editions", "created_at", "updated_at"])
 SC["ExternalEvaluatorAdminUpdate"] = obj({
-    "name": STR(ex="Ana Ribeiro", maxLength=150), "institution": nul(STR(ex="Instituto Tecnológico do Tocantins", maxLength=150)),
+    "name": STR(ex="Ana Ribeiro", maxLength=150), "institution": nul(STR(ex="Instituto Tecnológico do Tocantins", maxLength=200)),
 }, desc="Ao menos um campo deve ser informado. A abrangência por edição é alterada em /api/admin/editions/{edition_id}/evaluators.", strict=True, minProperties=1)
 SC["ExternalEvaluatorCreate"] = obj({
     "name": STR(ex="Ana Ribeiro", maxLength=150), "email": EMAIL(ex="avaliador@instituicao.com"),
     "password": STR("Senha inicial; armazenada apenas como hash.", "SenhaInicial#2026", format="password"),
-    "institution": nul(STR(ex="Instituto Tecnológico do Tocantins", maxLength=150)),
+    "institution": nul(STR(ex="Instituto Tecnológico do Tocantins", maxLength=200)),
 }, ["name", "email", "password"], strict=True)
 SC["ExternalEvaluatorCreated"] = obj({"external_evaluator": obj({"user_id": USER_ID(), "email": EMAIL(ex="avaliador@instituicao.com")}, ["user_id", "email"])}, ["external_evaluator"])
 
@@ -379,9 +378,9 @@ SC["StageSchedule"] = obj({
     "starts_at": DT(ex="2026-04-01T00:00:00Z"), "ends_at": DT(ex="2026-04-20T23:59:00Z"),
     "scored": BOOL(ex=True), "points_value": nul(DEC(ex="3.00")), "phase_status": ref("PhaseStatus"),
 }, ["id", "position", "name", "type", "starts_at", "ends_at", "scored", "points_value", "phase_status"])
-SC["PublicChallenge"] = obj({"id": INT(ex=15),
+SC["PublicChallenge"] = obj({"id": INT(ex=15), "title": STR(ex="Uso eficiente de recursos hídricos no campus"),
                              "description": TXT(ex="Propor uma solução para reduzir o desperdício de água nas instalações da universidade."),
-                             "course": ref("CourseSummary"), "sdg": ref("SdgSummary")}, ["id", "description", "course", "sdg"])
+                             "course": ref("CourseSummary"), "sdg": ref("SdgSummary")}, ["id", "title", "description", "course", "sdg"])
 SC["PublicEdition"] = obj({
     "edition": ref("EditionSummary"), "notice_url": nul(URL(ex="https://storage.projetox.edu.br/editais/2026-1.pdf")),
     "stages": arr(ref("StageSchedule")), "sdgs": arr(ref("PublicSdg")), "challenges": arr(ref("PublicChallenge")),
@@ -423,32 +422,9 @@ SC["InvitationCreate"] = {
     ],
     "description": "Informe exatamente um entre student_id e email institucional.",
 }
-SC["Invitation"] = obj(
-    {
-        "id": INT(ex=88),
-        "team": ref("TeamRef"),
-        "student": obj(
-            {
-                "user_id": USER_ID(),
-                "name": STR(ex="João Lima"),
-            },
-            ["user_id", "name"],
-        ),
-        "invited_email": nul(EMAIL(ex=None)),
-        "status": ref("InvitationStatus"),
-        "created_at": DT(),
-        "responded_at": nul(DT(ex=None)),
-    },
-    [
-        "id",
-        "team",
-        "student",
-        "invited_email",
-        "status",
-        "created_at",
-        "responded_at",
-    ],
-)
+SC["Invitation"] = obj({"id": INT(ex=88), "team": ref("TeamRef"), "student": nul(ref("UserSummary")), "invited_email": nul(EMAIL(ex=None)),
+                        "status": ref("InvitationStatus"), "created_at": DT(), "responded_at": nul(DT(ex=None))},
+                       ["id", "team", "student", "invited_email", "status", "created_at", "responded_at"])
 SC["InvitationResponse"] = obj({"status": STR(ex="ACCEPTED", enum=["ACCEPTED", "DECLINED"])}, ["status"], strict=True)
 SC["JoinRequest"] = obj({"id": INT(ex=45), "team": ref("TeamRef"),
                          "student": obj({"user_id": USER_ID(), "name": STR(ex="Pedro Alves"), "course": ref("CourseSummary")}, ["user_id", "name", "course"]),
@@ -474,20 +450,19 @@ SC["MemberNote"] = obj({"id": INT(ex=17), "member": ref("UserSummary"), "author"
 
 # ---------------------------------------------------------------- projects
 SC["Project"] = obj({
-    "id": INT(ex=40), "team_id": INT(ex=12), "edition_id": INT(ex=3), "challenge": nul(ref("ChallengeSummary")), "category": nul(ref("CategoryRef")),
-    "title": STR("Em branco até o líder cadastrar os dados do projeto (RF30).", ex="Monitoramento inteligente do consumo de água"),
-    "summary": TXT("Em branco até o líder cadastrar os dados do projeto (RF30).", ex="Sensores de baixo custo e um painel web para identificar vazamentos no campus."),
-    "objective": TXT(ex="Reduzir em 20% o desperdício de água no campus."), "status": ref("ProjectStatus"),
+    "id": INT(ex=40), "team_id": INT(ex=12), "edition_id": INT(ex=3), "challenge": ref("ChallengeSummary"), "category": nul(ref("CategoryRef")),
+    "title": STR(ex="Monitoramento inteligente do consumo de água"),
+    "summary": TXT(ex="Sensores de baixo custo e um painel web para identificar vazamentos no campus."),
+    "objective": nul(TXT(ex="Reduzir em 20% o desperdício de água no campus.")), "status": ref("ProjectStatus"),
     "courses": arr(ref("CourseSummary"), description="Cursos participantes (derivados dos integrantes ativos)."),
     "created_at": DT(), "updated_at": DT(),
 }, ["id", "team_id", "edition_id", "challenge", "category", "title", "summary", "objective", "status", "courses", "created_at", "updated_at"])
-SC["ChallengeSelection"] = obj({"challenge_id": INT(ex=15)}, ["challenge_id"], strict=True)
-SC["CategorySelection"] = obj({"category_id": INT(ex=2)}, ["category_id"], strict=True)
-SC["ProjectDetailsWrite"] = obj({
+SC["ProjectWrite"] = obj({
+    "challenge_id": INT(ex=15), "category_id": INT(ex=2),
     "title": STR(ex="Monitoramento inteligente do consumo de água", maxLength=200, minLength=1),
     "summary": TXT(ex="Sensores de baixo custo e um painel web para identificar vazamentos no campus.", minLength=1),
-    "objective": TXT(ex="Reduzir em 20% o desperdício de água no campus."),
-}, ["title", "summary"], strict=True)
+    "objective": nul(TXT(ex="Reduzir em 20% o desperdício de água no campus.")),
+}, ["challenge_id", "category_id", "title", "summary"], strict=True)
 SC["ProjectOptions"] = obj({"challenges": arr(ref("PublicChallenge"), description="Desafios ativos dos cursos dos integrantes ativos."),
                             "categories": arr(obj({"id": INT(ex=2), "name": STR(ex="Protótipos e Artefatos"), "description": nul(TXT(ex="Categoria A do Art. 2."))},
                                                   ["id", "name", "description"]), description="Categorias ativas da edição.")},
@@ -676,17 +651,15 @@ EV = "A edição vigente é a edição com status PUBLISHED ou IN_PROGRESS (P-41
 
 # ---------- auth
 op("post", "/api/auth/sessions/microsoft", "authCreateMicrosoftSession", "auth", "Autenticar aluno ou professor com a Microsoft",
-   ["RF18", "RF36"], [], "Troca o authorization code da Microsoft pela identidade do usuário e cria a sessão (cookie), como o login com senha. A troca do código ocorre no backend, com o client secret do app (plataforma Web no Entra ID). Exige o cabeçalho X-CSRFToken, obtido em GET /api/auth/csrf.",
+   ["RF18", "RF36"], [], "Troca o authorization code da Microsoft por um JWT da aplicação. A troca do código e a consulta ao Microsoft Graph ocorrem no backend.",
    public=True, body=ref("MicrosoftSessionRequest"), ok=ref("MicrosoftSessionResponse"), ok_desc="Sessão criada.",
-   rules=["Só contas do tenant da instituição são aceitas; código inválido, expirado, já usado ou de outro tenant retorna 401 invalid_credentials.",
-          "Domínio @a.catolica-to.edu.br define o perfil STUDENT; @p.catolica-to.edu.br define TEACHER. Outros domínios são rejeitados (403 domain_role_mismatch).",
-          "No primeiro acesso, cria o usuário com a identidade Microsoft (oid), sem senha e sem criar student/teacher. Usuário já cadastrado com o mesmo e-mail (ex.: professor criado pelo administrador) é vinculado à identidade.",
+   rules=["Domínio @a.catolica-to.edu.br define o perfil STUDENT; @p.catolica-to.edu.br define TEACHER. Outros domínios são rejeitados (403).",
+          "No primeiro acesso, cria users e accounts (provider MICROSOFT, provider_account_id = identidade Microsoft), sem criar student/teacher.",
           "Se o e-mail já estiver vinculado a outra identidade Microsoft, a autenticação é recusada (409).",
-          "Usuários inativos não recebem sessão (403 inactive_account).",
+          "Usuários inativos não recebem sessão (403).",
           "profile_completed=false indica que o frontend deve conduzir ao autocadastro (RF19) ou à configuração do professor (RF36.1).",
-          "Microsoft indisponível ou login não configurado: 503 external_service_error.",
-          "A sessão expira após 30 minutos de inatividade, renovados a cada requisição (P-03)."],
-   errs=["401", "403"], conflicts=[("microsoft_identity_mismatch", "O e-mail já está vinculado a outra identidade Microsoft.")],
+          "Expiração do token pendente (P-03)."],
+   errs=["403"], conflicts=[("microsoft_identity_mismatch", "O e-mail já está vinculado a outra identidade Microsoft.")],
    pend=["P-02", "P-03", "P-42"])
 op("post", "/api/auth/sessions/password", "authCreatePasswordSession", "auth", "Autenticar administrador ou avaliador externo com e-mail e senha",
    ["RF01", "RF41"], [], "Autentica contas com senha local (ADMIN e EXTERNAL_EVALUATOR) e cria a sessão (cookie). Exige o cabeçalho X-CSRFToken, obtido em GET /api/auth/csrf.", public=True,
@@ -714,9 +687,9 @@ op("post", "/api/auth/teachers", "authCompleteTeacherProfile", "auth", "Configur
    ["RF36.1"], ["TEACHER"], "Cria o perfil de professor (teacher) e os vínculos teacher_course com os cursos informados.",
    authz="Somente o próprio usuário autenticado.",
    body=ref("TeacherProfileCreate"), ok=ref("TeacherProfileCreated"), ok_code="201", ok_desc="Perfil criado.",
-   rules=["Todos os cursos devem existir e estar ativos (400 registration_rejected); não há vínculos duplicados.", "Operação transacional.",
-          "A escolha é única, no primeiro acesso: os vínculos já nascem ativos e concedem o escopo de avaliação. Depois disso, só o ADMIN altera os cursos (P-04, #68)."],
-   conflicts=[("teacher_profile_exists", "O perfil de professor já foi configurado.")], pend=["P-02"])
+   rules=["Todos os cursos devem existir e estar ativos; não há vínculos duplicados.", "Operação transacional.",
+          "Se o vínculo criado concede escopo de avaliação imediatamente ou depende de aprovação do ADMIN está pendente (P-04)."],
+   conflicts=[("teacher_profile_exists", "O perfil de professor já foi configurado.")], pend=["P-02", "P-04"])
 
 # ---------- accounts
 op("post", "/api/auth/external-evaluators", "accountsCreateExternalEvaluator", "accounts", "Cadastrar avaliador externo",
@@ -1016,29 +989,15 @@ op("get", "/api/teams/{team_id}/project/options", "projectsGetOptions", "project
 op("get", "/api/teams/{team_id}/project", "projectsGetTeamProject", "projects", "Consultar projeto da equipe", ["RF30", "RF20"], ["STUDENT", "TEACHER", "ADMIN"],
    "Retorna o projeto da equipe.", params=["TeamId"], ok=ref("Project"), errs=["404"],
    authz="STUDENT: integrante ativo. TEACHER: vínculo ativo com o curso do desafio. ADMIN: qualquer.")
-op("put", "/api/teams/{team_id}/project/challenge", "projectsSelectChallenge", "projects", "Escolher o desafio do projeto", ["RF29"], ["STUDENT"],
-   "Grava o desafio escolhido pela equipe e cria o projeto se ele ainda não existe. Não altera título, resumo nem categoria.",
-   params=["TeamId"], body=ref("ChallengeSelection"), ok=ref("Project"), errs=["404"], authz=LEADER + " Erro 403: not_team_leader.",
-   rules=["Somente durante a formação; depois o desafio fica congelado (409 formation_closed).",
-          "Desafio ativo da edição e de curso de integrante ativo (400 challenge_not_eligible).",
-          "A ODS e o curso do desafio são vinculados automaticamente."],
-   conflicts=[FORM_CLOSED])
-op("put", "/api/teams/{team_id}/project/category", "projectsSelectCategory", "projects", "Escolher a categoria do projeto", ["RF30", "RF49"], ["STUDENT"],
-   "Grava a categoria escolhida pela equipe. Não altera desafio, título, resumo nem objetivo.",
-   params=["TeamId"], body=ref("CategorySelection"), ok=ref("Project"), errs=["404"], authz=LEADER + " Erro 403: not_team_leader.",
-   rules=["Somente durante a formação; depois a categoria fica congelada (409 formation_closed).",
-          "O projeto já existe, criado ao escolher o desafio (409 project_not_found).",
-          "Categoria ativa da edição da equipe (400 category_not_available).",
-          "Pode trocar de categoria até o fim da formação; não é possível limpá-la."],
-   conflicts=[FORM_CLOSED, ("project_not_found", "A equipe ainda não tem projeto. Escolha o desafio primeiro.")])
-op("put", "/api/teams/{team_id}/project/details", "projectsSaveProjectDetails", "projects", "Cadastrar ou atualizar os dados do projeto", ["RF30"], ["STUDENT"],
-   "Grava título, resumo e objetivo do projeto; serve para cadastrar e para atualizar. Exige desafio já escolhido.",
-   params=["TeamId"], body=ref("ProjectDetailsWrite"), ok=ref("Project"), errs=["404"], authz=LEADER + " Erro 403: not_team_leader.",
-   rules=["Somente durante a formação; depois os dados ficam congelados (409 formation_closed).",
-          "O desafio deve ter sido escolhido antes (409 challenge_not_selected).",
+op("put", "/api/teams/{team_id}/project", "projectsSaveTeamProject", "projects", "Cadastrar ou atualizar projeto (desafio, categoria e dados)",
+   ["RF29", "RF30", "RF50"], ["STUDENT"],
+   "Cria ou atualiza o projeto em uma única operação, pois o modelo exige desafio, título e resumo juntos (P-25).",
+   params=["TeamId"], body=ref("ProjectWrite"), ok=ref("Project"), ok_desc="Projeto atualizado.", errs=["404"], authz=LEADER,
+   more={"201": {"description": "Projeto criado.", "content": {"application/json": {"schema": ref("Project")}}}},
+   rules=["Somente durante a formação; depois os dados ficam congelados.", "Desafio deve pertencer a curso de integrante ativo (400 challenge_not_eligible).",
+          "Categoria ativa da edição (400 category_not_available).", "A ODS e o curso do desafio são vinculados automaticamente.",
           "Título único na edição, ignorando maiúsculas/minúsculas e espaços extras."],
-   conflicts=[FORM_CLOSED, ("challenge_not_selected", "Escolha o desafio antes de cadastrar os dados do projeto."),
-              ("project_title_taken", "Já existe projeto com título equivalente nesta edição.")])
+   conflicts=[FORM_CLOSED, ("project_title_taken", "Já existe projeto com título equivalente nesta edição.")], pend=["P-25"])
 op("get", "/api/projects/{project_id}/deliverables", "projectsListDeliverables", "projects", "Consultar entregas do projeto por etapa", ["RF31", "RF38"],
    ["STUDENT", "TEACHER", "ADMIN"], "Retorna, por etapa com campos de entrega, os campos exigidos, o status e o histórico de versões.",
    params=["ProjectId"], ok=arr(ref("StageDeliverable")), errs=["404"],

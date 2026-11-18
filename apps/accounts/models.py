@@ -41,9 +41,6 @@ class User(AbstractUser):
     email = models.EmailField(unique=True)
     role = models.CharField(max_length=20, choices=UserRole)
     email_confirmed = models.BooleanField(default=False)
-    # oid da conta Microsoft de aluno e professor (RF18, RF36); nulo para quem
-    # entra com senha. O tenant é um só (MICROSOFT_TENANT_ID), então o oid basta.
-    microsoft_id = models.CharField(max_length=36, unique=True, null=True, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     USERNAME_FIELD = "email"

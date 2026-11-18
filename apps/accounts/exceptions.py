@@ -27,18 +27,6 @@ class NotStudentActor(BusinessRuleViolation):
     http_status = HTTPStatus.FORBIDDEN
 
 
-class NotTeacherActor(BusinessRuleViolation):
-    code = "not_teacher_actor"
-    default_message = "Apenas professores podem configurar o perfil de professor."
-    http_status = HTTPStatus.FORBIDDEN
-
-
-class TeacherProfileExists(BusinessRuleViolation):
-    code = "teacher_profile_exists"
-    default_message = "O perfil de professor já foi configurado."
-    http_status = HTTPStatus.CONFLICT
-
-
 class RegistrationRejected(BusinessRuleViolation):
     code = "registration_rejected"
     default_message = "Não foi possível realizar o cadastro com esses dados."
@@ -61,27 +49,3 @@ class ReviewerNotInCurrentEdition(BusinessRuleViolation):
     code = "reviewer_not_in_current_edition"
     default_message = "O avaliador não está vinculado à edição vigente."
     http_status = HTTPStatus.FORBIDDEN
-
-
-class NotAdminActor(BusinessRuleViolation):
-    code = "not_admin_actor"
-    default_message = "Apenas o administrador pode realizar esta ação."
-    http_status = HTTPStatus.FORBIDDEN
-
-
-class MicrosoftIdentityMismatch(BusinessRuleViolation):
-    code = "microsoft_identity_mismatch"
-    default_message = "O e-mail já está vinculado a outra identidade Microsoft."
-    http_status = HTTPStatus.CONFLICT
-
-
-class InactiveAccount(BusinessRuleViolation):
-    code = "inactive_account"
-    default_message = "Conta inativa."
-    http_status = HTTPStatus.FORBIDDEN
-
-
-class EmailTaken(BusinessRuleViolation):
-    code = "email_taken"
-    default_message = "E-mail já cadastrado."
-    http_status = HTTPStatus.CONFLICT
