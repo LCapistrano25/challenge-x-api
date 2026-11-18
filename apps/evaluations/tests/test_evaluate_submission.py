@@ -11,6 +11,7 @@ from apps.accounts.exceptions import NotTeacherActor
 from apps.accounts.factories import TeacherCourseFactory, TeacherFactory, UserFactory
 from apps.editions.factories import StageCriterionFactory, StageFactory
 from apps.evaluations.enums import EvaluationStatus, ScoreStatus
+from apps.evaluations.exceptions import TeacherNotInCourse
 from apps.evaluations.models import Evaluation, StageScore
 from apps.evaluations.use_cases.evaluate_submission import evaluate_submission
 from apps.projects.factories import (
@@ -101,7 +102,7 @@ def test_usuario_professor_sem_perfil_nao_avalia(ctx):
 def test_professor_de_outro_curso_nao_avalia(ctx):
     outro = TeacherCourseFactory().teacher
 
-    with pytest.raises(ValidationError, match="vínculo ativo"):
+    with pytest.raises(TeacherNotInCourse):
         avaliar(ctx, actor=outro.user)
 
 

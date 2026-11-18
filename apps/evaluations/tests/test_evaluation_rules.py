@@ -6,6 +6,7 @@ from django.utils import timezone
 
 from apps.accounts.factories import TeacherCourseFactory
 from apps.editions.factories import StageCriterionFactory, StageFactory
+from apps.evaluations.exceptions import TeacherNotInCourse
 from apps.evaluations.factories import EvaluationFactory, EvaluationItemFactory
 from apps.evaluations.rules import (
     ensure_all_criteria_scored,
@@ -33,7 +34,7 @@ def test_professor_de_outro_curso_nao_pode_avaliar():
     avaliacao = EvaluationFactory()
     TeacherCourseFactory(teacher=avaliacao.teacher)
 
-    with pytest.raises(ValidationError, match="vínculo ativo"):
+    with pytest.raises(TeacherNotInCourse):
         ensure_teacher_in_challenge_course(avaliacao.teacher, avaliacao.project)
 
 
@@ -45,7 +46,7 @@ def test_vinculo_inativo_nao_conta():
         active=False,
     )
 
-    with pytest.raises(ValidationError, match="vínculo ativo"):
+    with pytest.raises(TeacherNotInCourse):
         ensure_teacher_in_challenge_course(avaliacao.teacher, avaliacao.project)
 
 

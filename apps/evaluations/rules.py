@@ -4,6 +4,7 @@ from django.utils import timezone
 
 from apps.editions.enums import StageKind
 from apps.evaluations.enums import EvaluationStatus, QuestionKind
+from apps.evaluations.exceptions import TeacherNotInCourse
 
 # Os models importam estas regras; por isso elas pegam os models pelo registro
 # do Django (como a FK por string), sem import que fecharia o ciclo.
@@ -74,9 +75,7 @@ def ensure_teacher_in_challenge_course(teacher, project) -> None:
     """Só avalia o professor com vínculo ativo no curso do desafio (RF38, RN04)."""
     course_id = project.challenge.course_id if project.challenge_id else None
     if not teacher.course_links.filter(course_id=course_id, active=True).exists():
-        raise ValidationError(
-            {"teacher": "O professor não tem vínculo ativo com o curso do desafio."}
-        )
+        raise TeacherNotInCourse()
 
 
 def ensure_stage_is_evaluable(stage) -> None:
