@@ -6275,11 +6275,20 @@ paths:
         **Perfis permitidos:** TEACHER
 
         **Autorização adicional:** Somente projetos cujo desafio pertence a curso com vínculo ativo do professor. Não há atribuição individual de projetos.
+
+        **Regras de negócio:**
+        - Uma linha por projeto e etapa pontuada de entrega, só de edição publicada.
+        - deliverable_status é derivado (P-27): versão no prazo da equipe = SUBMITTED; sem versão e prazo aberto = NOT_SUBMITTED; sem versão e prazo encerrado = NOT_DELIVERED.
+        - pending_only devolve só entregas SUBMITTED que o professor autenticado ainda não finalizou.
+
+        **Pendências relacionadas (api-pendencias.md):** P-27
       x-status: confirmed
       x-requirements:
       - RF37
       x-roles:
       - TEACHER
+      x-pendencias:
+      - P-27
       parameters:
       - $ref: '#/components/parameters/CourseFilter'
       - $ref: '#/components/parameters/StageFilter'

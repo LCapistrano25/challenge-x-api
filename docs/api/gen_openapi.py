@@ -1027,7 +1027,11 @@ op("get", "/api/deliverable-versions/{version_id}/receipt", "projectsGetReceipt"
 op("get", "/api/teacher/projects", "evaluationsListTeacherProjects", "evaluations", "Painel de acompanhamento do curso", ["RF37"], ["TEACHER"],
    "Lista os projetos dos cursos com vínculo ativo do professor, com status das entregas e das avaliações.",
    params=["CourseFilter", "StageFilter", "PendingOnly"] + PAGE, ok=PTeacherRow,
-   authz="Somente projetos cujo desafio pertence a curso com vínculo ativo do professor. Não há atribuição individual de projetos.")
+   authz="Somente projetos cujo desafio pertence a curso com vínculo ativo do professor. Não há atribuição individual de projetos.",
+   rules=["Uma linha por projeto e etapa pontuada de entrega, só de edição publicada.",
+          "deliverable_status é derivado (P-27): versão no prazo da equipe = SUBMITTED; sem versão e prazo aberto = NOT_SUBMITTED; sem versão e prazo encerrado = NOT_DELIVERED.",
+          "pending_only devolve só entregas SUBMITTED que o professor autenticado ainda não finalizou."],
+   pend=["P-27"])
 op("get", "/api/projects/{project_id}/stages/{stage_id}/evaluation", "evaluationsGetMyEvaluation", "evaluations", "Formulário e avaliação do professor",
    ["RF38"], ["TEACHER"], "Retorna critérios e pontuações máximas da etapa e a avaliação do professor autenticado, se existir.",
    params=["ProjectId", "StageId"], ok=ref("EvaluationForm"), errs=["404"], authz="Vínculo ativo com o curso do desafio do projeto.")
