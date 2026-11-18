@@ -19,7 +19,7 @@
 | P-01 | `users` sem os campos nativos do Django | Alta | `accounts`, 1ª migration |
 | P-02 | Contrato de auth com valores e campos fora do DBML | Média | `accounts` |
 | P-03 | Expiração por inatividade × JWT de 7 dias | Média | `accounts` |
-| P-04 | Professor define o próprio escopo de avaliação | Alta | `accounts`, `evaluations` |
+| P-04 | Professor define o próprio escopo de avaliação — **resolvida** | Alta | `accounts`, `evaluations` |
 | P-05 | Criação de avaliador externo sem vínculo à edição | Média | `accounts`, `evaluations` |
 | P-06 | Status de chamado divergentes | Alta | `support` |
 | P-07 | Justificativa de recusa e histórico do chamado | Média | `support` |
@@ -88,6 +88,7 @@
 - Pelo RFXX ("Atualizar cadastro de professor"), o vínculo com cursos define quais projetos ele avalia, e somente o Administrador altera esse vínculo.
 - **Impacto:** do jeito atual, o professor ganha permissão de avaliação sem validação administrativa. O próprio contrato de auth já sinaliza esse risco.
 - **Decidir:** se o vínculo criado no RF36.1 nasce ativo ou pendente de aprovação do Admin (por exemplo, gravado com `active = false`, sem mudar o schema).
+- **Resolvida (16/11/2026, #68):** o vínculo nasce ativo. A escolha é única, no primeiro acesso: uma nova tentativa recebe 409 `teacher_profile_exists`. Depois disso, só o Admin altera os cursos. O frontend confirma a escolha antes de salvar.
 
 ### P-05 — Criação de avaliador externo sem vínculo à edição · Média
 - O RF11 pede cadastrar o avaliador **e** vinculá-lo à edição com uma abrangência (todos os cursos ou um curso), o que envolve `edition_evaluator`.
@@ -212,7 +213,7 @@
 - O RF29 seleciona o desafio **antes** do RF30 (título e resumo), então a seleção do desafio não pode ser gravada sozinha.
 - O RF26 (regra 5) e o RF29 exigem **invalidar** o desafio quando o curso perde representante, o que é impossível com `challenge_id` NOT NULL.
 - **Decidir:** tornar esses campos anuláveis ou adotar um fluxo único (desafio + categoria + título + resumo numa só requisição), com outra forma de marcar a invalidação.
-- **Resolvida (25/10/2026):** `challenge` anulável e `title`/`summary` em branco até o RF30. O RF26 invalida o desafio gravando nulo. A entrega (RF31) exige os três preenchidos (`ensure_project_complete`), e o título único na edição ignora título em branco. Falta dividir `PUT /api/teams/{team_id}/project` em RF29 e RF30 no `gen_openapi.py`.
+- **Resolvida (25/10/2026):** `challenge` anulável e `title`/`summary` em branco até o RF30. O RF26 invalida o desafio gravando nulo. A entrega (RF31) exige os três preenchidos (`ensure_project_complete`), e o título único na edição ignora título em branco. O `PUT /api/teams/{team_id}/project` foi dividido (#65, #103) em `PUT .../project/challenge` (RF29) e `PUT .../project/details` (RF30); a categoria é escolhida em `PUT .../project/category` (UC39, #105).
 
 ### P-26 — Transições de `project_status` · Média
 - `project_status` tem `IN_PROGRESS`, `SUBMITTED`, `UNDER_EVALUATION`, `APPROVED` e `REJECTED`, mas nenhum requisito define quando o projeto é aprovado ou reprovado, nem quem faz cada transição.
@@ -330,14 +331,13 @@ Estas são convenções que a especificação adota para ficar completa. Cada um
 
 ## 11. Endpoints confirmados e propostos
 
-A especificação tem **109 operações em 79 caminhos**:
-- **95 confirmadas** (`x-status: confirmed`): podem ter pendências de severidade média ou baixa, com uma suposição registrada que não muda o contrato de forma estrutural.
-- **14 propostas** (`x-status: proposed`): dependem de uma pendência de severidade alta e podem mudar.
+A especificação tem **112 operações em 83 caminhos**:
+- **100 confirmadas** (`x-status: confirmed`): podem ter pendências de severidade média ou baixa, com uma suposição registrada que não muda o contrato de forma estrutural.
+- **12 propostas** (`x-status: proposed`): dependem de uma pendência de severidade alta e podem mudar.
 
 | Método | Caminho | Depende de |
 |---|---|---|
 | POST | `/api/auth/sessions/password` | P-01 (campos nativos de `users`) |
-| POST | `/api/auth/teachers` | P-04 (escopo do professor) |
 | POST | `/api/admin/editions/{edition_id}/stages` | P-19 (prazo de avaliação) |
 | PATCH | `/api/admin/stages/{stage_id}` | P-21 (prorrogação individual) |
 | GET | `/api/me/dashboard` | P-23 (equipe incompleta) |
@@ -352,7 +352,7 @@ A especificação tem **109 operações em 79 caminhos**:
 | PATCH | `/api/admin/support/tickets/{ticket_id}` | P-06 |
 
 Duas decisões de desenho merecem atenção:
-- **`PUT /api/teams/{team_id}/project`** junta RF29 e RF30 numa operação, porque o modelo exige desafio, título e resumo juntos. Se P-25 tornar esses campos anuláveis, ela pode ser dividida.
+- **Projeto em duas operações:** `PUT /api/teams/{team_id}/project/challenge` (RF29) e `PUT .../project/details` (RF30), porque P-25 tornou desafio, título e resumo independentes. `CourseSummary` e `ChallengeSummary` seguem os models: curso sem `slug` e desafio sem `title` (usam `description`).
 - **Avaliador externo:** a criação (`POST /api/auth/external-evaluators`, do contrato) e o vínculo com a edição (`POST /api/admin/editions/{edition_id}/evaluators`) ficaram separados (P-05).
 
 Dois desvios do contrato de auth, ambos pela regra "DBML como referência":
@@ -379,7 +379,7 @@ Dois desvios do contrato de auth, ambos pela regra "DBML como referência":
 | RF19 | Coberto | `POST /api/auth/students` |
 | RF20 | Coberto (proposto) | `GET /api/me/dashboard` |
 | RF21–RF28 | Coberto | `/api/teams`, convites, solicitações, saída, liderança |
-| RF29, RF30, RF50 | Coberto (proposto) | `PUT /api/teams/{id}/project`, `/project/options` |
+| RF29, RF30, RF49, RF50 | Coberto (proposto) | `PUT /api/teams/{id}/project/challenge`, `PUT .../project/details`, `PUT .../project/category`, `/project/options` |
 | RF31 | Coberto | entregas, versões e comprovante |
 | RF32 | Coberto | `GET /api/projects/{id}/scores` |
 | RF33, RF39 | Coberto | `/api/teams/{id}/member-notes` |
@@ -423,7 +423,7 @@ O validador oficial (`openapi-spec-validator`) **não pôde ser instalado**, por
 
 ## 14. O que impede considerar a especificação definitiva
 
-1. **Pendências altas que mudam contratos:** P-01, P-04, P-06, P-19, P-21, P-23, P-25, P-29, P-30 e P-31 (afetam as 14 operações propostas e a ausência de RF14 e de parte do RF17).
+1. **Pendências altas que mudam contratos:** P-01, P-06, P-19, P-21, P-23, P-25, P-29, P-30 e P-31 (afetam as 12 operações propostas e a ausência de RF14 e de parte do RF17).
 2. **Convenções transversais ainda não aprovadas:** decimais (P-39) e multipart (P-43). Formato de erro (P-37) e paginação (P-38) foram adotados.
 3. **Contrato de auth:** nomes e valores alinhados ao DBML (P-02) e a ausência de definição para expiração, refresh e logout (P-03, P-42).
 4. **Validação oficial e importação no Apidog** ainda não executadas (seção 13).
@@ -445,3 +445,4 @@ O validador oficial (`openapi-spec-validator`) **não pôde ser instalado**, por
 | 24/10/2026 | `Course.period_count` → `term_count`; campo `period` do aluno → `term` (cadastro, perfil e atualização de aluno). | Glossário do guia de implementação: período do aluno é `term`. Alinha com `User.term` e `Course.term_count` no código. |
 | 08/11/2026 | Ids de usuário (`user_id`, `evaluator_id`, `student_id`, `assigned_to` e os parâmetros `UserId`, `EvaluatorId` e `assigned_to`) passam de UUID para inteiro; `registration_number` com no máximo 30 caracteres. | `User.id` é inteiro no código e no DBML (`usuario.id integer`), e a matrícula é `varchar(30)`. Ids de chamado e notificação continuam UUID. |
 | 08/11/2026 | `POST /api/auth/sessions/password` devolve o usuário da sessão (`user_id`, `name`, `email`, `role`) em vez de um JWT, com 403 `reviewer_not_in_current_edition` para o avaliador fora da edição vigente; entram `POST /api/auth/logout` e `GET /api/auth/me`. | A #91 usa sessão com CSRF; a credencial vai no cookie. O esquema de segurança do contrato (`bearerAuth`) e o login Microsoft continuam como estão até a decisão da #70. |
+| 10/11/2026 | `CourseSummary` (resumo do curso dentro de outros recursos) perde o `slug`. | O `Course` não tem mais `slug` desde a P-17. Os schemas do próprio curso (`Course`, cadastro e atualização) e o conflito `course_slug_taken` ainda têm o campo e ficam para a task de cursos (UC03). |

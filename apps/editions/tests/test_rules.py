@@ -1,18 +1,18 @@
 import pytest
 
 from apps.accounts.enums import UserRole
+from apps.accounts.exceptions import NotAdminActor
 from apps.accounts.factories import UserFactory
+from apps.accounts.rules import ensure_actor_is_admin
 from apps.editions.enums import EditionStatus
 from apps.editions.exceptions import (
     EditionAlreadyExists,
     EditionError,
     InvalidTeamLimits,
-    NotAdminActor,
     TeamLimitsLocked,
 )
 from apps.editions.factories import EditionFactory
 from apps.editions.rules import (
-    ensure_actor_is_admin,
     ensure_edition_identification_is_free,
     ensure_team_limits_editable,
     ensure_team_limits_valid,
@@ -30,7 +30,6 @@ pytestmark = pytest.mark.django_db
         (EditionAlreadyExists, "edition_exists"),
         (TeamLimitsLocked, "team_limits_locked"),
         (InvalidTeamLimits, "invalid_team_limits"),
-        (NotAdminActor, "not_admin_actor"),
     ],
 )
 def test_excecao_tem_codigo_proprio_e_herda_de_edition_error(exception, code):

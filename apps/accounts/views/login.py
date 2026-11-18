@@ -8,8 +8,12 @@ from rest_framework.response import Response
 from rest_framework.throttling import SimpleRateThrottle
 from rest_framework.views import APIView
 
-from apps.accounts.rules import ensure_password_login_allowed
-from apps.accounts.serializers import LoginSerializer
+from apps.accounts.microsoft import fetch_identity
+from apps.accounts.rules import ensure_password_login_allowed, has_role_profile
+from apps.accounts.serializers import LoginSerializer, MicrosoftLoginSerializer
+from apps.accounts.use_cases.authenticate_microsoft_user import (
+    authenticate_microsoft_user,
+)
 
 
 class EmailRateThrottle(SimpleRateThrottle):
@@ -59,6 +63,28 @@ class LoginView(APIView):
         login(request, user)
 
         return Response(user_data(user))
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class MicrosoftLoginView(APIView):
+    """Sessão de aluno e professor com a conta Microsoft (RF18, RF36, P-42)."""
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def post(self, request):
+        serializer = MicrosoftLoginSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        # Fora da transação do caso de uso: é uma chamada de rede.
+        identity = fetch_identity(serializer.validated_data["code"])
+        user = authenticate_microsoft_user(**identity)
+        login(request, user)
+
+        # profile_completed=false: o frontend leva ao autocadastro (RF19, RF36.1).
+        return Response(
+            {**user_data(user), "profile_completed": has_role_profile(user)}
+        )
 
 
 class LogoutView(APIView):

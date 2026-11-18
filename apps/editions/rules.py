@@ -1,12 +1,11 @@
 from django.apps import apps
 from django.core.exceptions import ValidationError
 
-from apps.accounts.enums import UserRole
 from apps.editions.enums import EditionStatus
 from apps.editions.exceptions import (
     EditionAlreadyExists,
+    EditionClosed,
     InvalidTeamLimits,
-    NotAdminActor,
     TeamLimitsLocked,
 )
 
@@ -34,12 +33,6 @@ def ensure_criterion_in_stage_edition(stage, criterion) -> None:
         raise ValidationError("O critério pertence a outra edição.")
 
 
-def ensure_actor_is_admin(actor) -> None:
-    """Exige que quem age seja administrador (RF47, RF48)."""
-    if actor is None or actor.role != UserRole.ADMIN:
-        raise NotAdminActor()
-
-
 def ensure_edition_identification_is_free(year: int, semester: int) -> None:
     """Impede duas edições com o mesmo ano e semestre (RN05)."""
     editions = apps.get_model("editions", "Edition").objects
@@ -64,3 +57,16 @@ def ensure_team_limits_editable(edition) -> None:
     """
     if edition.status != EditionStatus.SETUP:
         raise TeamLimitsLocked()
+
+
+def ensure_edition_not_closed(edition) -> None:
+    """Edição encerrada não aceita alteração (RF11: o vínculo expira com ela)."""
+    if edition.status == EditionStatus.CLOSED:
+        raise EditionClosed()
+
+
+def ensure_course_is_active(course_id: int) -> None:
+    """Exige curso existente e ativo para a abrangência do avaliador (RF11)."""
+    courses = apps.get_model("core", "Course").objects
+    if not courses.filter(pk=course_id, active=True).exists():
+        raise ValidationError({"course_id": "Curso inválido."})

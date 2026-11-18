@@ -40,3 +40,9 @@ class IsStudentAccount(IsStudent):
     """Aluno logado, com ou sem perfil: só para concluir o autocadastro (RF19)."""
 
     require_profile = False
+
+
+class IsTeacherAccount(IsTeacher):
+    """Professor logado, com ou sem perfil: só para configurar os cursos (RF36.1)."""
+
+    require_profile = False
