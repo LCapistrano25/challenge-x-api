@@ -13,15 +13,27 @@ from apps.editions.factories import StageCriterionFactory, StageFactory
 from apps.evaluations.enums import EvaluationStatus, ScoreStatus
 from apps.evaluations.models import Evaluation, StageScore
 from apps.evaluations.use_cases.evaluate_submission import evaluate_submission
-from apps.projects.factories import SubmissionFactory, SubmissionVersionFactory
+from apps.projects.factories import (
+    DeadlineExtensionFactory,
+    ProjectFactory,
+    SubmissionFactory,
+    SubmissionVersionFactory,
+)
 
 pytestmark = pytest.mark.django_db
 
 
 @pytest.fixture
 def ctx():
-    versao = SubmissionVersionFactory()
-    projeto, etapa = versao.submission.project, versao.submission.stage
+    # Entrega encerrada há 6 dias e avaliação aberta até amanhã.
+    projeto = ProjectFactory()
+    etapa = StageFactory(
+        edition=projeto.edition, starts_at=timezone.now() - timedelta(days=20)
+    )
+    SubmissionVersionFactory(
+        submission=SubmissionFactory(project=projeto, stage=etapa),
+        submitted_at=etapa.ends_at - timedelta(days=1),
+    )
     professor = TeacherFactory()
     TeacherCourseFactory(teacher=professor, course=projeto.challenge.course)
     return SimpleNamespace(
@@ -176,3 +188,15 @@ def test_criterio_repetido_e_recusado(ctx):
 
     with pytest.raises(ValidationError, match="repetido"):
         avaliar(ctx, items=repetido)
+
+
+def test_nao_finaliza_com_o_prazo_de_entrega_da_equipe_aberto(ctx):
+    DeadlineExtensionFactory(
+        project=ctx.project,
+        stage=ctx.stage,
+        ends_at=timezone.now() + timedelta(hours=1),
+    )
+
+    with pytest.raises(ValidationError, match="prazo de entrega"):
+        avaliar(ctx, finalize=True)
+    avaliar(ctx)  # o rascunho continua liberado

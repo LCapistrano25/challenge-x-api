@@ -2,6 +2,7 @@ from datetime import timedelta
 
 import pytest
 from django.core.exceptions import ValidationError
+from django.utils import timezone
 
 from apps.accounts.factories import TeacherCourseFactory
 from apps.editions.factories import StageCriterionFactory, StageFactory
@@ -11,6 +12,7 @@ from apps.evaluations.rules import (
     ensure_evaluation_is_draft,
     ensure_has_valid_submission,
     ensure_stage_is_evaluable,
+    ensure_submission_period_closed,
     ensure_teacher_in_challenge_course,
 )
 from apps.projects.factories import SubmissionFactory, SubmissionVersionFactory
@@ -111,3 +113,16 @@ def test_todos_os_criterios_pontuados_pode_finalizar():
 def test_etapa_sem_criterios_nao_finaliza():
     with pytest.raises(ValidationError, match="todos os critérios"):
         ensure_all_criteria_scored(EvaluationFactory())
+
+
+def test_prazo_de_entrega_encerrado_libera_a_finalizacao():
+    etapa = StageFactory(starts_at=timezone.now() - timedelta(days=20))
+
+    ensure_submission_period_closed(SubmissionFactory(stage=etapa).project, etapa)
+
+
+def test_prazo_de_entrega_aberto_barra_a_finalizacao():
+    submissao = SubmissionFactory()
+
+    with pytest.raises(ValidationError, match="prazo de entrega"):
+        ensure_submission_period_closed(submissao.project, submissao.stage)

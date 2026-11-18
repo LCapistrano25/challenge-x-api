@@ -16,6 +16,7 @@ from apps.evaluations.rules import (
     ensure_has_valid_submission,
     ensure_same_edition,
     ensure_stage_is_evaluable,
+    ensure_submission_period_closed,
     ensure_teacher_in_challenge_course,
 )
 from apps.evaluations.use_cases.recalculate_stage_score import recalculate_stage_score
@@ -36,8 +37,8 @@ def evaluate_submission(
 
     Cada item é {"stage_criterion", "points", "comment"}; os critérios que
     ficarem fora da lista saem do rascunho. Finalizar exige todos os critérios
-    pontuados e o prazo de avaliação da etapa aberto, e torna a avaliação
-    imutável.
+    pontuados, o prazo de entrega da equipe encerrado e o de avaliação aberto, e
+    torna a avaliação imutável.
 
     Levanta NotTeacherActor se o actor não for professor e ValidationError se
     ele não tiver vínculo com o curso do desafio, a etapa não for avaliável, o
@@ -78,6 +79,7 @@ def evaluate_submission(
     evaluation.items.exclude(stage_criterion__in=criteria_ids).delete()
 
     if finalize:
+        ensure_submission_period_closed(project, stage)
         ensure_all_criteria_scored(evaluation)
         evaluation.status = EvaluationStatus.FINALIZED
         evaluation.finalized_at = timezone.now()

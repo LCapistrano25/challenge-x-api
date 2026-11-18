@@ -1,5 +1,6 @@
 from django.apps import apps
 from django.core.exceptions import ValidationError
+from django.utils import timezone
 
 from apps.editions.enums import StageKind
 from apps.evaluations.enums import EvaluationStatus, QuestionKind
@@ -92,6 +93,19 @@ def ensure_has_valid_submission(project, stage) -> None:
     submission = project.submissions.filter(stage=stage).first()
     if submission is None or get_valid_version(submission) is None:
         raise ValidationError({"submission": "O projeto não tem entrega válida."})
+
+
+def ensure_submission_period_closed(project, stage) -> None:
+    """Só finaliza depois do prazo da equipe, com a prorrogação se houver (RF38).
+
+    Antes disso a equipe ainda pode enviar uma versão que invalidaria a nota.
+    """
+    from apps.projects.selectors import get_submission_deadline
+
+    if timezone.now() <= get_submission_deadline(project, stage):
+        raise ValidationError(
+            {"stage": "O prazo de entrega da equipe ainda está aberto."}
+        )
 
 
 def ensure_evaluation_is_draft(evaluation) -> None:
