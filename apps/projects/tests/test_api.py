@@ -1,6 +1,8 @@
+import json
 from datetime import timedelta
 
 import pytest
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.utils import timezone
 from rest_framework.test import APIClient
 
@@ -12,6 +14,7 @@ from apps.accounts.factories import (
     TeacherFactory,
     UserFactory,
 )
+from apps.editions.enums import FieldKind
 from apps.editions.factories import (
     CategoryFactory,
     ChallengeFactory,
@@ -19,6 +22,8 @@ from apps.editions.factories import (
     StageSubmissionFieldFactory,
 )
 from apps.projects.factories import ProjectFactory
+from apps.projects.files import get_delivery_storage
+from apps.projects.tests.conftest import stored_keys
 from apps.teams.enums import MemberRole
 from apps.teams.factories import TeamFactory, TeamMemberFactory
 
@@ -759,3 +764,274 @@ def test_consulta_de_entregas_de_projeto_inexistente_da_404(dleader):
     assert (
         client_for(dleader).get("/api/projects/999999/deliverables").status_code == 404
     )
+
+
+# POST multipart com arquivos (P-43, #107)
+
+PDF_BYTES = b"%PDF-1.7 conteudo"
+
+
+@pytest.fixture
+def ffield(dstage):
+    return StageSubmissionFieldFactory(
+        stage=dstage,
+        kind=FieldKind.FILE,
+        label="Relatório",
+        formats="pdf",
+        max_size_mb=1,
+    )
+
+
+def post_multipart(user, project, stage, items, files=(), **extra):
+    body = {"items": json.dumps(items), **extra}
+    if files:
+        body["files[]"] = list(files)
+    return client_for(user).post(versions_url(project, stage), body, format="multipart")
+
+
+def pdf_upload(name="relatorio.pdf", content=PDF_BYTES):
+    return SimpleUploadedFile(name, content)
+
+
+def test_multipart_envia_arquivo(dproject, dleader, dstage, ffield):
+    response = post_multipart(
+        dleader,
+        dproject,
+        dstage,
+        [{"field_id": ffield.pk, "file_index": 0}],
+        [pdf_upload("Meu Relatório.pdf")],
+        notes="Com arquivo",
+    )
+
+    assert response.status_code == 201, response.data
+    assert response.data["notes"] == "Com arquivo"
+    item = response.data["items"][0]
+    assert item["type"] == "FILE"
+    assert item["link"] is None
+    assert item["file_name"] == "Meu_Relatório.pdf"
+    assert item["size_bytes"] == len(PDF_BYTES)
+    assert item["file_url"]
+
+
+def test_multipart_envia_link_e_arquivo(dproject, dleader, dstage, dfield, ffield):
+    response = post_multipart(
+        dleader,
+        dproject,
+        dstage,
+        [
+            {"field_id": dfield.pk, "link": "https://github.com/equipe/projeto"},
+            {"field_id": ffield.pk, "file_index": 0},
+        ],
+        [pdf_upload()],
+    )
+
+    assert response.status_code == 201, response.data
+    assert sorted(i["type"] for i in response.data["items"]) == ["FILE", "LINK"]
+
+
+def test_multipart_aceita_o_nome_files_sem_colchetes(dproject, dleader, dstage, ffield):
+    body = {
+        "items": json.dumps([{"field_id": ffield.pk, "file_index": 0}]),
+        "files": pdf_upload(),
+    }
+    response = client_for(dleader).post(
+        versions_url(dproject, dstage), body, format="multipart"
+    )
+    assert response.status_code == 201, response.data
+
+
+def test_multipart_so_com_link_continua_valido(dproject, dleader, dstage, dfield):
+    response = post_multipart(
+        dleader,
+        dproject,
+        dstage,
+        [{"field_id": dfield.pk, "link": "https://github.com/equipe/projeto"}],
+    )
+    assert response.status_code == 201, response.data
+
+
+def test_multipart_extensao_fora_do_formato_da_400(dproject, dleader, dstage, ffield):
+    response = post_multipart(
+        dleader,
+        dproject,
+        dstage,
+        [{"field_id": ffield.pk, "file_index": 0}],
+        [pdf_upload("a.txt", b"texto")],
+    )
+    assert response.status_code == 400
+    assert error_code(response) == "file_format_not_allowed"
+
+
+def test_multipart_arquivo_grande_da_400(dproject, dleader, dstage, ffield):
+    big = pdf_upload(content=b"%PDF" + b"0" * (1024 * 1024 + 1))
+    response = post_multipart(
+        dleader, dproject, dstage, [{"field_id": ffield.pk, "file_index": 0}], [big]
+    )
+    assert response.status_code == 400
+    assert error_code(response) == "file_too_large"
+
+
+def test_multipart_arquivo_vazio_da_400(dproject, dleader, dstage, ffield):
+    response = post_multipart(
+        dleader,
+        dproject,
+        dstage,
+        [{"field_id": ffield.pk, "file_index": 0}],
+        [pdf_upload(content=b"")],
+    )
+    assert response.status_code == 400
+    assert error_code(response) == "validation_error"
+
+
+def test_multipart_campo_de_arquivo_obrigatorio_sem_arquivo_da_400(
+    dproject, dleader, dstage, dfield, ffield
+):
+    response = post_multipart(
+        dleader,
+        dproject,
+        dstage,
+        [{"field_id": dfield.pk, "link": "https://github.com/equipe/projeto"}],
+    )
+    assert response.status_code == 400
+    assert error_code(response) == "validation_error"
+
+
+def test_multipart_indice_fora_da_faixa_da_400(dproject, dleader, dstage, ffield):
+    response = post_multipart(
+        dleader,
+        dproject,
+        dstage,
+        [{"field_id": ffield.pk, "file_index": 1}],
+        [pdf_upload()],
+    )
+    assert response.status_code == 400
+    assert error_code(response) == "validation_error"
+
+
+def test_multipart_indice_repetido_da_400(dproject, dleader, dstage, ffield):
+    other = StageSubmissionFieldFactory(
+        stage=dstage, kind=FieldKind.FILE, formats="pdf"
+    )
+    response = post_multipart(
+        dleader,
+        dproject,
+        dstage,
+        [
+            {"field_id": ffield.pk, "file_index": 0},
+            {"field_id": other.pk, "file_index": 0},
+        ],
+        [pdf_upload(), pdf_upload()],
+    )
+    assert response.status_code == 400
+    assert error_code(response) == "validation_error"
+
+
+def test_multipart_arquivo_sobrando_da_400(dproject, dleader, dstage, dfield, ffield):
+    response = post_multipart(
+        dleader,
+        dproject,
+        dstage,
+        [
+            {"field_id": dfield.pk, "link": "https://github.com/equipe/projeto"},
+            {"field_id": ffield.pk, "file_index": 0},
+        ],
+        [pdf_upload(), pdf_upload("extra.pdf")],
+    )
+    assert response.status_code == 400
+    assert error_code(response) == "validation_error"
+
+
+@pytest.mark.parametrize(
+    "item",
+    [
+        {"link": "https://a.dev", "file_index": 0},
+        {},
+    ],
+)
+def test_multipart_item_com_link_e_file_index_ou_nenhum_dos_dois_da_400(
+    item, dproject, dleader, dstage, ffield
+):
+    response = post_multipart(
+        dleader,
+        dproject,
+        dstage,
+        [{"field_id": ffield.pk, **item}],
+        [pdf_upload()],
+    )
+    assert response.status_code == 400
+    assert error_code(response) == "validation_error"
+
+
+@pytest.mark.parametrize("raw", ["isto nao e json", "{}", "123", "[1, 2]"])
+def test_multipart_items_invalidos_da_400(raw, dproject, dleader, dstage, ffield):
+    response = client_for(dleader).post(
+        versions_url(dproject, dstage),
+        {"items": raw, "files[]": pdf_upload()},
+        format="multipart",
+    )
+    assert response.status_code == 400
+    assert error_code(response) == "validation_error"
+
+
+def test_json_com_file_index_da_400(dproject, dleader, dstage, ffield):
+    response = post_version(
+        dleader,
+        dproject,
+        dstage,
+        {"items": [{"field_id": ffield.pk, "file_index": 0}]},
+    )
+    assert response.status_code == 400
+    assert error_code(response) == "validation_error"
+
+
+def test_multipart_de_quem_nao_e_lider_da_403_e_nao_grava(
+    dproject, dstage, ffield, delivery_storage_root
+):
+    member = TeamMemberFactory(team=dproject.team).student.user
+    response = post_multipart(
+        member,
+        dproject,
+        dstage,
+        [{"field_id": ffield.pk, "file_index": 0}],
+        [pdf_upload()],
+    )
+    assert response.status_code == 403
+    assert error_code(response) == "not_team_leader"
+    assert stored_keys(delivery_storage_root) == []
+
+
+def test_multipart_com_prazo_encerrado_da_409_e_nao_grava(
+    dproject, dleader, delivery_storage_root
+):
+    stage = make_stage(dproject, start=-5, end=-1)
+    field = StageSubmissionFieldFactory(stage=stage, kind=FieldKind.FILE)
+    response = post_multipart(
+        dleader,
+        dproject,
+        stage,
+        [{"field_id": field.pk, "file_index": 0}],
+        [pdf_upload()],
+    )
+    assert response.status_code == 409
+    assert error_code(response) == "stage_deadline_closed"
+    assert stored_keys(delivery_storage_root) == []
+
+
+def test_multipart_com_armazenamento_fora_do_ar_da_503(
+    dproject, dleader, dstage, ffield, delivery_storage_root, monkeypatch
+):
+    def broken(*args, **kwargs):
+        raise OSError("disco cheio")
+
+    monkeypatch.setattr(get_delivery_storage().__class__, "save", broken)
+
+    response = post_multipart(
+        dleader,
+        dproject,
+        dstage,
+        [{"field_id": ffield.pk, "file_index": 0}],
+        [pdf_upload()],
+    )
+    assert response.status_code == 503
+    assert error_code(response) == "storage_unavailable"
+    assert stored_keys(delivery_storage_root) == []

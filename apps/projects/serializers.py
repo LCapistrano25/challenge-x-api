@@ -1,3 +1,5 @@
+import json
+
 from rest_framework import serializers
 
 from apps.editions.models import Category, Challenge, StageSubmissionField
@@ -85,12 +87,69 @@ class DeliverableItemWriteSerializer(serializers.Serializer):
     field_id = serializers.PrimaryKeyRelatedField(
         queryset=StageSubmissionField.objects.all(), source="field"
     )
-    link = serializers.URLField(max_length=1000)
+    link = serializers.URLField(max_length=1000, required=False)
+    # Posição do arquivo em files[] (multipart, P-43).
+    file_index = serializers.IntegerField(min_value=0, required=False)
+
+    def validate(self, attrs):
+        if ("link" in attrs) == ("file_index" in attrs):
+            raise serializers.ValidationError(
+                "Informe o link ou o file_index do item, apenas um dos dois."
+            )
+        return attrs
 
 
 class DeliverableSubmissionSerializer(serializers.Serializer):
+    """Corpo do envio: JSON só com links, ou multipart com `items` em string JSON.
+
+    Os arquivos vêm do contexto (`context["files"]`, a lista de `files[]`); cada
+    `file_index` é trocado pelo arquivo, e o resultado já tem o formato do caso de
+    uso: {"field", "link"} ou {"field", "file"}.
+    """
+
     items = DeliverableItemWriteSerializer(many=True, allow_empty=False)
     notes = serializers.CharField(required=False, allow_blank=True, default="")
+
+    def to_internal_value(self, data):
+        raw_items = data.get("items") if hasattr(data, "get") else None
+        if isinstance(raw_items, str):
+            try:
+                parsed = json.loads(raw_items)
+            except ValueError:
+                raise serializers.ValidationError(
+                    {"items": ["O campo items não é um JSON válido."]}
+                ) from None
+            # Dicionário comum: o QueryDict do multipart confunde o serializer aninhado.
+            data = {"items": parsed}
+            if "notes" in self.initial_data:
+                data["notes"] = self.initial_data["notes"]
+        return super().to_internal_value(data)
+
+    def validate(self, attrs):
+        files = self.context.get("files", [])
+        used = set()
+        items = []
+        for raw in attrs["items"]:
+            if "file_index" not in raw:
+                items.append({"field": raw["field"], "link": raw["link"]})
+                continue
+            index = raw["file_index"]
+            if index >= len(files):
+                raise serializers.ValidationError(
+                    {"items": f"Não há arquivo na posição {index} de files[]."}
+                )
+            if index in used:
+                raise serializers.ValidationError(
+                    {"items": "O mesmo arquivo foi usado em mais de um item."}
+                )
+            used.add(index)
+            items.append({"field": raw["field"], "file": files[index]})
+        if len(used) != len(files):
+            raise serializers.ValidationError(
+                {"files": "Há arquivo enviado sem item correspondente."}
+            )
+        attrs["items"] = items
+        return attrs
 
 
 class UserSummarySerializer(serializers.Serializer):

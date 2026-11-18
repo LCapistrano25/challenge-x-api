@@ -1,4 +1,5 @@
 from rest_framework.exceptions import NotFound
+from rest_framework.parsers import JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -145,11 +146,17 @@ class ProjectDeliverablesView(APIView):
 
 class ProjectStageVersionsView(APIView):
     permission_classes = [IsStudent]
+    # JSON só com links; multipart com `items` em string JSON e `files[]` (P-43).
+    parser_classes = [JSONParser, MultiPartParser]
 
     def post(self, request, project_id, stage_id):
         project = get_project(project_id)
         stage = get_stage(stage_id)
-        serializer = DeliverableSubmissionSerializer(data=request.data)
+        # Os clientes variam no nome do campo: aceita files[] e files.
+        files = request.FILES.getlist("files[]") or request.FILES.getlist("files")
+        serializer = DeliverableSubmissionSerializer(
+            data=request.data, context={"files": files}
+        )
         serializer.is_valid(raise_exception=True)
 
         version = submit_stage_delivery(
