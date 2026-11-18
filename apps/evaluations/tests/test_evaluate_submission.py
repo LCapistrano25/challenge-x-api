@@ -169,3 +169,10 @@ def test_nao_finaliza_depois_do_prazo_de_avaliacao():
             finalize=True,
         )
     assert not Evaluation.objects.filter(status=EvaluationStatus.FINALIZED).exists()
+
+
+def test_criterio_repetido_e_recusado(ctx):
+    repetido = [*itens(ctx), {"stage_criterion": ctx.c1, "points": Decimal("0.50")}]
+
+    with pytest.raises(ValidationError, match="repetido"):
+        avaliar(ctx, items=repetido)

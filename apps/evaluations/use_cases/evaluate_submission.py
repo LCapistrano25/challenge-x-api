@@ -1,5 +1,6 @@
 """UC43 — Professor avalia a entrega do projeto na etapa. RF37, RF38."""
 
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
 
@@ -43,6 +44,10 @@ def evaluate_submission(
     projeto não tiver entrega válida, a avaliação já estiver finalizada, os
     pontos passarem do máximo do critério ou faltar critério ao finalizar.
     """
+    criteria_ids = {data["stage_criterion"].pk for data in items}
+    if len(criteria_ids) != len(items):
+        raise ValidationError({"items": "Critério repetido."})
+
     teacher = Teacher.objects.filter(user=actor).first()
     if actor.role != UserRole.TEACHER or teacher is None:
         raise NotTeacherActor()
@@ -70,9 +75,7 @@ def evaluate_submission(
         item.comment = data.get("comment", "")
         item.full_clean()
         item.save()
-    evaluation.items.exclude(
-        stage_criterion__in=[data["stage_criterion"] for data in items]
-    ).delete()
+    evaluation.items.exclude(stage_criterion__in=criteria_ids).delete()
 
     if finalize:
         ensure_all_criteria_scored(evaluation)
