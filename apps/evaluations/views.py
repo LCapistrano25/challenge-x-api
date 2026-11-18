@@ -6,13 +6,17 @@ from apps.accounts.permissions import IsTeacher
 from apps.editions.models import Stage
 from apps.evaluations.models import Evaluation
 from apps.evaluations.rules import ensure_teacher_in_challenge_course
+from apps.evaluations.selectors import list_teacher_rows
 from apps.evaluations.serializers import (
     EvaluationFormSerializer,
     EvaluationSerializer,
     EvaluationWriteSerializer,
+    TeacherProjectQuerySerializer,
+    TeacherProjectRowSerializer,
 )
 from apps.evaluations.use_cases.evaluate_submission import evaluate_submission
 from apps.projects.models import Project
+from config.pagination import DefaultPagination
 
 
 def get_project_and_stage(project_id, stage_id):
@@ -62,3 +66,18 @@ class StageEvaluationView(APIView):
         )
         evaluation = get_evaluation(project, stage, request.user)
         return Response(EvaluationSerializer(evaluation).data)
+
+
+class TeacherProjectListView(APIView):
+    permission_classes = [IsTeacher]
+
+    def get(self, request):
+        query = TeacherProjectQuerySerializer(data=request.query_params)
+        query.is_valid(raise_exception=True)
+
+        rows = list_teacher_rows(teacher=request.user.teacher, **query.validated_data)
+        paginator = DefaultPagination()
+        page = paginator.paginate_queryset(rows, request, view=self)
+        return paginator.get_paginated_response(
+            TeacherProjectRowSerializer(page, many=True).data
+        )

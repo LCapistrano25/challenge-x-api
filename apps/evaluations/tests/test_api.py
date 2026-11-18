@@ -13,6 +13,7 @@ from apps.accounts.factories import (
     TeacherFactory,
     UserFactory,
 )
+from apps.editions.enums import EditionStatus
 from apps.editions.factories import StageCriterionFactory, StageFactory
 from apps.evaluations.enums import EvaluationStatus
 from apps.evaluations.models import Evaluation
@@ -38,7 +39,7 @@ def error_code(response):
 @pytest.fixture
 def ctx():
     # Entrega encerrada há 6 dias e avaliação aberta até amanhã.
-    projeto = ProjectFactory()
+    projeto = ProjectFactory(team__edition__status=EditionStatus.PUBLISHED)
     etapa = StageFactory(
         edition=projeto.edition, starts_at=timezone.now() - timedelta(days=20)
     )
@@ -189,3 +190,76 @@ def test_put_de_projeto_inexistente_e_404(ctx):
     )
 
     assert response.status_code == 404
+
+
+# GET /api/teacher/projects (RF37)
+
+PAINEL = "/api/teacher/projects"
+
+
+def test_painel_lista_o_projeto_do_curso_do_professor(ctx):
+    response = client_for(ctx.user).get(PAINEL)
+
+    assert response.status_code == 200
+    assert response.data["count"] == 1
+    linha = response.data["results"][0]
+    assert linha["deliverable_status"] == "SUBMITTED"
+    assert linha["my_evaluation_status"] == "NOT_STARTED"
+    assert linha["evaluation_count"] == 0
+    assert linha["min_evaluators"] == 1
+
+
+def test_painel_acompanha_a_avaliacao_do_professor(ctx):
+    client = client_for(ctx.user)
+    client.put(ctx.url, corpo(ctx), format="json")
+    assert client.get(PAINEL).data["results"][0]["my_evaluation_status"] == "DRAFT"
+
+    client.put(ctx.url, corpo(ctx, status="FINALIZED"), format="json")
+    linha = client.get(PAINEL).data["results"][0]
+    assert linha["my_evaluation_status"] == "FINALIZED"
+    assert linha["evaluation_count"] == 1
+
+
+def test_painel_nao_mostra_projeto_de_outro_curso(ctx):
+    outro = TeacherCourseFactory().teacher.user
+
+    assert client_for(outro).get(PAINEL).data["count"] == 0
+
+
+def test_painel_filtra_por_curso(ctx):
+    client = client_for(ctx.user)
+    curso = TeacherCourseFactory(teacher=ctx.user.teacher).course
+
+    assert client.get(PAINEL, {"course_id": curso.pk}).data["count"] == 0
+
+
+def test_painel_pending_only_some_depois_de_finalizar(ctx):
+    client = client_for(ctx.user)
+    assert client.get(PAINEL, {"pending_only": "true"}).data["count"] == 1
+
+    client.put(ctx.url, corpo(ctx, status="FINALIZED"), format="json")
+
+    assert client.get(PAINEL, {"pending_only": "true"}).data["count"] == 0
+
+
+def test_painel_marca_entrega_nao_enviada_e_nao_entregue():
+    projeto = ProjectFactory(team__edition__status=EditionStatus.PUBLISHED)
+    professor = TeacherFactory()
+    TeacherCourseFactory(teacher=professor, course=projeto.challenge.course)
+    aberta = StageFactory(edition=projeto.edition)
+    vencida = StageFactory(
+        edition=projeto.edition, starts_at=timezone.now() - timedelta(days=20)
+    )
+
+    linhas = client_for(professor.user).get(PAINEL).data["results"]
+
+    status = {linha["stage"]["id"]: linha["deliverable_status"] for linha in linhas}
+    assert status == {aberta.pk: "NOT_SUBMITTED", vencida.pk: "NOT_DELIVERED"}
+
+
+def test_painel_exige_login():
+    assert APIClient().get(PAINEL).status_code == 403
+
+
+def test_painel_so_para_professor():
+    assert client_for(StudentFactory().user).get(PAINEL).status_code == 403
