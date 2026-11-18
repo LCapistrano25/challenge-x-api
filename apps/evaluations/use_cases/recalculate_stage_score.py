@@ -18,6 +18,11 @@ def recalculate_stage_score(*, project: Project, stage: Stage) -> StageScore:
 
     Com menos avaliações que o mínimo da etapa a nota fica pendente e sem valor.
     """
+    # Trava a nota antes de ler os totais: dois professores finalizando juntos
+    # recalculam um depois do outro e o segundo vê as duas avaliações.
+    score, _ = StageScore.objects.select_for_update().get_or_create(
+        project=project, stage=stage
+    )
     totals = list(
         Evaluation.objects.filter(
             project=project, stage=stage, status=EvaluationStatus.FINALIZED
@@ -34,14 +39,9 @@ def recalculate_stage_score(*, project: Project, stage: Stage) -> StageScore:
     else:
         status, value = ScoreStatus.PENDING, None
 
-    score, _ = StageScore.objects.update_or_create(
-        project=project,
-        stage=stage,
-        defaults={
-            "value": value,
-            "evaluation_count": count,
-            "status": status,
-            "calculated_at": timezone.now(),
-        },
-    )
+    score.value = value
+    score.evaluation_count = count
+    score.status = status
+    score.calculated_at = timezone.now()
+    score.save()
     return score
