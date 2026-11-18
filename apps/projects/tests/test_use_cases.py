@@ -7,11 +7,13 @@ from django.utils import timezone
 
 from apps.accounts.enums import UserRole
 from apps.accounts.factories import UserFactory
+from apps.editions.exceptions import EditionClosed
 from apps.editions.factories import (
     CategoryFactory,
     ChallengeFactory,
     EditionFactory,
     StageFactory,
+    StageSubmissionFieldFactory,
 )
 from apps.projects.exceptions import (
     CategoryNotAvailable,
@@ -21,15 +23,27 @@ from apps.projects.exceptions import (
     NotTeamLeader,
     ProjectNotFound,
     ProjectTitleTaken,
+    StageDeadlineClosed,
+    StageNotFound,
+    StageNotOpen,
+    TeamDisqualified,
+    TeamIncomplete,
 )
-from apps.projects.factories import ProjectFactory
-from apps.projects.models import Project
+from apps.projects.factories import DeadlineExtensionFactory, ProjectFactory
+from apps.projects.models import (
+    Project,
+    Submission,
+    SubmissionItem,
+    SubmissionReceipt,
+    SubmissionVersion,
+)
 from apps.projects.use_cases import save_project_details as save_module
 from apps.projects.use_cases.invalidate_challenge import invalidate_challenge
 from apps.projects.use_cases.save_project_details import save_project_details
 from apps.projects.use_cases.select_category import select_category
 from apps.projects.use_cases.select_challenge import select_challenge
-from apps.teams.enums import MemberRole
+from apps.projects.use_cases.submit_stage_delivery import submit_stage_delivery
+from apps.teams.enums import MemberRole, TeamSituation
 from apps.teams.factories import TeamFactory, TeamMemberFactory
 
 pytestmark = pytest.mark.django_db
@@ -428,3 +442,226 @@ def test_falha_nao_grava_a_categoria(team, leader, challenge, category):
 
     project.refresh_from_db()
     assert project.category == category
+
+
+# Enviar a entrega da etapa (UC34, RF31)
+
+
+@pytest.fixture
+def delivery_project():
+    return ProjectFactory()
+
+
+@pytest.fixture
+def delivery_leader(delivery_project):
+    return delivery_project.team.members.get(role=MemberRole.LEADER).student.user
+
+
+@pytest.fixture
+def delivery_stage(delivery_project):
+    now = timezone.now()
+    return StageFactory(
+        edition=delivery_project.edition,
+        starts_at=now - timedelta(days=1),
+        ends_at=now + timedelta(days=1),
+    )
+
+
+@pytest.fixture
+def link_field(delivery_stage):
+    return StageSubmissionFieldFactory(stage=delivery_stage)
+
+
+def send(actor, project, stage, field, link="https://github.com/equipe/p", **extra):
+    return submit_stage_delivery(
+        actor=actor,
+        project=project,
+        stage=stage,
+        items=[{"field": field, "link": link}],
+        **extra,
+    )
+
+
+def test_envio_cria_entrega_versao_item_e_comprovante(
+    delivery_project, delivery_leader, delivery_stage, link_field
+):
+    version = send(
+        delivery_leader, delivery_project, delivery_stage, link_field, notes="Primeira"
+    )
+
+    assert version.number == 1
+    assert version.notes == "Primeira"
+    assert version.submitted_by == delivery_leader.student
+    assert version.submission.project == delivery_project
+    assert version.submission.stage == delivery_stage
+    item = version.items.get()
+    assert (item.field, item.kind, item.link) == (
+        link_field,
+        "LINK",
+        "https://github.com/equipe/p",
+    )
+    assert version.receipt.file_url == ""
+    assert version.receipt.verification_code
+
+
+def test_segundo_envio_cria_versao_2_e_preserva_a_1(
+    delivery_project, delivery_leader, delivery_stage, link_field
+):
+    first = send(delivery_leader, delivery_project, delivery_stage, link_field)
+    second = send(
+        delivery_leader,
+        delivery_project,
+        delivery_stage,
+        link_field,
+        link="https://x.dev/2",
+    )
+
+    assert (first.number, second.number) == (1, 2)
+    assert first.submission == second.submission
+    assert first.items.get().link == "https://github.com/equipe/p"
+    assert Submission.objects.count() == 1
+
+
+def test_reenvio_igual_cria_outra_versao(
+    delivery_project, delivery_leader, delivery_stage, link_field
+):
+    send(delivery_leader, delivery_project, delivery_stage, link_field)
+    send(delivery_leader, delivery_project, delivery_stage, link_field)
+    assert SubmissionVersion.objects.count() == 2
+
+
+def test_envio_recusa_membro_comum(delivery_project, delivery_stage, link_field):
+    member = TeamMemberFactory(team=delivery_project.team).student.user
+    with pytest.raises(NotTeamLeader):
+        send(member, delivery_project, delivery_stage, link_field)
+
+
+def test_envio_recusa_admin(delivery_project, delivery_stage, link_field):
+    admin = UserFactory(role=UserRole.ADMIN)
+    with pytest.raises(NotTeamLeader):
+        send(admin, delivery_project, delivery_stage, link_field)
+
+
+def test_envio_recusa_lider_inativo(
+    delivery_project, delivery_leader, delivery_stage, link_field
+):
+    delivery_project.team.members.filter(role=MemberRole.LEADER).update(
+        active=False, left_at=timezone.now()
+    )
+    with pytest.raises(NotTeamLeader):
+        send(delivery_leader, delivery_project, delivery_stage, link_field)
+
+
+def test_envio_recusa_edicao_encerrada(
+    delivery_project, delivery_leader, delivery_stage, link_field
+):
+    edition = delivery_project.edition
+    edition.status = "CLOSED"
+    edition.save()
+    with pytest.raises(EditionClosed):
+        send(delivery_leader, delivery_project, delivery_stage, link_field)
+
+
+def test_envio_recusa_equipe_desclassificada(delivery_stage, link_field):
+    team = TeamFactory(edition=delivery_stage.edition, disqualified=True)
+    project = ProjectFactory(team=team)
+    leader = team.members.get(role=MemberRole.LEADER).student.user
+    with pytest.raises(TeamDisqualified):
+        send(leader, project, delivery_stage, link_field)
+
+
+@pytest.mark.parametrize(
+    "situation", [TeamSituation.INCOMPLETE, TeamSituation.REQUIREMENTS_NOT_MET]
+)
+def test_envio_recusa_equipe_incompleta(
+    situation, delivery_project, delivery_leader, delivery_stage, link_field
+):
+    delivery_project.team.situation = situation
+    delivery_project.team.save()
+    with pytest.raises(TeamIncomplete):
+        send(delivery_leader, delivery_project, delivery_stage, link_field)
+
+
+@pytest.mark.parametrize("missing", ["challenge", "title", "summary"])
+def test_envio_recusa_projeto_incompleto(
+    missing, delivery_project, delivery_leader, delivery_stage, link_field
+):
+    setattr(delivery_project, missing, None if missing == "challenge" else "")
+    delivery_project.save()
+    with pytest.raises(ValidationError):
+        send(delivery_leader, delivery_project, delivery_stage, link_field)
+
+
+def test_envio_recusa_etapa_de_formacao(delivery_project, delivery_leader):
+    stage = StageFactory(formation=True, edition=delivery_project.edition)
+    field = StageSubmissionFieldFactory(stage=stage)
+    with pytest.raises(StageNotFound):
+        send(delivery_leader, delivery_project, stage, field)
+
+
+def test_envio_recusa_etapa_de_outra_edicao(delivery_project, delivery_leader):
+    stage = StageFactory()
+    field = StageSubmissionFieldFactory(stage=stage)
+    with pytest.raises(StageNotFound):
+        send(delivery_leader, delivery_project, stage, field)
+
+
+def closed_delivery_stage(project):
+    now = timezone.now()
+    stage = StageFactory(
+        edition=project.edition,
+        starts_at=now - timedelta(days=5),
+        ends_at=now - timedelta(days=1),
+    )
+    return stage, StageSubmissionFieldFactory(stage=stage)
+
+
+def test_envio_recusa_prazo_encerrado(delivery_project, delivery_leader):
+    stage, field = closed_delivery_stage(delivery_project)
+    with pytest.raises(StageDeadlineClosed):
+        send(delivery_leader, delivery_project, stage, field)
+
+
+def test_envio_com_prorrogacao_funciona(delivery_project, delivery_leader):
+    stage, field = closed_delivery_stage(delivery_project)
+    DeadlineExtensionFactory(
+        project=delivery_project,
+        stage=stage,
+        ends_at=timezone.now() + timedelta(days=1),
+    )
+    assert send(delivery_leader, delivery_project, stage, field).number == 1
+
+
+def test_envio_recusa_antes_do_inicio(delivery_project, delivery_leader):
+    now = timezone.now()
+    stage = StageFactory(
+        edition=delivery_project.edition,
+        starts_at=now + timedelta(days=1),
+        ends_at=now + timedelta(days=5),
+    )
+    field = StageSubmissionFieldFactory(stage=stage)
+    with pytest.raises(StageNotOpen):
+        send(delivery_leader, delivery_project, stage, field)
+
+
+def test_envio_recusa_itens_invalidos(
+    delivery_project, delivery_leader, delivery_stage, link_field
+):
+    with pytest.raises(ValidationError):
+        submit_stage_delivery(
+            actor=delivery_leader,
+            project=delivery_project,
+            stage=delivery_stage,
+            items=[],
+        )
+
+
+def test_falha_nao_grava_nada(delivery_project, delivery_leader):
+    stage, field = closed_delivery_stage(delivery_project)
+    with pytest.raises(StageDeadlineClosed):
+        send(delivery_leader, delivery_project, stage, field)
+
+    assert Submission.objects.count() == 0
+    assert SubmissionVersion.objects.count() == 0
+    assert SubmissionItem.objects.count() == 0
+    assert SubmissionReceipt.objects.count() == 0
