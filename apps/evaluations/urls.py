@@ -4,6 +4,11 @@ from apps.evaluations import views
 
 urlpatterns = [
     path(
+        "projects/<int:project_id>/scores",
+        views.ProjectScoresView.as_view(),
+        name="project-scores",
+    ),
+    path(
         "teacher/projects",
         views.TeacherProjectListView.as_view(),
         name="teacher-projects",
