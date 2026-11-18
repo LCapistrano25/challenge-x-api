@@ -1035,8 +1035,11 @@ op("put", "/api/projects/{project_id}/stages/{stage_id}/evaluation", "evaluation
    ["RF38"], ["TEACHER"], "Cria ou atualiza a avaliação do professor autenticado (uma por professor, projeto e etapa).",
    params=["ProjectId", "StageId"], body=ref("EvaluationWrite"), ok=ref("Evaluation"), errs=["404"], authz="Vínculo ativo com o curso do desafio do projeto.",
    rules=["Somente etapas pontuadas do tipo EVALUATION.", "0 ≤ points ≤ max_score do critério (400 points_out_of_range).",
+          "Só avalia projeto com entrega válida: versão enviada até o prazo da equipe, com a prorrogação se houver.",
+          "Um item por critério da etapa, sem repetição; critério de outra etapa é recusado.",
           "FINALIZED exige todos os critérios e torna a avaliação imutável; retificação é escopo do RF14 (P-21).",
-          "Ao finalizar, recalcula stage_score (média simples; FINALIZED quando evaluation_count ≥ min_evaluators).",
+          "FINALIZED só depois do prazo de entrega da equipe, para não travar a nota numa versão que ela ainda pode substituir; o rascunho (DRAFT) pode ser salvo antes.",
+          "Ao finalizar, recalcula stage_score (média simples; FINALIZED quando evaluation_count ≥ min_evaluators). A retificação do admin (RF14) também recalcula.",
           "Respeita o prazo de avaliação (P-19)."],
    conflicts=[("evaluation_already_finalized", "A avaliação já foi finalizada."), ("evaluation_period_closed", "O prazo de avaliação está encerrado."), CLOSED],
    pend=["P-19", "P-21", "P-33"])
