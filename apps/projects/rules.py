@@ -1,4 +1,7 @@
+import re
+
 from django.apps import apps
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
@@ -8,6 +11,8 @@ from apps.projects.exceptions import (
     CategoryNotAvailable,
     ChallengeNotEligible,
     ChallengeNotSelected,
+    FileFormatNotAllowed,
+    FileTooLarge,
     FormationClosed,
     NotTeamLeader,
     ProjectAccessDenied,
@@ -18,6 +23,12 @@ from apps.projects.exceptions import (
     StageNotOpen,
     TeamDisqualified,
     TeamIncomplete,
+)
+from apps.projects.files import (
+    BLOCKED_EXTENSIONS,
+    SIGNATURE_SIZE,
+    SIGNATURES,
+    get_extension,
 )
 from apps.teams.enums import TeamSituation, TeamStatus
 
@@ -195,10 +206,11 @@ def ensure_stage_deadline_open(project, stage) -> None:
 
 
 def ensure_items_match_stage_fields(stage, items: list[dict]) -> None:
-    """Cada item responde a um campo LINK da etapa, sem repetir, e os obrigatórios
-    são respondidos (RF31). Arquivos ficam para a V5.
+    """Cada item responde a um campo da etapa, sem repetir, com o tipo do campo, e
+    os campos obrigatórios são respondidos (RF31).
 
-    `items` é uma lista de {"field": StageSubmissionField, "link": str}.
+    `items` é uma lista de {"field": StageSubmissionField, "link": str} para campo
+    LINK ou {"field": StageSubmissionField, "file": UploadedFile} para campo FILE.
     """
     if not items:
         raise ValidationError({"items": "Informe ao menos um item."})
@@ -206,12 +218,49 @@ def ensure_items_match_stage_fields(stage, items: list[dict]) -> None:
     fields = [item["field"] for item in items]
     if any(f.stage_id != stage.pk for f in fields):
         raise ValidationError({"items": "O campo é de outra etapa."})
-    if any(f.kind != FieldKind.LINK for f in fields):
-        raise ValidationError({"items": "Nesta versão só há envio de links."})
     if len({f.pk for f in fields}) != len(fields):
         raise ValidationError({"items": "O campo foi enviado mais de uma vez."})
+    for item in items:
+        sent = FieldKind.FILE if "file" in item else FieldKind.LINK
+        if item["field"].kind != sent:
+            raise ValidationError({"items": "O tipo do item não é o tipo do campo."})
 
-    required = stage.submission_fields.filter(kind=FieldKind.LINK, required=True)
-    missing = required.exclude(pk__in=[f.pk for f in fields])
-    if missing.exists():
+    required = stage.submission_fields.filter(required=True)
+    if required.exclude(pk__in=[f.pk for f in fields]).exists():
         raise ValidationError({"items": "Preencha todos os campos obrigatórios."})
+
+
+def _allowed_extensions(field) -> set[str]:
+    parts = re.split(r"[,;\s]+", (field.formats or "").lower())
+    return {p.lstrip(".") for p in parts if p.lstrip(".")}
+
+
+def ensure_file_matches_field(field, file) -> None:
+    """O arquivo não é vazio, tem extensão permitida pelo campo, cabe no tamanho
+    máximo e começa como a extensão diz (RF31).
+
+    Vale a extensão do nome e o começo do arquivo; o Content-Type enviado pelo
+    cliente é ignorado. Campo sem formatos aceita qualquer extensão, menos as
+    bloqueadas (executáveis e scripts).
+    """
+    if file.size == 0:
+        raise ValidationError({"files": "O arquivo está vazio."})
+
+    extension = get_extension(file.name)
+    allowed = _allowed_extensions(field)
+    if not extension or extension in BLOCKED_EXTENSIONS:
+        raise FileFormatNotAllowed()
+    if allowed and extension not in allowed:
+        raise FileFormatNotAllowed()
+
+    ceiling = settings.DELIVERY_MAX_FILE_MB
+    limit_mb = min(field.max_size_mb, ceiling) if field.max_size_mb else ceiling
+    if file.size > limit_mb * 1024 * 1024:
+        raise FileTooLarge()
+
+    signatures = SIGNATURES.get(extension)
+    if signatures:
+        head = file.read(SIGNATURE_SIZE)
+        file.seek(0)
+        if not head.startswith(signatures):
+            raise FileFormatNotAllowed()
