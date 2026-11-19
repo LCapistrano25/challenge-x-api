@@ -2,7 +2,7 @@ from django.apps import apps
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
-from apps.editions.enums import StageKind
+from apps.editions.enums import EditionStatus, StageKind
 from apps.evaluations.enums import EvaluationStatus, QuestionKind
 from apps.evaluations.exceptions import TeacherNotInCourse
 
@@ -31,6 +31,20 @@ def ensure_rectification_within_criterion(rectification) -> None:
     max_score = rectification.item.stage_criterion.max_score
     if rectification.new_points > max_score:
         raise ValidationError({"new_points": f"Máximo do critério: {max_score}."})
+
+
+def ensure_evaluation_finalized(evaluation) -> None:
+    """Só se retifica avaliação finalizada; o rascunho ainda é do professor (RF14)."""
+    if evaluation.status != EvaluationStatus.FINALIZED:
+        raise ValidationError(
+            {"status": "Só avaliação finalizada pode ser retificada."}
+        )
+
+
+def ensure_edition_not_closed(edition) -> None:
+    """Edição encerrada não aceita ajuste, nem do administrador (RN33, UC14 E2)."""
+    if edition.status == EditionStatus.CLOSED:
+        raise ValidationError({"edition": "A edição está encerrada."})
 
 
 def ensure_within_evaluation_deadline(evaluation) -> None:

@@ -4,7 +4,11 @@ from django.utils import timezone
 
 from apps.accounts.enums import UserRole
 from apps.core.models import TimeStampedModel
-from apps.evaluations.rules import ensure_rectification_within_criterion
+from apps.evaluations.rules import (
+    ensure_edition_not_closed,
+    ensure_evaluation_finalized,
+    ensure_rectification_within_criterion,
+)
 
 
 class ScoreRectification(TimeStampedModel):
@@ -44,6 +48,10 @@ class ScoreRectification(TimeStampedModel):
         ]
 
     def clean(self):
+        if self.item_id:
+            evaluation = self.item.evaluation
+            ensure_evaluation_finalized(evaluation)
+            ensure_edition_not_closed(evaluation.project.edition)
         if self.item_id and self.new_points is not None:
             ensure_rectification_within_criterion(self)
 

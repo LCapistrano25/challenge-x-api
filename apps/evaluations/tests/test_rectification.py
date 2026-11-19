@@ -8,6 +8,7 @@ from django.utils import timezone
 
 from apps.accounts.enums import UserRole
 from apps.accounts.factories import UserFactory
+from apps.editions.enums import EditionStatus
 from apps.editions.factories import StageCriterionFactory
 from apps.evaluations.enums import EvaluationStatus
 from apps.evaluations.factories import EvaluationFactory, EvaluationItemFactory
@@ -118,3 +119,28 @@ def test_retificacao_recalcula_a_nota_da_etapa(admin, item):
 
     nota = StageScore.objects.get(project=avaliacao.project, stage=avaliacao.stage)
     assert nota.value == Decimal("1.50")
+
+
+def test_avaliacao_em_rascunho_nao_pode_ser_retificada(admin):
+    rascunho = EvaluationItemFactory(evaluation=EvaluationFactory())
+
+    with pytest.raises(ValidationError, match="finalizada"):
+        rectify_score(
+            actor=admin, item=rascunho, new_points=Decimal("0.10"), reason="Recurso."
+        )
+
+    assert not ScoreRectification.objects.exists()
+
+
+def test_edicao_encerrada_nao_aceita_retificacao(admin, item):
+    edicao = item.evaluation.project.edition
+    edicao.status = EditionStatus.CLOSED
+    edicao.save()
+
+    with pytest.raises(ValidationError, match="encerrada"):
+        rectify_score(
+            actor=admin, item=item, new_points=Decimal("1.50"), reason="Recurso."
+        )
+
+    item.refresh_from_db()
+    assert item.points == Decimal("1.00")
