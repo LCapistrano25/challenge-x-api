@@ -268,3 +268,36 @@ def test_admin_mostra_erro_ao_tirar_ods_usada(edition, client):
     assert response.status_code == 200  # formulário volta com erro, sem salvar
     assert "Há desafios desta edição usando esta ODS." in response.text
     assert EditionSdg.objects.filter(pk=habilitada.pk).exists()
+
+
+def test_edicao_nao_permite_duas_etapas_de_formacao(edition):
+    StageFactory(
+        edition=edition,
+        kind=StageKind.FORMATION,
+        scored=False,
+        max_score=None,
+    )
+
+    with pytest.raises(IntegrityError):
+        StageFactory(
+            edition=edition,
+            kind=StageKind.FORMATION,
+            scored=False,
+            max_score=None,
+        )
+
+
+def test_edicao_permite_etapa_de_entrega_apos_formacao(edition):
+    StageFactory(
+        edition=edition,
+        kind=StageKind.FORMATION,
+        scored=False,
+        max_score=None,
+    )
+
+    stage = StageFactory(
+        edition=edition,
+        kind=StageKind.SUBMISSION,
+    )
+
+    assert stage.pk

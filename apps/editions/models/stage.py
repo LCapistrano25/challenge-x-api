@@ -32,6 +32,11 @@ class Stage(TimeStampedModel):
         ordering = ["edition", "order"]
         constraints = [
             models.UniqueConstraint(
+                fields=["edition"],
+                condition=Q(kind=StageKind.FORMATION),
+                name="unique_formation_stage_per_edition",
+            ),
+            models.UniqueConstraint(
                 fields=["edition", "order"], name="unique_stage_order_per_edition"
             ),
             models.CheckConstraint(
