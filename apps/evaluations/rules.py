@@ -36,15 +36,14 @@ def ensure_rectification_within_criterion(rectification) -> None:
 def ensure_evaluation_finalized(evaluation) -> None:
     """Só se retifica avaliação finalizada; o rascunho ainda é do professor (RF14)."""
     if evaluation.status != EvaluationStatus.FINALIZED:
-        raise ValidationError(
-            {"status": "Só avaliação finalizada pode ser retificada."}
-        )
+        # Chave "item": é o campo do formulário do admin que mostra o erro.
+        raise ValidationError({"item": "Só avaliação finalizada pode ser retificada."})
 
 
 def ensure_edition_not_closed(edition) -> None:
     """Edição encerrada não aceita ajuste, nem do administrador (RN33, UC14 E2)."""
     if edition.status == EditionStatus.CLOSED:
-        raise ValidationError({"edition": "A edição está encerrada."})
+        raise ValidationError({"item": "A edição está encerrada."})
 
 
 def ensure_within_evaluation_deadline(evaluation) -> None:

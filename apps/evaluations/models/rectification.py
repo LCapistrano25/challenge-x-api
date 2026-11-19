@@ -41,6 +41,7 @@ class ScoreRectification(TimeStampedModel):
             models.CheckConstraint(
                 condition=Q(new_points__gte=0) & ~Q(new_points=F("previous_points")),
                 name="rectification_changes_points",
+                violation_error_message="O novo valor deve ser diferente do atual.",
             ),
             models.CheckConstraint(
                 condition=~Q(reason=""), name="rectification_has_reason"
