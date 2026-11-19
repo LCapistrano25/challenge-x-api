@@ -99,3 +99,27 @@ def test_etapa_sem_avaliacao_do_professor_e_recusada(project):
 
     with pytest.raises(ValidationError, match="não tem avaliação"):
         apply_zero_for_missing_submission(project=project, stage=formacao)
+
+
+def test_repetir_nao_regrava_o_zero_que_ja_existe(project, closed_stage):
+    primeira = apply_zero_for_missing_submission(project=project, stage=closed_stage)
+
+    segunda = apply_zero_for_missing_submission(project=project, stage=closed_stage)
+
+    assert segunda.calculated_at == primeira.calculated_at
+
+
+def test_prorrogacao_depois_do_zero_volta_a_nota_para_pendente(project, closed_stage):
+    apply_zero_for_missing_submission(project=project, stage=closed_stage)
+    DeadlineExtensionFactory(
+        project=project,
+        stage=closed_stage,
+        ends_at=timezone.now() + timedelta(hours=1),
+    )
+
+    resultado = apply_zero_for_missing_submission(project=project, stage=closed_stage)
+
+    assert resultado is None
+    nota = StageScore.objects.get(project=project, stage=closed_stage)
+    assert nota.status == ScoreStatus.PENDING
+    assert nota.value is None

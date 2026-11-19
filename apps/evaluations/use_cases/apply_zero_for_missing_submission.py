@@ -21,17 +21,35 @@ def apply_zero_for_missing_submission(
     """Grava a nota zero da etapa se o prazo da equipe acabou sem entrega válida.
 
     O prazo é o da etapa ou a prorrogação da equipe. Devolve None quando a
-    equipe ainda pode entregar ou já entregou; repetir a chamada não muda nada.
+    equipe ainda pode entregar ou já entregou. Se um zero já gravado deixou de
+    valer (prorrogação concedida depois), a nota volta a pendente. Repetir a
+    chamada não regrava um zero que já existe.
     Levanta ValidationError se a etapa não tem avaliação do professor.
     """
     ensure_stage_is_evaluable(stage)
-    if get_delivery_status(project, stage) != DeliveryStatus.NOT_DELIVERED:
-        return None
 
     # Trava a nota: o job e um recálculo ao mesmo tempo viram um depois do outro.
-    score, _ = StageScore.objects.select_for_update().get_or_create(
-        project=project, stage=stage
+    score = (
+        StageScore.objects.select_for_update()
+        .filter(project=project, stage=stage)
+        .first()
     )
+    is_zero = score is not None and score.status == ScoreStatus.ZERO_NO_SUBMISSION
+
+    if get_delivery_status(project, stage) != DeliveryStatus.NOT_DELIVERED:
+        if is_zero:
+            score.value = None
+            score.status = ScoreStatus.PENDING
+            score.calculated_at = None
+            score.save()
+        return None
+    if is_zero:
+        return score
+
+    if score is None:
+        score, _ = StageScore.objects.select_for_update().get_or_create(
+            project=project, stage=stage
+        )
     score.value = Decimal("0.00")
     score.evaluation_count = 0
     score.status = ScoreStatus.ZERO_NO_SUBMISSION
