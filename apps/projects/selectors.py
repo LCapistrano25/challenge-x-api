@@ -1,5 +1,9 @@
+from django.utils import timezone
+
 from apps.core.models import Course
-from apps.editions.models import Category, Challenge
+from apps.editions.enums import StageKind
+from apps.editions.models import Category, Challenge, Stage
+from apps.projects.enums import DeliveryStatus, PhaseStatus
 from apps.projects.models import Submission, SubmissionVersion
 
 
@@ -45,4 +49,49 @@ def get_valid_version(submission: Submission) -> SubmissionVersion | None:
         submission.versions.filter(submitted_at__lte=deadline)
         .order_by("-number")
         .first()
+    )
+
+
+def get_phase_status(stage) -> str:
+    """Fase da etapa pelas datas: em breve, aberta ou encerrada (RF44)."""
+    now = timezone.now()
+    if now < stage.starts_at:
+        return PhaseStatus.UPCOMING
+    if now <= stage.ends_at:
+        return PhaseStatus.OPEN
+    return PhaseStatus.FINISHED
+
+
+def get_delivery_status(project, stage) -> str:
+    """Status da entrega, calculado e nunca gravado (RF31, P-27).
+
+    Com versão no prazo, enviada; sem versão, não enviada enquanto o prazo da
+    equipe está aberto e não entregue depois dele.
+    """
+    submission = Submission.objects.filter(project=project, stage=stage).first()
+    if submission is not None and get_valid_version(submission) is not None:
+        return DeliveryStatus.SUBMITTED
+    if timezone.now() <= get_submission_deadline(project, stage):
+        return DeliveryStatus.NOT_SUBMITTED
+    return DeliveryStatus.NOT_DELIVERED
+
+
+def get_official_version(project, stage) -> SubmissionVersion | None:
+    """Versão que vale, só depois de encerrado o prazo da equipe (RF31)."""
+    if timezone.now() <= get_submission_deadline(project, stage):
+        return None
+    submission = Submission.objects.filter(project=project, stage=stage).first()
+    return get_valid_version(submission) if submission else None
+
+
+def get_project_deliverables(project):
+    """Etapas de entrega da edição com campos de entrega, em ordem (RF31)."""
+    return (
+        Stage.objects.filter(
+            edition_id=project.edition_id,
+            kind=StageKind.SUBMISSION,
+            submission_fields__isnull=False,
+        )
+        .distinct()
+        .order_by("order")
     )

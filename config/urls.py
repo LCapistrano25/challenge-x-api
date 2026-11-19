@@ -8,8 +8,8 @@ Function views
     1. Add an import:  from my_app import views
     2. Add a URL to urlpatterns:  path('', views.home, name='home')
 Class-based views
-    1. Add an import:  from other_app import views
-    2. Add a URL to urlpatterns:  path('blog/', include('other_app.urls'))
+    1. Add an import:  from other_app.views import Home
+    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
@@ -24,5 +24,6 @@ urlpatterns = [
     path("api/auth/", include("apps.accounts.urls")),
     path("api/", include("apps.teams.urls")),
     path("api/teams/", include("apps.projects.urls")),
+    path("api/projects/", include("apps.projects.delivery_urls")),
     path("api/admin/editions/", include("apps.editions.urls")),
 ]
