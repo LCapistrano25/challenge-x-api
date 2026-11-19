@@ -1,10 +1,11 @@
-from rest_framework.exceptions import NotFound
+from rest_framework import status
+from rest_framework.exceptions import NotFound, ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts.permissions import IsAdmin, IsStudent, IsTeacher
 from apps.editions.models import Stage
-from apps.evaluations.models import Evaluation
+from apps.evaluations.models import Evaluation, EvaluationItem
 from apps.evaluations.rules import ensure_teacher_in_challenge_course
 from apps.evaluations.selectors import get_project_scores, list_teacher_rows
 from apps.evaluations.serializers import (
@@ -12,10 +13,13 @@ from apps.evaluations.serializers import (
     EvaluationSerializer,
     EvaluationWriteSerializer,
     ProjectScoresSerializer,
+    RectificationSerializer,
+    RectificationWriteSerializer,
     TeacherProjectQuerySerializer,
     TeacherProjectRowSerializer,
 )
 from apps.evaluations.use_cases.evaluate_submission import evaluate_submission
+from apps.evaluations.use_cases.rectify_score import rectify_score
 from apps.projects.models import Project
 from apps.projects.rules import ensure_actor_can_view_project
 from config.pagination import DefaultPagination
@@ -95,3 +99,31 @@ class ProjectScoresView(APIView):
         ensure_actor_can_view_project(project.team, request.user)
         data = {"project": project, "stages": get_project_scores(project)}
         return Response(ProjectScoresSerializer(data).data)
+
+
+class RectificationCreateView(APIView):
+    permission_classes = [IsAdmin]
+
+    def post(self, request, evaluation_id):
+        if not Evaluation.objects.filter(pk=evaluation_id).exists():
+            raise NotFound("Avaliação não encontrada.")
+        serializer = RectificationWriteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        item = EvaluationItem.objects.filter(
+            evaluation_id=evaluation_id, stage_criterion_id=data["stage_criterion_id"]
+        ).first()
+        if item is None:
+            raise ValidationError(
+                {"stage_criterion_id": "O critério não foi pontuado nesta avaliação."}
+            )
+        rectification = rectify_score(
+            actor=request.user,
+            item=item,
+            new_points=data["new_points"],
+            reason=data["reason"],
+        )
+        return Response(
+            RectificationSerializer(rectification).data, status=status.HTTP_201_CREATED
+        )
