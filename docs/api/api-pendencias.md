@@ -327,7 +327,7 @@ Estas são convenções que a especificação adota para ficar completa. Cada um
   - Emissão de certificados pelo Admin (RF17): a elegibilidade de Finalista e Premiado depende de P-29/P-30, e não existem tipos para professor e avaliador (P-34).
   - Seleção e homologação de finalistas, cálculo da nota final, ranking, premiação e pontuação individual (P-29, P-30, P-31).
   - Ajustes pontuais (RF14), sem persistência no modelo (P-21).
-- **Rotas candidatas, ainda não especificadas:** `POST /api/admin/editions/{id}/results/calculate`, `POST /api/admin/editions/{id}/finalists`, `POST /api/admin/editions/{id}/results/homologate`, `POST /api/admin/editions/{id}/certificates/issue`, `POST /api/admin/teams/{id}/deadline-extensions` e `POST /api/admin/evaluations/{id}/rectifications`. Elas entram na especificação quando as regras forem aprovadas.
+- **Rotas candidatas, ainda não especificadas:** `POST /api/admin/editions/{id}/results/calculate`, `POST /api/admin/editions/{id}/finalists`, `POST /api/admin/editions/{id}/results/homologate`, `POST /api/admin/editions/{id}/certificates/issue`, `POST /api/admin/teams/{id}/deadline-extensions`. Elas entram na especificação quando as regras forem aprovadas.
 
 ---
 

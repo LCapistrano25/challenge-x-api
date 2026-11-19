@@ -556,6 +556,16 @@ SC["EvaluationWrite"] = obj({"status": STR("DRAFT salva rascunho; FINALIZED conc
                              "comment": nul(TXT(ex="Projeto bem estruturado; detalhar custos.")),
                              "items": arr(ref("EvaluationItemWrite"), description="Um item por critério da etapa (todos obrigatórios para FINALIZED).")},
                             ["status", "items"], strict=True)
+SC["RectificationWrite"] = obj({"stage_criterion_id": INT(ex=51), "new_points": DEC("Novo valor; de 0 até o máximo do critério e diferente do atual.", "1.50"),
+                                "reason": TXT("Justificativa técnica ou operacional (obrigatória).", "Erro de digitação do professor.")},
+                               ["stage_criterion_id", "new_points", "reason"], strict=True)
+SC["Rectification"] = obj({
+    "id": INT(ex=9), "evaluation_id": INT(ex=201), "stage_criterion_id": INT(ex=51),
+    "previous_points": DEC(ex="1.00"), "new_points": DEC(ex="1.50"), "reason": TXT(ex="Erro de digitação do professor."),
+    "rectified_by": INT("Id do administrador.", 1), "rectified_at": DT(ex="2026-11-18T21:30:00Z"),
+    "stage_score": obj({"value": nul(DEC(ex="2.40")), "evaluation_count": INT(ex=2)}, ["value", "evaluation_count"],
+                       "Nota da etapa já recalculada."),
+}, ["id", "evaluation_id", "stage_criterion_id", "previous_points", "new_points", "reason", "rectified_by", "rectified_at", "stage_score"])
 SC["StageScoreDetail"] = obj({
     "stage": ref("StageRef"), "points_value": DEC(ex="3.00"), "status": ref("ScoreStatus"),
     "value": nul(DEC("Média aritmética das avaliações finalizadas; exibida quando FINALIZED. Zero quando a entrega não foi realizada.", "2.40")),
@@ -646,6 +656,7 @@ PARAMS = {
     "InvitationId": pp("invitation_id", {"type": "integer"}, "Identificador do convite."),
     "JoinRequestId": pp("join_request_id", {"type": "integer"}, "Identificador da solicitação de entrada."),
     "LeadershipRequestId": pp("leadership_request_id", {"type": "integer"}, "Identificador da solicitação de liderança."),
+    "EvaluationId": pp("evaluation_id", {"type": "integer"}, "Identificador da avaliação."),
     "ProjectId": pp("project_id", {"type": "integer"}, "Identificador do projeto."),
     "VersionId": pp("version_id", {"type": "integer"}, "Identificador da versão da entrega."),
     "TicketId": pp("ticket_id", {"type": "string", "format": "uuid"}, "Identificador do chamado."),
@@ -1082,6 +1093,16 @@ op("put", "/api/projects/{project_id}/stages/{stage_id}/evaluation", "evaluation
           "Violações de regra (avaliação finalizada, prazo, entrega inválida, critério repetido) voltam como 400 validation_error; professor sem vínculo com o curso volta 403 teacher_not_in_course."],
    conflicts=[CLOSED],
    pend=["P-19", "P-21", "P-33"])
+op("post", "/api/admin/evaluations/{evaluation_id}/rectifications", "evaluationsCreateRectification", "evaluations", "Retificar a nota de um critério",
+   ["RF14"], ["ADMIN"], "Altera os pontos de um critério de uma avaliação finalizada e grava o ajuste no histórico, que não pode ser alterado nem excluído.",
+   params=["EvaluationId"], body=ref("RectificationWrite"), ok=ref("Rectification"), ok_code="201", ok_desc="Retificação registrada.", errs=["404"],
+   rules=["Somente avaliação finalizada; o rascunho continua do professor.",
+          "Vale mesmo com o prazo de avaliação encerrado.",
+          "Justificativa obrigatória; new_points entre 0 e o máximo do critério e diferente do valor atual.",
+          "O critério precisa ter sido pontuado na avaliação (400 validation_error).",
+          "Edição encerrada não aceita ajuste, nem do administrador (RN33).",
+          "Recalcula a nota da etapa; a resposta traz o valor novo em stage_score."],
+   pend=["P-21"])
 op("get", "/api/projects/{project_id}/scores", "evaluationsGetProjectScores", "evaluations", "Notas e feedbacks das etapas", ["RF32"],
    ["STUDENT", "TEACHER", "ADMIN"], "Retorna, por etapa pontuada, nota, status, média por critério e feedbacks dos professores.",
    params=["ProjectId"], ok=ref("ProjectScores"), errs=["404"],
