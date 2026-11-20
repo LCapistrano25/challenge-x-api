@@ -39,7 +39,7 @@
 | P-21 | Ajustes pontuais (RF14) sem persistência | Alta | `editions`, `evaluations` |
 | P-22 | Desclassificação sem data e responsável — **resolvida** | Média | `teams` |
 | P-23 | Equipe incompleta (RF51) × `team_qualification` — **resolvida** | Alta | `teams`, `projects` |
-| P-24 | RF28 × RF40 sobre o ex-líder | Baixa | `teams` |
+| P-24 | RF28 × RF40 sobre o ex-líder — **resolvida** | Baixa | `teams` |
 | P-25 | `project` com campos NOT NULL × fluxo RF29/RF30 — **resolvida** | Alta | `projects` |
 | P-26 | Transições de `project_status` | Média | `projects` |
 | P-27 | Status de entrega e nota zero automática | Média | `projects`, `evaluations` |
@@ -202,7 +202,8 @@
 
 ### P-24 — RF28 × RF40 sobre o ex-líder · Baixa
 - O RF40 diz que, ao aprovar a solicitação, o ex-líder passa a "Membro". Mas o RF28 só permite a solicitação quando **não existe** líder ativo, ou seja, quando o líder já saiu ou perdeu o acesso.
-- **Confirmar:** o ex-líder ainda é membro ativo nesse cenário?
+- **Resolvida (20/11/2026):** ao perder a liderança, o ex-líder continua **membro ativo**, com o papel `MEMBER`. Ele só deixa de ser membro se sair da equipe (possível só com o prazo de formação aberto) ou se o admin o remover. Na transferência o ex-líder vira `MEMBER` na mesma transação; na aprovação da solicitação (RF40), qualquer líder ainda ativo também vira `MEMBER`. O líder não pode sair da equipe sem antes transferir a liderança, então, com o prazo de formação aberto, a equipe não fica sem líder pelas rotas do sistema. A transferência e a solicitação de liderança valem também depois do prazo, porque só o líder envia a entrega.
+- **Pendência nova:** "líder ativo" é o vínculo `TeamMember` com papel `LEADER` e `active = true`, não a conta do usuário. Se o líder perder o acesso (conta desativada) depois do prazo, o vínculo continua ativo e a equipe segue com "líder ativo": ninguém consegue pedir a liderança (RF28). Falta definir como destravar essa equipe, por exemplo uma rota para o admin remover o integrante ou soltar a liderança.
 
 ---
 
