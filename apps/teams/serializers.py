@@ -4,10 +4,6 @@ from apps.teams.enums import InvitationStatus, RequestStatus
 from apps.teams.models import Invitation, JoinRequest, Team, TeamMember
 
 
-class TeamCreateSerializer(serializers.Serializer):
-    name = serializers.CharField(max_length=150)
-
-
 class TeamMemberSerializer(serializers.ModelSerializer):
     student = serializers.SerializerMethodField()
 
@@ -71,6 +67,12 @@ class InvitationCreateSerializer(serializers.Serializer):
             )
 
         return attrs
+
+
+class TeamCreateSerializer(serializers.Serializer):
+    name = serializers.CharField(max_length=150)
+    # A quantidade exigida depende da edição; o caso de uso confere e explica.
+    invitations = InvitationCreateSerializer(many=True, required=False)
 
 
 class InvitationSerializer(serializers.ModelSerializer):
