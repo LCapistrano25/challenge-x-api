@@ -1,5 +1,18 @@
 from rest_framework import serializers
 
+from apps.accounts.enums import UserRole
+from apps.accounts.rules import DOMAIN_NAME_PATTERN, normalize_email_domain
+
+
+def _validate_domain_name(value: str) -> str:
+    normalized = normalize_email_domain(value)
+    if not DOMAIN_NAME_PATTERN.match(normalized):
+        raise serializers.ValidationError("Domínio de e-mail inválido.")
+    return normalized
+
+
+INSTITUTIONAL_ROLE_CHOICES = [UserRole.STUDENT, UserRole.TEACHER]
+
 
 class LoginSerializer(serializers.Serializer):
     email = serializers.EmailField()
@@ -44,3 +57,35 @@ class ExternalReviewSerializer(serializers.Serializer):
 
     def validate_institution(self, value):
         return value or ""
+
+
+class EmailDomainFilterSerializer(serializers.Serializer):
+    active = serializers.BooleanField(required=False, allow_null=True, default=None)
+    role = serializers.ChoiceField(
+        choices=INSTITUTIONAL_ROLE_CHOICES, required=False, allow_blank=True
+    )
+
+
+class EmailDomainCreateSerializer(serializers.Serializer):
+    name = serializers.CharField(max_length=100)
+    role = serializers.ChoiceField(choices=INSTITUTIONAL_ROLE_CHOICES)
+    active = serializers.BooleanField(default=True)
+
+    def validate_name(self, value):
+        return _validate_domain_name(value)
+
+
+class EmailDomainUpdateSerializer(serializers.Serializer):
+    name = serializers.CharField(max_length=100, required=False)
+    role = serializers.ChoiceField(choices=INSTITUTIONAL_ROLE_CHOICES, required=False)
+    active = serializers.BooleanField(required=False)
+
+    def validate_name(self, value):
+        return _validate_domain_name(value)
+
+    def validate(self, attrs):
+        if not attrs:
+            raise serializers.ValidationError(
+                "Informe ao menos um campo para atualizar."
+            )
+        return attrs
