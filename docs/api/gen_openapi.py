@@ -1086,8 +1086,8 @@ op("get", "/api/projects/{project_id}/scores", "evaluationsGetProjectScores", "e
    ["STUDENT", "TEACHER", "ADMIN"], "Retorna, por etapa pontuada, nota, status, média por critério e feedbacks dos professores.",
    params=["ProjectId"], ok=ref("ProjectScores"), errs=["404"],
    authz="STUDENT: integrante ativo da equipe. TEACHER: vínculo ativo com o curso do desafio. ADMIN: qualquer.",
-   rules=["Nota = média aritmética das avaliações finalizadas.", "Abaixo de min_evaluators, status PENDING e valor oculto.",
-          "Sem entrega no prazo, nota zero.", "Avaliações finais de avaliadores externos não aparecem."],
+   rules=["Nota = média aritmética das avaliações finalizadas.", "Abaixo de min_evaluators, status PENDING; valor, média por critério e feedbacks ficam ocultos.",
+          "Sem entrega no prazo da equipe (com a prorrogação), nota zero: status FINALIZED, value 0.00 e deliverable_status NOT_DELIVERED. Um job (apply_zero_scores) grava o zero (RN24, P-27).", "Avaliações finais de avaliadores externos não aparecem."],
    pend=["P-27", "P-33", "P-44"])
 op("get", "/api/evaluator/finalists", "evaluationsListFinalists", "evaluations", "Painel de projetos finalistas", ["RF42"], ["EXTERNAL_EVALUATOR"],
    "Lista os projetos finalistas dentro da abrangência do avaliador, com sua situação de avaliação.",

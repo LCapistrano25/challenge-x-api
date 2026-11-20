@@ -2,20 +2,22 @@ from rest_framework.exceptions import NotFound
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.accounts.permissions import IsTeacher
+from apps.accounts.permissions import IsAdmin, IsStudent, IsTeacher
 from apps.editions.models import Stage
 from apps.evaluations.models import Evaluation
 from apps.evaluations.rules import ensure_teacher_in_challenge_course
-from apps.evaluations.selectors import list_teacher_rows
+from apps.evaluations.selectors import get_project_scores, list_teacher_rows
 from apps.evaluations.serializers import (
     EvaluationFormSerializer,
     EvaluationSerializer,
     EvaluationWriteSerializer,
+    ProjectScoresSerializer,
     TeacherProjectQuerySerializer,
     TeacherProjectRowSerializer,
 )
 from apps.evaluations.use_cases.evaluate_submission import evaluate_submission
 from apps.projects.models import Project
+from apps.projects.rules import ensure_actor_can_view_project
 from config.pagination import DefaultPagination
 
 
@@ -81,3 +83,15 @@ class TeacherProjectListView(APIView):
         return paginator.get_paginated_response(
             TeacherProjectRowSerializer(page, many=True).data
         )
+
+
+class ProjectScoresView(APIView):
+    permission_classes = [IsStudent | IsTeacher | IsAdmin]
+
+    def get(self, request, project_id):
+        project = Project.objects.select_related("team").filter(pk=project_id).first()
+        if project is None:
+            raise NotFound("Projeto não encontrado.")
+        ensure_actor_can_view_project(project.team, request.user)
+        data = {"project": project, "stages": get_project_scores(project)}
+        return Response(ProjectScoresSerializer(data).data)

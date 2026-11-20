@@ -5362,8 +5362,8 @@ paths:
 
         **Regras de negócio:**
         - Nota = média aritmética das avaliações finalizadas.
-        - Abaixo de min_evaluators, status PENDING e valor oculto.
-        - Sem entrega no prazo, nota zero.
+        - Abaixo de min_evaluators, status PENDING; valor, média por critério e feedbacks ficam ocultos.
+        - Sem entrega no prazo da equipe (com a prorrogação), nota zero: status FINALIZED, value 0.00 e deliverable_status NOT_DELIVERED. Um job (apply_zero_scores) grava o zero (RN24, P-27).
         - Avaliações finais de avaliadores externos não aparecem.
 
         **Pendências relacionadas (api-pendencias.md):** P-27, P-33, P-44

@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from apps.editions.models import StageCriterion
-from apps.evaluations.enums import EvaluationStatus
+from apps.evaluations.enums import EvaluationStatus, ScoreStatus
 
 
 class EvaluationItemWriteSerializer(serializers.Serializer):
@@ -101,3 +101,65 @@ class TeacherProjectRowSerializer(serializers.Serializer):
     def get_stage(self, row):
         stage = row["stage"]
         return {"id": stage.pk, "name": stage.name, "position": stage.order}
+
+
+class StageScoreDetailSerializer(serializers.Serializer):
+    stage = serializers.SerializerMethodField()
+    points_value = serializers.SerializerMethodField()
+    status = serializers.SerializerMethodField()
+    value = serializers.DecimalField(
+        max_digits=5, decimal_places=2, allow_null=True, coerce_to_string=True
+    )
+    evaluation_count = serializers.IntegerField()
+    min_evaluators = serializers.SerializerMethodField()
+    deliverable_status = serializers.CharField()
+    criteria = serializers.SerializerMethodField()
+    feedback = serializers.SerializerMethodField()
+
+    def get_stage(self, row):
+        stage = row["stage"]
+        return {"id": stage.pk, "name": stage.name, "position": stage.order}
+
+    def get_points_value(self, row):
+        return str(row["stage"].max_score)
+
+    def get_status(self, row):
+        # O contrato tem PENDING e FINALIZED; zero sem entrega também é final.
+        return "PENDING" if row["status"] == ScoreStatus.PENDING else "FINALIZED"
+
+    def get_min_evaluators(self, row):
+        return row["stage"].min_evaluations
+
+    def get_criteria(self, row):
+        return [
+            {
+                "criterion": {"id": c["criterion"].pk, "name": c["criterion"].name},
+                "max_score": str(c["max_score"]),
+                "average": None if c["average"] is None else str(c["average"]),
+            }
+            for c in row["criteria"]
+        ]
+
+    def get_feedback(self, row):
+        return [
+            {
+                "comment": f["comment"] or None,
+                "items": [
+                    {
+                        "criterion_name": i["criterion_name"],
+                        "points": str(i["points"]),
+                        "comment": i["comment"] or None,
+                    }
+                    for i in f["items"]
+                ],
+            }
+            for f in row["feedback"]
+        ]
+
+
+class ProjectScoresSerializer(serializers.Serializer):
+    project = serializers.SerializerMethodField()
+    stages = StageScoreDetailSerializer(many=True)
+
+    def get_project(self, data):
+        return {"id": data["project"].pk, "title": data["project"].title}
