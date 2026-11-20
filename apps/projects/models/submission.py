@@ -96,6 +96,8 @@ class SubmissionItem(TimeStampedModel):
     )
     kind = models.CharField(max_length=10, choices=FieldKind)
     link = models.URLField(max_length=1000, blank=True)
+    # Para arquivo, guarda a chave no armazenamento privado "deliveries", não uma
+    # URL: o arquivo só sai pela API, que checa a permissão.
     file_url = models.CharField(max_length=1000, blank=True)
     file_name = models.CharField(max_length=255, blank=True)
     size_bytes = models.PositiveBigIntegerField(null=True, blank=True)

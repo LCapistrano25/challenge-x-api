@@ -2,11 +2,13 @@ from datetime import timedelta
 
 import pytest
 from django.core.exceptions import ValidationError
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import IntegrityError
 from django.utils import timezone
 
 from apps.accounts.enums import UserRole
 from apps.accounts.factories import UserFactory
+from apps.editions.enums import FieldKind
 from apps.editions.exceptions import EditionClosed
 from apps.editions.factories import (
     CategoryFactory,
@@ -19,6 +21,8 @@ from apps.projects.exceptions import (
     CategoryNotAvailable,
     ChallengeNotEligible,
     ChallengeNotSelected,
+    FileFormatNotAllowed,
+    FileTooLarge,
     FormationClosed,
     NotTeamLeader,
     ProjectNotFound,
@@ -26,10 +30,12 @@ from apps.projects.exceptions import (
     StageDeadlineClosed,
     StageNotFound,
     StageNotOpen,
+    StorageUnavailable,
     TeamDisqualified,
     TeamIncomplete,
 )
 from apps.projects.factories import DeadlineExtensionFactory, ProjectFactory
+from apps.projects.files import get_delivery_storage
 from apps.projects.models import (
     Project,
     Submission,
@@ -37,6 +43,7 @@ from apps.projects.models import (
     SubmissionReceipt,
     SubmissionVersion,
 )
+from apps.projects.tests.conftest import stored_keys
 from apps.projects.use_cases import save_project_details as save_module
 from apps.projects.use_cases.invalidate_challenge import invalidate_challenge
 from apps.projects.use_cases.save_project_details import save_project_details
@@ -665,3 +672,208 @@ def test_falha_nao_grava_nada(delivery_project, delivery_leader):
     assert SubmissionVersion.objects.count() == 0
     assert SubmissionItem.objects.count() == 0
     assert SubmissionReceipt.objects.count() == 0
+
+
+# Enviar a entrega da etapa com arquivos (UC34, RF31)
+
+
+@pytest.fixture
+def file_field(delivery_stage):
+    return StageSubmissionFieldFactory(
+        stage=delivery_stage, kind=FieldKind.FILE, formats="pdf", max_size_mb=1
+    )
+
+
+def pdf(name="relatorio.pdf", content=b"%PDF-1.7 conteudo"):
+    return SimpleUploadedFile(name, content)
+
+
+def send_file(actor, project, stage, field, upload=None, **extra):
+    return submit_stage_delivery(
+        actor=actor,
+        project=project,
+        stage=stage,
+        items=[{"field": field, "file": upload or pdf()}],
+        **extra,
+    )
+
+
+def test_envio_com_arquivo_cria_item_e_grava_no_armazenamento(
+    delivery_project,
+    delivery_leader,
+    delivery_stage,
+    file_field,
+    delivery_storage_root,
+):
+    version = send_file(
+        delivery_leader,
+        delivery_project,
+        delivery_stage,
+        file_field,
+        pdf("Meu Relatório.pdf"),
+    )
+
+    item = version.items.get()
+    assert (item.field, item.kind, item.link) == (file_field, "FILE", "")
+    assert item.file_name == "Meu_Relatório.pdf"
+    assert item.size_bytes == len(b"%PDF-1.7 conteudo")
+    assert item.file_url.startswith(
+        f"deliveries/{delivery_project.pk}/{delivery_stage.pk}/v1/"
+    )
+    assert item.file_url.endswith(".pdf")
+    assert "Relat" not in item.file_url
+    assert stored_keys(delivery_storage_root) == [item.file_url]
+
+
+def test_envio_com_link_e_arquivo_na_mesma_versao(
+    delivery_project, delivery_leader, delivery_stage, link_field, file_field
+):
+    version = submit_stage_delivery(
+        actor=delivery_leader,
+        project=delivery_project,
+        stage=delivery_stage,
+        items=[
+            {"field": link_field, "link": "https://github.com/equipe/p"},
+            {"field": file_field, "file": pdf()},
+        ],
+    )
+    assert sorted(version.items.values_list("kind", flat=True)) == ["FILE", "LINK"]
+
+
+def test_segundo_envio_preserva_o_arquivo_da_versao_1(
+    delivery_project,
+    delivery_leader,
+    delivery_stage,
+    file_field,
+    delivery_storage_root,
+):
+    first = send_file(delivery_leader, delivery_project, delivery_stage, file_field)
+    second = send_file(delivery_leader, delivery_project, delivery_stage, file_field)
+
+    first_item, second_item = first.items.get(), second.items.get()
+    assert (first.number, second.number) == (1, 2)
+    assert first_item.file_url != second_item.file_url
+    assert stored_keys(delivery_storage_root) == sorted(
+        [first_item.file_url, second_item.file_url]
+    )
+
+
+@pytest.mark.parametrize(
+    "violation",
+    ["not_leader", "closed_edition", "disqualified", "incomplete", "deadline"],
+)
+def test_regra_violada_nao_grava_arquivo(
+    violation,
+    delivery_project,
+    delivery_leader,
+    delivery_stage,
+    file_field,
+    delivery_storage_root,
+):
+    actor = delivery_leader
+    stage, field = delivery_stage, file_field
+    expected = {
+        "not_leader": NotTeamLeader,
+        "closed_edition": EditionClosed,
+        "disqualified": TeamDisqualified,
+        "incomplete": TeamIncomplete,
+        "deadline": StageDeadlineClosed,
+    }[violation]
+    if violation == "not_leader":
+        actor = TeamMemberFactory(team=delivery_project.team).student.user
+    elif violation == "closed_edition":
+        delivery_project.edition.status = "CLOSED"
+        delivery_project.edition.save()
+    elif violation == "disqualified":
+        team = TeamFactory(edition=delivery_stage.edition, disqualified=True)
+        delivery_project = ProjectFactory(team=team)
+        actor = team.members.get(role=MemberRole.LEADER).student.user
+    elif violation == "incomplete":
+        delivery_project.team.situation = TeamSituation.INCOMPLETE
+        delivery_project.team.save()
+    else:
+        stage, _ = closed_delivery_stage(delivery_project)
+        field = StageSubmissionFieldFactory(stage=stage, kind=FieldKind.FILE)
+
+    with pytest.raises(expected):
+        send_file(actor, delivery_project, stage, field)
+
+    assert stored_keys(delivery_storage_root) == []
+    assert SubmissionVersion.objects.count() == 0
+
+
+@pytest.mark.parametrize(
+    ("upload", "error"),
+    [
+        (pdf("a.txt", b"texto"), FileFormatNotAllowed),
+        (pdf("a.pdf", b"%PDF" + b"0" * (1024 * 1024 + 1)), FileTooLarge),
+        (pdf("a.pdf", b"texto que nao e pdf"), FileFormatNotAllowed),
+        (pdf("a.pdf", b""), ValidationError),
+    ],
+)
+def test_arquivo_invalido_nao_deixa_arquivo_versao_nem_item(
+    upload,
+    error,
+    delivery_project,
+    delivery_leader,
+    delivery_stage,
+    file_field,
+    delivery_storage_root,
+):
+    with pytest.raises(error):
+        send_file(delivery_leader, delivery_project, delivery_stage, file_field, upload)
+
+    assert stored_keys(delivery_storage_root) == []
+    assert SubmissionVersion.objects.count() == 0
+    assert SubmissionItem.objects.count() == 0
+
+
+def test_campo_de_arquivo_obrigatorio_sem_item_e_recusado(
+    delivery_project, delivery_leader, delivery_stage, link_field, file_field
+):
+    with pytest.raises(ValidationError):
+        send(delivery_leader, delivery_project, delivery_stage, link_field)
+    assert SubmissionVersion.objects.count() == 0
+
+
+def test_falha_depois_de_gravar_apaga_o_arquivo_e_as_linhas(
+    delivery_project,
+    delivery_leader,
+    delivery_stage,
+    file_field,
+    delivery_storage_root,
+    monkeypatch,
+):
+    def broken(*args, **kwargs):
+        raise RuntimeError("falha no comprovante")
+
+    monkeypatch.setattr(SubmissionReceipt.objects, "create", broken)
+
+    with pytest.raises(RuntimeError):
+        send_file(delivery_leader, delivery_project, delivery_stage, file_field)
+
+    assert stored_keys(delivery_storage_root) == []
+    assert Submission.objects.count() == 0
+    assert SubmissionVersion.objects.count() == 0
+    assert SubmissionItem.objects.count() == 0
+
+
+def test_falha_do_armazenamento_vira_storage_unavailable_sem_linhas(
+    delivery_project,
+    delivery_leader,
+    delivery_stage,
+    file_field,
+    delivery_storage_root,
+    monkeypatch,
+):
+    def broken(*args, **kwargs):
+        raise OSError("disco cheio")
+
+    monkeypatch.setattr(get_delivery_storage().__class__, "save", broken)
+
+    with pytest.raises(StorageUnavailable):
+        send_file(delivery_leader, delivery_project, delivery_stage, file_field)
+
+    assert SubmissionVersion.objects.count() == 0
+    assert SubmissionItem.objects.count() == 0
+    assert stored_keys(delivery_storage_root) == []

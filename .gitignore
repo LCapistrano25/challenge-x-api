@@ -442,3 +442,5 @@ wheels/
 # Cookies e dados de sessão locais
 cookies.txt
 graphify-out/
+# Arquivos privados das entregas
+private_media/
