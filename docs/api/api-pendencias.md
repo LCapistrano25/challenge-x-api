@@ -62,6 +62,7 @@
 | P-44 | Anonimato do professor nos feedbacks | Média | `evaluations` |
 | P-45 | Confirmação explícita no encerramento da edição | Baixa | `editions` |
 | P-46 | Emissão de certificados e endpoints de resultados ausentes | Alta | `results` |
+| P-47 | Campos de entrega Canvas e SWOT: modelos fixos e escopo | Média | `editions`, `projects` |
 
 ---
 
@@ -330,6 +331,12 @@ Estas são convenções que a especificação adota para ficar completa. Cada um
   - Ajustes pontuais (RF14), sem persistência no modelo (P-21).
 - **Rotas candidatas, ainda não especificadas:** `POST /api/admin/editions/{id}/results/calculate`, `POST /api/admin/editions/{id}/finalists`, `POST /api/admin/editions/{id}/results/homologate`, `POST /api/admin/editions/{id}/certificates/issue`, `POST /api/admin/teams/{id}/deadline-extensions` e `POST /api/admin/evaluations/{id}/rectifications`. Elas entram na especificação quando as regras forem aprovadas.
 
+### P-47 — Campos de entrega Canvas e SWOT: modelos fixos e escopo · Média
+- O professor pediu que o Business Model Canvas e a matriz SWOT sejam preenchidos no sistema. O admin escolhe por etapa, como qualquer campo de entrega (`type` `CANVAS` e `SWOT`, com `required`); não há nota própria, o professor avalia pelos critérios existentes.
+- Os modelos ficam fixos no código, sem configuração. Campo `CANVAS` ou `SWOT` não usa `formats` nem `max_size_mb`.
+- **A confirmar com o professor:** os nomes e a lista dos blocos do canvas e dos quadrantes do SWOT (formato proposto na #170) e se o canvas vale para outras etapas além da entrega.
+- O envio do conteúdo (`POST .../versions` e `GET .../deliverables`) é da #170; até lá, etapa com campo obrigatório `CANVAS` ou `SWOT` não aceita envio.
+
 ---
 
 ## 11. Endpoints confirmados e propostos
@@ -449,3 +456,4 @@ O validador oficial (`openapi-spec-validator`) **não pôde ser instalado**, por
 | 08/11/2026 | Ids de usuário (`user_id`, `evaluator_id`, `student_id`, `assigned_to` e os parâmetros `UserId`, `EvaluatorId` e `assigned_to`) passam de UUID para inteiro; `registration_number` com no máximo 30 caracteres. | `User.id` é inteiro no código e no DBML (`usuario.id integer`), e a matrícula é `varchar(30)`. Ids de chamado e notificação continuam UUID. |
 | 08/11/2026 | `POST /api/auth/sessions/password` devolve o usuário da sessão (`user_id`, `name`, `email`, `role`) em vez de um JWT, com 403 `reviewer_not_in_current_edition` para o avaliador fora da edição vigente; entram `POST /api/auth/logout` e `GET /api/auth/me`. | A #91 usa sessão com CSRF; a credencial vai no cookie. O esquema de segurança do contrato (`bearerAuth`) e o login Microsoft continuam como estão até a decisão da #70. |
 | 10/11/2026 | `CourseSummary` (resumo do curso dentro de outros recursos) perde o `slug`. | O `Course` não tem mais `slug` desde a P-17. Os schemas do próprio curso (`Course`, cadastro e atualização) e o conflito `course_slug_taken` ainda têm o campo e ficam para a task de cursos (UC03). |
+| 20/11/2026 | `FieldType` ganha `CANVAS` e `SWOT`; `formats` e `max_size_mb` só valem para `FILE`. | Pedido do professor: Business Model Canvas e matriz SWOT preenchidos no sistema (#169, P-47). |
