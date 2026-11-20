@@ -22,6 +22,7 @@ from apps.teams.enums import (
     InvitationStatus,
     MemberRole,
     RequestStatus,
+    TeamStatus,
 )
 from apps.teams.factories import (
     InvitationFactory,
@@ -860,9 +861,24 @@ def test_aluno_sai_da_equipe_pela_api():
     assert membership.left_at is not None
 
 
-def test_lider_nao_consegue_sair_pela_api():
+def test_lider_sozinho_sai_pela_api_e_desfaz_a_equipe():
     team = TeamFactory()
     create_open_formation(team.edition)
+    leader = team.members.get(role=MemberRole.LEADER, active=True)
+
+    response = authenticated_client(leader.student.user).post(
+        f"{TEAMS_URL}/{team.id}/leave"
+    )
+
+    assert response.status_code == 204
+    team.refresh_from_db()
+    assert team.status == TeamStatus.DISBANDED
+
+
+def test_lider_com_outros_integrantes_nao_consegue_sair_pela_api():
+    team = TeamFactory()
+    create_open_formation(team.edition)
+    TeamMemberFactory(team=team, role=MemberRole.MEMBER)
 
     leader = team.members.get(
         role=MemberRole.LEADER,

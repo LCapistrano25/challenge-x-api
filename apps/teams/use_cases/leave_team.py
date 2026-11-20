@@ -7,8 +7,8 @@ from apps.editions.enums import StageKind
 from apps.editions.models import Stage
 from apps.notifications.models import NotificationType
 from apps.notifications.services import create_notification
-from apps.teams.enums import MemberRole
-from apps.teams.models import Team, TeamMember
+from apps.teams.enums import InvitationStatus, MemberRole, RequestStatus, TeamStatus
+from apps.teams.models import Invitation, JoinRequest, Team, TeamMember
 
 
 class LeaveTeamRejected(Exception):
@@ -21,7 +21,12 @@ def leave_team(
     actor: User,
     team_id: int,
 ) -> TeamMember:
-    """Encerra o vínculo do acadêmico com sua equipe, preservando o histórico."""
+    """Encerra o vínculo do acadêmico com sua equipe, preservando o histórico.
+
+    O líder só sai depois de transferir a liderança, a não ser que esteja sozinho:
+    aí a saída desfaz a equipe (status DISBANDED) e cancela os convites e as
+    solicitações pendentes, para o aluno poder entrar em outra equipe.
+    """
     if actor.role != UserRole.STUDENT:
         raise LeaveTeamRejected("Somente alunos podem sair de equipes.")
 
@@ -61,7 +66,14 @@ def leave_team(
         raise LeaveTeamRejected("Não existe prazo de formação aberto para esta equipe.")
 
     if membership.role == MemberRole.LEADER:
-        raise LeaveTeamRejected("Transfira a liderança antes de sair da equipe.")
+        has_other_members = (
+            TeamMember.objects.filter(team=team, active=True)
+            .exclude(pk=membership.pk)
+            .exists()
+        )
+        if has_other_members:
+            raise LeaveTeamRejected("Transfira a liderança antes de sair da equipe.")
+        _disband_team(team, now)
 
     membership.active = False
     membership.left_at = now
@@ -98,6 +110,17 @@ def leave_team(
         )
 
     return membership
+
+
+def _disband_team(team: Team, now) -> None:
+    team.status = TeamStatus.DISBANDED
+    team.save(update_fields=["status", "updated_at"])
+    Invitation.objects.filter(team=team, status=InvitationStatus.PENDING).update(
+        status=InvitationStatus.CANCELLED, updated_at=now
+    )
+    JoinRequest.objects.filter(team=team, status=RequestStatus.PENDING).update(
+        status=RequestStatus.CANCELLED, updated_at=now
+    )
 
 
 def _invalidate_challenge(project) -> None:
