@@ -146,7 +146,7 @@ enum("TeamQualification", ["QUALIFIED", "NOT_QUALIFIED"], "Resultado da verifica
 enum("MemberRole", ["LEADER", "MEMBER"], "Papel do integrante na equipe (enum member_role).")
 enum("ProjectStatus", ["IN_PROGRESS", "SUBMITTED", "UNDER_EVALUATION", "APPROVED", "REJECTED"], "Situação do projeto (enum project_status). Transições pendentes (P-26).")
 enum("StageType", ["FORMATION", "EVALUATION", "FINAL"], "Tipo da etapa (enum stage_type).")
-enum("FieldType", ["LINK", "FILE"], "Tipo do campo de entrega (enum field_type).")
+enum("FieldType", ["LINK", "FILE", "CANVAS", "SWOT"], "Tipo do campo de entrega (enum field_type). CANVAS (Business Model Canvas) e SWOT (matriz SWOT) são preenchidos no sistema, com modelo fixo (P-47).")
 enum("InvitationStatus", ["PENDING", "ACCEPTED", "DECLINED", "CANCELLED"], "Situação do convite (enum invitation_status).")
 enum("RequestStatus", ["PENDING", "APPROVED", "REJECTED", "CANCELLED"], "Situação de solicitação (enum request_status).")
 enum("EvaluationStatus", ["DRAFT", "FINALIZED"], "Situação da avaliação do professor (enum evaluation_status).")
@@ -878,9 +878,9 @@ op("post", "/api/admin/editions/{edition_id}/stages", "editionsCreateStage", "ed
    "Cadastra etapa e seus campos de entrega.", params=["EditionId"], body=ref("StageCreate"), ok=ref("Stage"), ok_code="201", ok_desc="Etapa criada.",
    errs=["404"],
    rules=["ends_at > starts_at; position única na edição; min_evaluators ≥ 1.", "points_value obrigatório e > 0 quando scored; nulo quando não pontuada.",
-          "A soma de 10,00 pontos é exigida na publicação (RF09), não a cada gravação.", "max_size_mb > 0; formats e max_size_mb apenas para FILE.",
+          "A soma de 10,00 pontos é exigida na publicação (RF09), não a cada gravação.", "max_size_mb > 0; formats e max_size_mb apenas para FILE (CANVAS e SWOT não usam).",
           "Etapa FINAL não compõe a nota acadêmica (P-20)."],
-   conflicts=[("stage_position_taken", "Já existe etapa nesta posição."), FROZEN, CLOSED], pend=["P-19", "P-20"])
+   conflicts=[("stage_position_taken", "Já existe etapa nesta posição."), FROZEN, CLOSED], pend=["P-19", "P-20", "P-47"])
 op("get", "/api/admin/stages/{stage_id}", "editionsGetStage", "editions", "Consultar etapa", ["RF07"], ["ADMIN"], "Retorna a etapa.",
    params=["StageId"], ok=ref("Stage"), errs=["404"])
 op("patch", "/api/admin/stages/{stage_id}", "editionsUpdateStage", "editions", "Atualizar etapa", ["RF07"], ["ADMIN"],

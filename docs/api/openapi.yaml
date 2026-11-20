@@ -2167,10 +2167,10 @@ paths:
         - ends_at > starts_at; position única na edição; min_evaluators ≥ 1.
         - points_value obrigatório e > 0 quando scored; nulo quando não pontuada.
         - A soma de 10,00 pontos é exigida na publicação (RF09), não a cada gravação.
-        - max_size_mb > 0; formats e max_size_mb apenas para FILE.
+        - max_size_mb > 0; formats e max_size_mb apenas para FILE (CANVAS e SWOT não usam).
         - Etapa FINAL não compõe a nota acadêmica (P-20).
 
-        **Pendências relacionadas (api-pendencias.md):** P-19, P-20
+        **Pendências relacionadas (api-pendencias.md):** P-19, P-20, P-47
       x-status: proposed
       x-requirements:
       - RF07
@@ -2179,6 +2179,7 @@ paths:
       x-pendencias:
       - P-19
       - P-20
+      - P-47
       parameters:
       - $ref: '#/components/parameters/EditionId'
       requestBody:
@@ -8146,7 +8147,10 @@ components:
       enum:
       - LINK
       - FILE
-      description: Tipo do campo de entrega (enum field_type).
+      - CANVAS
+      - SWOT
+      description: Tipo do campo de entrega (enum field_type). CANVAS (Business Model Canvas) e SWOT (matriz SWOT) são preenchidos
+        no sistema, com modelo fixo (P-47).
     InvitationStatus:
       type: string
       enum:
