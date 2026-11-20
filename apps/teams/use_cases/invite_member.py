@@ -3,6 +3,7 @@ from django.utils import timezone
 
 from apps.accounts.enums import UserRole
 from apps.accounts.models import Student, User
+from apps.core.exceptions import BusinessRuleViolation
 from apps.notifications.models import NotificationType
 from apps.notifications.services import create_notification
 from apps.teams.enums import InvitationStatus, MemberRole, TeamStatus
@@ -10,7 +11,7 @@ from apps.teams.models import Invitation, Team, TeamMember
 from apps.teams.rules import is_formation_open_for_team
 
 
-class InvitationRejected(Exception):
+class InvitationRejected(BusinessRuleViolation):
     """O convite não pôde ser enviado por uma regra de negócio."""
 
 

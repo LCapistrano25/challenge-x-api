@@ -302,6 +302,20 @@ def test_usuario_que_nao_e_aluno_nao_lista_convites():
     assert response.status_code == 403
 
 
+def test_convite_fora_do_prazo_retorna_409_e_nao_500():
+    team = TeamFactory()  # a edição não tem etapa de formação aberta
+    leader = team.members.get(role="LEADER", active=True).student
+
+    response = authenticated_client(leader.user).post(
+        f"{TEAMS_URL}/{team.id}/invitations",
+        {"student_id": StudentFactory().pk},
+        format="json",
+    )
+
+    assert response.status_code == 409
+    assert "prazo de formação" in response.data["error"]["message"]
+
+
 def test_lider_lista_convites_enviados_pela_equipe():
     team = TeamFactory()
     leader = team.members.get(role="LEADER", active=True).student
