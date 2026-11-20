@@ -2266,6 +2266,179 @@ paths:
                       code: edition_closed
                       message: A edição está encerrada e não pode ser alterada.
                       details: null
+  /api/admin/email-domains:
+    get:
+      tags:
+      - accounts
+      operationId: accountsListEmailDomains
+      summary: Listar domínios institucionais
+      description: |-
+        Lista os domínios de e-mail institucionais cadastrados.
+
+        **Requisitos:** RF02
+
+        **Autenticação:** obrigatória (Bearer JWT).
+
+        **Perfis permitidos:** ADMIN
+      x-status: confirmed
+      x-requirements:
+      - RF02
+      x-roles:
+      - ADMIN
+      parameters:
+      - $ref: '#/components/parameters/ActiveFilter'
+      - $ref: '#/components/parameters/InstitutionalRoleFilter'
+      responses:
+        '200':
+          description: Operação concluída.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EmailDomain'
+              example:
+              - id: 1
+                name: a.catolica-to.edu.br
+                role: STUDENT
+                active: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags:
+      - accounts
+      operationId: accountsCreateEmailDomain
+      summary: Cadastrar domínio institucional
+      description: |-
+        Cadastra um domínio de e-mail institucional associado a um perfil (STUDENT ou TEACHER).
+
+        **Requisitos:** RF02
+
+        **Autenticação:** obrigatória (Bearer JWT).
+
+        **Perfis permitidos:** ADMIN
+
+        **Regras de negócio:**
+        - O nome é normalizado para minúsculas e sem espaços; formato de domínio válido é obrigatório.
+        - Unicidade case-insensitive (409 email_domain_taken).
+        - Apenas STUDENT e TEACHER são aceitos.
+      x-status: confirmed
+      x-requirements:
+      - RF02
+      x-roles:
+      - ADMIN
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailDomainCreate'
+            example:
+              name: a.catolica-to.edu.br
+              role: STUDENT
+              active: true
+      responses:
+        '201':
+          description: Domínio criado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmailDomain'
+              example:
+                id: 1
+                name: a.catolica-to.edu.br
+                role: STUDENT
+                active: true
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: Conflito com uma regra de negócio.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                email_domain_taken:
+                  summary: Já existe um domínio de e-mail cadastrado com este nome.
+                  value:
+                    error:
+                      code: email_domain_taken
+                      message: Já existe um domínio de e-mail cadastrado com este nome.
+                      details: null
+  /api/admin/email-domains/{domain_id}:
+    patch:
+      tags:
+      - accounts
+      operationId: accountsUpdateEmailDomain
+      summary: Atualizar domínio institucional
+      description: |-
+        Edita nome, perfil ou status de ativação de um domínio institucional.
+
+        **Requisitos:** RF02
+
+        **Autenticação:** obrigatória (Bearer JWT).
+
+        **Perfis permitidos:** ADMIN
+
+        **Regras de negócio:**
+        - Aplica as mesmas regras de normalização, formato e unicidade case-insensitive do cadastro.
+      x-status: confirmed
+      x-requirements:
+      - RF02
+      x-roles:
+      - ADMIN
+      parameters:
+      - $ref: '#/components/parameters/DomainId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailDomainUpdate'
+            example:
+              name: a.catolica-to.edu.br
+              role: STUDENT
+              active: false
+      responses:
+        '200':
+          description: Operação concluída.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmailDomain'
+              example:
+                id: 1
+                name: a.catolica-to.edu.br
+                role: STUDENT
+                active: true
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Conflito com uma regra de negócio.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                email_domain_taken:
+                  summary: Já existe um domínio de e-mail cadastrado com este nome.
+                  value:
+                    error:
+                      code: email_domain_taken
+                      message: Já existe um domínio de e-mail cadastrado com este nome.
+                      details: null
   /api/admin/external-evaluators:
     get:
       tags:
@@ -7758,6 +7931,14 @@ components:
       schema:
         type: integer
         minimum: 1
+    DomainId:
+      name: domain_id
+      in: path
+      required: true
+      description: Identificador do domínio de e-mail.
+      schema:
+        type: integer
+        minimum: 1
     CourseId:
       name: course_id
       in: path
@@ -7920,6 +8101,16 @@ components:
       description: Filtra pelo status de ativação.
       schema:
         type: boolean
+    InstitutionalRoleFilter:
+      name: role
+      in: query
+      required: false
+      description: Filtra pelo perfil institucional.
+      schema:
+        type: string
+        enum:
+        - STUDENT
+        - TEACHER
     CourseFilter:
       name: course_id
       in: query
@@ -8930,6 +9121,76 @@ components:
           - email
       required:
       - external_evaluator
+    EmailDomain:
+      type: object
+      properties:
+        id:
+          type: integer
+          examples:
+          - 1
+        name:
+          type: string
+          examples:
+          - a.catolica-to.edu.br
+        role:
+          type: string
+          enum:
+          - STUDENT
+          - TEACHER
+          example: STUDENT
+        active:
+          type: boolean
+          examples:
+          - true
+      required:
+      - id
+      - name
+      - role
+      - active
+    EmailDomainCreate:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 100
+          examples:
+          - a.catolica-to.edu.br
+        role:
+          type: string
+          enum:
+          - STUDENT
+          - TEACHER
+          example: STUDENT
+        active:
+          type: boolean
+          default: true
+          examples:
+          - true
+      required:
+      - name
+      - role
+      additionalProperties: false
+    EmailDomainUpdate:
+      type: object
+      description: Ao menos um campo deve ser informado.
+      properties:
+        name:
+          type: string
+          maxLength: 100
+          examples:
+          - a.catolica-to.edu.br
+        role:
+          type: string
+          enum:
+          - STUDENT
+          - TEACHER
+          example: TEACHER
+        active:
+          type: boolean
+          examples:
+          - false
+      additionalProperties: false
+      minProperties: 1
     Course:
       type: object
       properties:
