@@ -10,8 +10,13 @@ from apps.editions.enums import StageKind
 from apps.editions.factories import StageFactory
 from apps.notifications.models import NotificationType
 from apps.projects.factories import ProjectFactory
-from apps.teams.enums import MemberRole
-from apps.teams.factories import TeamFactory, TeamMemberFactory
+from apps.teams.enums import InvitationStatus, MemberRole, RequestStatus, TeamStatus
+from apps.teams.factories import (
+    InvitationFactory,
+    JoinRequestFactory,
+    TeamFactory,
+    TeamMemberFactory,
+)
 from apps.teams.use_cases.leave_team import (
     LeaveTeamRejected,
     leave_team,
@@ -61,9 +66,10 @@ def test_leave_team_successfully():
     assert membership.student == student
 
 
-def test_leave_team_rejects_leader():
+def test_leave_team_rejects_leader_when_there_are_other_members():
     team = TeamFactory()
     create_open_formation(team.edition)
+    TeamMemberFactory(team=team, role=MemberRole.MEMBER)
 
     leader_membership = team.members.get(
         role=MemberRole.LEADER,
@@ -83,6 +89,39 @@ def test_leave_team_rejects_leader():
 
     assert leader_membership.active is True
     assert leader_membership.left_at is None
+    team.refresh_from_db()
+    assert team.status == TeamStatus.ACTIVE
+
+
+def test_lider_sozinho_sai_e_desfaz_a_equipe():
+    team = TeamFactory()
+    create_open_formation(team.edition)
+    leader = team.members.get(role=MemberRole.LEADER, active=True)
+    convite = InvitationFactory(team=team)
+    pedido = JoinRequestFactory(team=team)
+
+    leave_team(actor=leader.student.user, team_id=team.id)
+
+    leader.refresh_from_db()
+    team.refresh_from_db()
+    convite.refresh_from_db()
+    pedido.refresh_from_db()
+    assert leader.active is False and leader.left_at is not None
+    assert team.status == TeamStatus.DISBANDED
+    assert convite.status == InvitationStatus.CANCELLED
+    assert pedido.status == RequestStatus.CANCELLED
+
+
+def test_aluno_que_desfez_a_equipe_pode_entrar_em_outra():
+    team = TeamFactory()
+    create_open_formation(team.edition)
+    leader = team.members.get(role=MemberRole.LEADER, active=True)
+    leave_team(actor=leader.student.user, team_id=team.id)
+
+    outra = TeamFactory(edition=team.edition, leader=False)
+    novo = TeamMemberFactory(team=outra, student=leader.student)
+
+    assert novo.active is True
 
 
 def test_leave_team_rejects_non_member():
