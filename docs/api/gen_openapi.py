@@ -1090,7 +1090,11 @@ op("get", "/api/deliverable-versions/{version_id}/receipt", "projectsGetReceipt"
 op("get", "/api/teacher/projects", "evaluationsListTeacherProjects", "evaluations", "Painel de acompanhamento do curso", ["RF37"], ["TEACHER"],
    "Lista os projetos dos cursos com vínculo ativo do professor, com status das entregas e das avaliações.",
    params=["CourseFilter", "StageFilter", "PendingOnly"] + PAGE, ok=PTeacherRow,
-   authz="Somente projetos cujo desafio pertence a curso com vínculo ativo do professor. Não há atribuição individual de projetos.")
+   authz="Somente projetos cujo desafio pertence a curso com vínculo ativo do professor. Não há atribuição individual de projetos.",
+   rules=["Uma linha por projeto e etapa pontuada de entrega, só de edição publicada.",
+          "deliverable_status é derivado (P-27): versão no prazo da equipe = SUBMITTED; sem versão e prazo aberto = NOT_SUBMITTED; sem versão e prazo encerrado = NOT_DELIVERED.",
+          "pending_only devolve só entregas SUBMITTED que o professor autenticado ainda não finalizou."],
+   pend=["P-27"])
 op("get", "/api/projects/{project_id}/stages/{stage_id}/evaluation", "evaluationsGetMyEvaluation", "evaluations", "Formulário e avaliação do professor",
    ["RF38"], ["TEACHER"], "Retorna critérios e pontuações máximas da etapa e a avaliação do professor autenticado, se existir.",
    params=["ProjectId", "StageId"], ok=ref("EvaluationForm"), errs=["404"], authz="Vínculo ativo com o curso do desafio do projeto.")
@@ -1098,10 +1102,14 @@ op("put", "/api/projects/{project_id}/stages/{stage_id}/evaluation", "evaluation
    ["RF38"], ["TEACHER"], "Cria ou atualiza a avaliação do professor autenticado (uma por professor, projeto e etapa).",
    params=["ProjectId", "StageId"], body=ref("EvaluationWrite"), ok=ref("Evaluation"), errs=["404"], authz="Vínculo ativo com o curso do desafio do projeto.",
    rules=["Somente etapas pontuadas do tipo EVALUATION.", "0 ≤ points ≤ max_score do critério (400 points_out_of_range).",
+          "Só avalia projeto com entrega válida: versão enviada até o prazo da equipe, com a prorrogação se houver.",
+          "Um item por critério da etapa, sem repetição; critério de outra etapa é recusado.",
           "FINALIZED exige todos os critérios e torna a avaliação imutável; retificação é escopo do RF14 (P-21).",
-          "Ao finalizar, recalcula stage_score (média simples; FINALIZED quando evaluation_count ≥ min_evaluators).",
-          "Respeita o prazo de avaliação (P-19)."],
-   conflicts=[("evaluation_already_finalized", "A avaliação já foi finalizada."), ("evaluation_period_closed", "O prazo de avaliação está encerrado."), CLOSED],
+          "FINALIZED só depois do prazo de entrega da equipe, para não travar a nota numa versão que ela ainda pode substituir; o rascunho (DRAFT) pode ser salvo antes.",
+          "Ao finalizar, recalcula stage_score (média simples; FINALIZED quando evaluation_count ≥ min_evaluators). A retificação do admin (RF14) também recalcula.",
+          "Respeita o prazo de avaliação (P-19).",
+          "Violações de regra (avaliação finalizada, prazo, entrega inválida, critério repetido) voltam como 400 validation_error; professor sem vínculo com o curso volta 403 teacher_not_in_course."],
+   conflicts=[CLOSED],
    pend=["P-19", "P-21", "P-33"])
 op("get", "/api/projects/{project_id}/scores", "evaluationsGetProjectScores", "evaluations", "Notas e feedbacks das etapas", ["RF32"],
    ["STUDENT", "TEACHER", "ADMIN"], "Retorna, por etapa pontuada, nota, status, média por critério e feedbacks dos professores.",

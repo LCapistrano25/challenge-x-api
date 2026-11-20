@@ -5549,9 +5549,13 @@ paths:
         **Regras de negócio:**
         - Somente etapas pontuadas do tipo EVALUATION.
         - 0 ≤ points ≤ max_score do critério (400 points_out_of_range).
+        - Só avalia projeto com entrega válida: versão enviada até o prazo da equipe, com a prorrogação se houver.
+        - Um item por critério da etapa, sem repetição; critério de outra etapa é recusado.
         - FINALIZED exige todos os critérios e torna a avaliação imutável; retificação é escopo do RF14 (P-21).
-        - Ao finalizar, recalcula stage_score (média simples; FINALIZED quando evaluation_count ≥ min_evaluators).
+        - FINALIZED só depois do prazo de entrega da equipe, para não travar a nota numa versão que ela ainda pode substituir; o rascunho (DRAFT) pode ser salvo antes.
+        - Ao finalizar, recalcula stage_score (média simples; FINALIZED quando evaluation_count ≥ min_evaluators). A retificação do admin (RF14) também recalcula.
         - Respeita o prazo de avaliação (P-19).
+        - Violações de regra (avaliação finalizada, prazo, entrega inválida, critério repetido) voltam como 400 validation_error; professor sem vínculo com o curso volta 403 teacher_not_in_course.
 
         **Pendências relacionadas (api-pendencias.md):** P-19, P-21, P-33
       x-status: proposed
@@ -5614,20 +5618,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
               examples:
-                evaluation_already_finalized:
-                  summary: A avaliação já foi finalizada.
-                  value:
-                    error:
-                      code: evaluation_already_finalized
-                      message: A avaliação já foi finalizada.
-                      details: null
-                evaluation_period_closed:
-                  summary: O prazo de avaliação está encerrado.
-                  value:
-                    error:
-                      code: evaluation_period_closed
-                      message: O prazo de avaliação está encerrado.
-                      details: null
                 edition_closed:
                   summary: A edição está encerrada e não pode ser alterada.
                   value:
@@ -6358,11 +6348,20 @@ paths:
         **Perfis permitidos:** TEACHER
 
         **Autorização adicional:** Somente projetos cujo desafio pertence a curso com vínculo ativo do professor. Não há atribuição individual de projetos.
+
+        **Regras de negócio:**
+        - Uma linha por projeto e etapa pontuada de entrega, só de edição publicada.
+        - deliverable_status é derivado (P-27): versão no prazo da equipe = SUBMITTED; sem versão e prazo aberto = NOT_SUBMITTED; sem versão e prazo encerrado = NOT_DELIVERED.
+        - pending_only devolve só entregas SUBMITTED que o professor autenticado ainda não finalizou.
+
+        **Pendências relacionadas (api-pendencias.md):** P-27
       x-status: confirmed
       x-requirements:
       - RF37
       x-roles:
       - TEACHER
+      x-pendencias:
+      - P-27
       parameters:
       - $ref: '#/components/parameters/CourseFilter'
       - $ref: '#/components/parameters/StageFilter'
