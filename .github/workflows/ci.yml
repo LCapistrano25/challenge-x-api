@@ -88,6 +88,8 @@ jobs:
       - name: Deploy checklist
         env:
           DJANGO_ALLOWED_HOSTS: example.com
+          # Longa de propósito: o check --deploy avisa (W009) de chave com menos de 50 caracteres.
+          DJANGO_SECRET_KEY: ci-only-key-for-deploy-check-0123456789-abcdefghijklmnopqrstuvwxyz
         run: uv run python manage.py check --deploy --fail-level WARNING --settings=config.settings.production
 
       - name: Run tests
