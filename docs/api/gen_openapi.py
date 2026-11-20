@@ -412,6 +412,8 @@ SC["Team"] = obj({
     "disqualification_reason": nul(TXT(ex=None)), "members": arr(ref("TeamMember"), description="Somente vínculos ativos."),
     "created_at": DT(), "updated_at": DT(),
 }, ["id", "edition_id", "name", "code", "status", "qualification", "disqualification_reason", "members", "created_at", "updated_at"])
+SC["TeamLeave"] = obj({"confirm": BOOL("Confirma a saída que deixa a equipe abaixo do mínimo de integrantes. Corpo opcional; sem ele, confirm é false.", False)},
+                      description="Corpo opcional.", strict=True)
 SC["TeamCreate"] = obj({"name": STR(ex="Equipe Aurora", maxLength=150),
                         "invitations": arr(ref("InvitationCreate"), minItems=1,
                                            description="Alunos a convidar, por student_id ou email. De min_members - 1 a max_members - 1 (nunca menos de 1).")},
@@ -985,11 +987,13 @@ op("post", "/api/join-requests/{join_request_id}/respond", "teamsRespondJoinRequ
    rules=["Somente durante a formação e para solicitações PENDING.", "Na aprovação, o aluno entra como MEMBER se houver vaga.", "Notifica o solicitante (TEAM)."],
    conflicts=[FORM_CLOSED, TEAM_FULL, IN_TEAM, ("join_request_not_pending", "A solicitação não está pendente.")])
 op("post", "/api/teams/{team_id}/leave", "teamsLeave", "teams", "Sair da equipe", ["RF26"], ["STUDENT"],
-   "Encerra o vínculo do próprio aluno (left_at preenchido, active=false), preservando o histórico.", params=["TeamId"],
+   "Encerra o vínculo do próprio aluno (left_at preenchido, active=false), preservando o histórico.", params=["TeamId"], body=ref("TeamLeave"),
    ok_code="204", ok_desc="Saída registrada.", errs=["404"], authz="Somente o próprio integrante ativo.",
    rules=["Somente durante a formação; depois disso a composição é congelada.", "O LEADER deve transferir a liderança antes (RF27), a não ser que esteja sozinho: aí a saída desfaz a equipe (status DISBANDED) e cancela os convites e as solicitações pendentes, avisando por notificação quem esperava resposta, e o aluno pode entrar em outra equipe.",
-          "Se o curso do desafio ficar sem representante, a seleção do desafio deve ser invalidada (P-25)."],
-   conflicts=[FORM_CLOSED, ("leader_must_transfer", "Transfira a liderança antes de sair da equipe.")], pend=["P-25"])
+          "Se o curso do desafio ficar sem representante, a seleção do desafio deve ser invalidada (P-25).",
+          "Se a saída deixa a equipe com algum integrante, mas abaixo do mínimo da edição, a API responde 409 leave_below_minimum até receber confirm true; os demais integrantes são avisados de quantos restaram."],
+   conflicts=[FORM_CLOSED, ("leader_must_transfer", "Transfira a liderança antes de sair da equipe."),
+              ("leave_below_minimum", "A saída deixa a equipe com algum integrante, mas abaixo do mínimo; reenvie com confirm true.")], pend=["P-25"])
 op("post", "/api/teams/{team_id}/leadership-transfer", "teamsTransferLeadership", "teams", "Transferir liderança", ["RF27"], ["STUDENT"],
    "Transfere o papel LEADER para outro integrante ativo.", params=["TeamId"], body=ref("LeadershipTransfer"), ok=ref("Team"), errs=["404"],
    authz=LEADER, rules=["O destinatário deve ser integrante ativo da equipe (400 caso contrário).", "Registra a transferência e notifica o novo líder (TEAM)."],
