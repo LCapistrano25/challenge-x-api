@@ -4,8 +4,7 @@ from django.db import transaction
 
 from apps.accounts.models import User
 from apps.accounts.rules import ensure_actor_is_admin
-from apps.editions.enums import EditionStatus
-from apps.editions.exceptions import EditionClosed
+from apps.editions.rules import ensure_edition_not_closed
 from apps.evaluations.models import FinalForm
 from apps.evaluations.rules import ensure_final_form_publishable
 
@@ -22,8 +21,7 @@ def publish_final_form(*, actor: User, form: FinalForm) -> FinalForm:
     form = (
         FinalForm.objects.select_for_update().select_related("edition").get(pk=form.pk)
     )
-    if form.edition.status == EditionStatus.CLOSED:
-        raise EditionClosed
+    ensure_edition_not_closed(form.edition)
     ensure_final_form_publishable(form)
 
     form.published = True

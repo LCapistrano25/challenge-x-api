@@ -243,3 +243,18 @@ def test_api_so_admin_acessa():
     assert student.put(url(edition), body(), format="json").status_code == 403
     assert student.post(url(edition, publish=True)).status_code == 403
     assert APIClient().get(url(edition)).status_code in (401, 403)
+
+
+def test_put_mantem_o_id_da_pergunta_que_continua(admin):
+    edition = EditionFactory()
+    form = configure_final_form(
+        actor=admin, edition=edition, title="", questions=perguntas()
+    )
+    ids = {q.order: q.pk for q in form.questions.all()}
+
+    nova = perguntas()[:1]
+    nova[0]["prompt"] = "Pitch revisado"
+    configure_final_form(actor=admin, edition=edition, title="", questions=nova)
+
+    restante = form.questions.get()
+    assert restante.pk == ids[1] and restante.prompt == "Pitch revisado"
