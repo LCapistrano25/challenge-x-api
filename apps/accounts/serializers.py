@@ -1,17 +1,9 @@
 from rest_framework import serializers
 
-from apps.accounts.enums import UserRole
-from apps.accounts.rules import DOMAIN_NAME_PATTERN, normalize_email_domain
+from apps.accounts.rules import MICROSOFT_ROLES
 
-
-def _validate_domain_name(value: str) -> str:
-    normalized = normalize_email_domain(value)
-    if not DOMAIN_NAME_PATTERN.match(normalized):
-        raise serializers.ValidationError("Domínio de e-mail inválido.")
-    return normalized
-
-
-INSTITUTIONAL_ROLE_CHOICES = [UserRole.STUDENT, UserRole.TEACHER]
+# Formato e unicidade do nome ficam em rules.py, chamadas pelos casos de uso.
+INSTITUTIONAL_ROLE_CHOICES = sorted(MICROSOFT_ROLES)
 
 
 class LoginSerializer(serializers.Serializer):
@@ -71,17 +63,11 @@ class EmailDomainCreateSerializer(serializers.Serializer):
     role = serializers.ChoiceField(choices=INSTITUTIONAL_ROLE_CHOICES)
     active = serializers.BooleanField(default=True)
 
-    def validate_name(self, value):
-        return _validate_domain_name(value)
-
 
 class EmailDomainUpdateSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=100, required=False)
     role = serializers.ChoiceField(choices=INSTITUTIONAL_ROLE_CHOICES, required=False)
     active = serializers.BooleanField(required=False)
-
-    def validate_name(self, value):
-        return _validate_domain_name(value)
 
     def validate(self, attrs):
         if not attrs:
