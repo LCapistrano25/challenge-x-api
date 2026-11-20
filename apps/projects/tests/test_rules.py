@@ -46,6 +46,7 @@ from apps.projects.rules import (
     ensure_team_not_disqualified,
     ensure_team_not_incomplete,
 )
+from apps.projects.tests.conftest import valid_canvas, valid_swot
 from apps.teams.enums import MemberRole, TeamSituation
 from apps.teams.factories import TeamFactory, TeamMemberFactory
 
@@ -526,3 +527,90 @@ def test_validar_o_arquivo_nao_consome_o_conteudo():
     uploaded = upload()
     ensure_file_matches_field(file_field(), uploaded)
     assert uploaded.read() == b"%PDF-1.7 conteudo"
+
+
+# Canvas e SWOT: formato fixo do conteúdo (RF31)
+
+
+def content_item(field, content):
+    return {"field": field, "content": content}
+
+
+@pytest.fixture
+def canvas_field(stage):
+    return StageSubmissionFieldFactory(stage=stage, kind=FieldKind.CANVAS)
+
+
+@pytest.fixture
+def swot_field(stage):
+    return StageSubmissionFieldFactory(stage=stage, kind=FieldKind.SWOT)
+
+
+def test_canvas_e_swot_completos_sao_aceitos(stage, canvas_field, swot_field):
+    ensure_items_match_stage_fields(
+        stage,
+        [
+            content_item(canvas_field, valid_canvas()),
+            content_item(swot_field, valid_swot()),
+        ],
+    )
+
+
+def with_block(**changes):
+    return {**valid_canvas(), **changes}
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        {k: v for k, v in valid_canvas().items() if k != "channels"},
+        with_block(extra="x"),
+        with_block(channels="   "),
+        with_block(channels=["lista"]),
+        ["não é objeto"],
+    ],
+    ids=["bloco-faltando", "chave-desconhecida", "bloco-vazio", "bloco-lista", "lista"],
+)
+def test_canvas_incompleto_ou_fora_do_formato_e_recusado(stage, canvas_field, content):
+    with pytest.raises(ValidationError):
+        ensure_items_match_stage_fields(stage, [content_item(canvas_field, content)])
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        {k: v for k, v in valid_swot().items() if k != "threats"},
+        {**valid_swot(), "extra": ["x"]},
+        {**valid_swot(), "threats": []},
+        {**valid_swot(), "threats": ["ok", " "]},
+        {**valid_swot(), "threats": "texto solto"},
+    ],
+    ids=[
+        "quadrante-faltando",
+        "chave-desconhecida",
+        "lista-vazia",
+        "texto-vazio",
+        "texto",
+    ],
+)
+def test_swot_incompleto_ou_fora_do_formato_e_recusado(stage, swot_field, content):
+    with pytest.raises(ValidationError):
+        ensure_items_match_stage_fields(stage, [content_item(swot_field, content)])
+
+
+def test_conteudo_em_campo_link_e_link_em_campo_canvas_sao_recusados(
+    stage, canvas_field
+):
+    link_field = StageSubmissionFieldFactory(stage=stage, kind=FieldKind.LINK)
+    with pytest.raises(ValidationError):
+        ensure_items_match_stage_fields(
+            stage, [content_item(link_field, valid_canvas())]
+        )
+    with pytest.raises(ValidationError):
+        ensure_items_match_stage_fields(stage, [link_item(canvas_field)])
+
+
+def test_canvas_obrigatorio_nao_respondido_e_recusado(stage, canvas_field):
+    answered = StageSubmissionFieldFactory(stage=stage)
+    with pytest.raises(ValidationError):
+        ensure_items_match_stage_fields(stage, [link_item(answered)])

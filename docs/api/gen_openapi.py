@@ -508,8 +508,10 @@ SC["ProjectOptions"] = obj({"challenges": arr(ref("PublicChallenge"), descriptio
 SC["DeliverableItem"] = obj({"id": INT(ex=301), "field_id": INT(ex=31), "type": ref("FieldType"), "link": nul(URL(ex=None)),
                              "file_url": nul(P("string", "Caminho autenticado de download (GET projectsDownloadDeliverableFile), nunca uma URL pública do armazenamento. Nulo para link.",
                                                "/api/deliverable-items/301/file", format="uri-reference")),
-                             "file_name": nul(STR(ex="relatorio.pdf")), "size_bytes": nul(INT(ex=1048576, minimum=1, format="int64"))},
-                            ["id", "field_id", "type", "link", "file_url", "file_name", "size_bytes"])
+                             "file_name": nul(STR(ex="relatorio.pdf")), "size_bytes": nul(INT(ex=1048576, minimum=1, format="int64")),
+                             "content": nul({"oneOf": [ref("CanvasContent"), ref("SwotContent")],
+                                             "description": "Conteúdo preenchido no sistema (campo CANVAS ou SWOT). Nulo para link e arquivo (P-47)."})},
+                            ["id", "field_id", "type", "link", "file_url", "file_name", "size_bytes", "content"])
 SC["ReceiptSummary"] = obj({"verification_code": STR(ex="DX-2026-1-7F3K9Q"), "file_url": nul(URL(ex="https://storage.projetox.edu.br/comprovantes/DX-2026-1-7F3K9Q.pdf")),
                             "generated_at": DT()}, ["verification_code", "file_url", "generated_at"])
 SC["DeliverableVersion"] = obj({"id": INT(ex=77), "version_number": INT(ex=2, minimum=1), "submitted_by": ref("UserSummary"), "submitted_at": DT(),
@@ -520,14 +522,23 @@ SC["StageDeliverable"] = obj({
     "official_version_id": nul(INT("Versão vigente no encerramento do prazo (nula enquanto aberto ou sem envio).", None)),
     "versions": arr(ref("DeliverableVersion"), description="Histórico completo, da mais recente para a mais antiga."),
 }, ["stage", "fields", "status", "official_version_id", "versions"])
+_CANVAS_BLOCKS = ["customer_segments", "value_propositions", "channels", "customer_relationships", "revenue_streams",
+                  "key_resources", "key_activities", "key_partnerships", "cost_structure"]
+SC["CanvasContent"] = obj({b: STR(ex="Texto do bloco.", minLength=1) for b in _CANVAS_BLOCKS}, _CANVAS_BLOCKS, strict=True,
+                          desc="Business Model Canvas (campo CANVAS): um texto não vazio por bloco, todos obrigatórios (P-47).")
+_SWOT_QUADRANTS = ["strengths", "weaknesses", "opportunities", "threats"]
+SC["SwotContent"] = obj({q: arr(STR(ex="Texto do item.", minLength=1), minItems=1) for q in _SWOT_QUADRANTS}, _SWOT_QUADRANTS, strict=True,
+                        desc="Matriz SWOT (campo SWOT): ao menos um texto não vazio por quadrante (P-47).")
 SC["DeliverableSubmissionItem"] = obj({"field_id": INT(ex=31), "link": URL(ex="https://github.com/equipe/projeto"),
-                                       "file_index": INT("Posição do arquivo em `files[]`. Só vale em multipart.", 0, minimum=0)},
+                                       "file_index": INT("Posição do arquivo em `files[]`. Só vale em multipart.", 0, minimum=0),
+                                       "content": {"oneOf": [ref("CanvasContent"), ref("SwotContent")],
+                                                   "description": "Conteúdo do campo CANVAS (CanvasContent) ou SWOT (SwotContent)."}},
                                       ["field_id"], strict=True,
-                                      desc="Informe `link` (campo LINK) ou `file_index` (campo FILE), apenas um dos dois.")
+                                      desc="Informe `link` (campo LINK), `file_index` (campo FILE) ou `content` (campo CANVAS ou SWOT), apenas um dos três.")
 SC["DeliverableSubmission"] = obj({
-    "items": arr(ref("DeliverableSubmissionItem"), minItems=1, description="Um item por campo da etapa; campos obrigatórios devem constar. Em JSON só há links."),
+    "items": arr(ref("DeliverableSubmissionItem"), minItems=1, description="Um item por campo da etapa; campos obrigatórios devem constar. Em JSON vão links, canvas e SWOT."),
     "notes": TXT(ex="Correção do relatório."),
-}, ["items"], strict=True, desc="Envio só com links, em JSON. Com arquivos (FILE), use multipart/form-data (DeliverableSubmissionMultipart, P-43).")
+}, ["items"], strict=True, desc="Envio com links, canvas e SWOT, em JSON. Com arquivos (FILE), use multipart/form-data (DeliverableSubmissionMultipart, P-43).")
 SC["DeliverableSubmissionMultipart"] = obj({
     "items": STR("Lista de itens em JSON, como em `DeliverableSubmission.items`. Item de arquivo usa `file_index`.",
                  '[{"field_id": 31, "link": "https://github.com/equipe/projeto"}, {"field_id": 32, "file_index": 0}]'),
@@ -1080,14 +1091,15 @@ op("post", "/api/projects/{project_id}/stages/{stage_id}/versions", "projectsSub
    more={"503": {"description": "Armazenamento de arquivos indisponível.", "content": {"application/json": {"schema": ref("Error"),
          "example": {"error": {"code": "storage_unavailable", "message": "Armazenamento indisponível.", "details": None}}}}}},
    rules=["Somente dentro do prazo da etapa, incluindo a prorrogação da equipe (409 stage_deadline_closed); antes do início, 409 stage_not_open.",
-          "Todos os campos obrigatórios (LINK e FILE) respondidos, sem repetir, cada item com o tipo do seu campo (400 validation_error).",
+          "Todos os campos obrigatórios (LINK, FILE, CANVAS e SWOT) respondidos, sem repetir, cada item com o tipo do seu campo (400 validation_error).",
+          "Canvas: um texto não vazio nos nove blocos. SWOT: ao menos um texto não vazio em cada quadrante. Chave desconhecida ou bloco vazio é 400 validation_error (P-47).",
           "Arquivo: extensão permitida pelos formatos do campo (400 file_format_not_allowed), até o tamanho máximo do campo e do servidor (400 file_too_large), não vazio e com conteúdo que combine com a extensão. Executáveis e scripts nunca entram.",
-          "JSON aceita só links. Arquivos exigem multipart/form-data: `items` em string JSON, com `file_index` apontando para `files[]`; arquivo sobrando ou índice inexistente é 400.",
+          "JSON aceita links, canvas e SWOT. Arquivos exigem multipart/form-data: `items` em string JSON, com `file_index` apontando para `files[]`; arquivo sobrando ou índice inexistente é 400.",
           "Os arquivos ficam em armazenamento privado, sem URL pública; o download é por GET /api/deliverable-items/{item_id}/file.",
           "O projeto precisa ter desafio, título e resumo (400 validation_error).",
           "Cada envio cria version_number sequencial; versões anteriores são preservadas.", "Equipe desclassificada ou incompleta não envia (P-23)."],
    conflicts=[("stage_deadline_closed", "O prazo da etapa está encerrado."), ("team_disqualified", "A equipe está desclassificada."),
-              ("team_incomplete", "Equipes incompletas não podem realizar entregas."), ("stage_not_open", "A etapa ainda não está aberta."), CLOSED], pend=["P-23", "P-43"])
+              ("team_incomplete", "Equipes incompletas não podem realizar entregas."), ("stage_not_open", "A etapa ainda não está aberta."), CLOSED], pend=["P-23", "P-43", "P-47"])
 op("get", "/api/deliverable-items/{item_id}/file", "projectsDownloadDeliverableFile", "projects", "Baixar arquivo de um item da entrega", ["RF31"],
    ["STUDENT", "TEACHER", "ADMIN"], "Devolve o arquivo enviado em um item de campo FILE. O armazenamento é privado: este é o único caminho de acesso.",
    params=["ItemId"], ok=None, ok_desc="Conteúdo do arquivo.", errs=["404"],

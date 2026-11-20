@@ -5379,6 +5379,16 @@ paths:
                     file_url: /api/deliverable-items/301/file
                     file_name: relatorio.pdf
                     size_bytes: 1048576
+                    content:
+                      customer_segments: Texto do bloco.
+                      value_propositions: Texto do bloco.
+                      channels: Texto do bloco.
+                      customer_relationships: Texto do bloco.
+                      revenue_streams: Texto do bloco.
+                      key_resources: Texto do bloco.
+                      key_activities: Texto do bloco.
+                      key_partnerships: Texto do bloco.
+                      cost_structure: Texto do bloco.
                   receipt:
                     verification_code: DX-2026-1-7F3K9Q
                     file_url: https://storage.projetox.edu.br/comprovantes/DX-2026-1-7F3K9Q.pdf
@@ -5649,15 +5659,16 @@ paths:
 
         **Regras de negócio:**
         - Somente dentro do prazo da etapa, incluindo a prorrogação da equipe (409 stage_deadline_closed); antes do início, 409 stage_not_open.
-        - Todos os campos obrigatórios (LINK e FILE) respondidos, sem repetir, cada item com o tipo do seu campo (400 validation_error).
+        - Todos os campos obrigatórios (LINK, FILE, CANVAS e SWOT) respondidos, sem repetir, cada item com o tipo do seu campo (400 validation_error).
+        - Canvas: um texto não vazio nos nove blocos. SWOT: ao menos um texto não vazio em cada quadrante. Chave desconhecida ou bloco vazio é 400 validation_error (P-47).
         - Arquivo: extensão permitida pelos formatos do campo (400 file_format_not_allowed), até o tamanho máximo do campo e do servidor (400 file_too_large), não vazio e com conteúdo que combine com a extensão. Executáveis e scripts nunca entram.
-        - JSON aceita só links. Arquivos exigem multipart/form-data: `items` em string JSON, com `file_index` apontando para `files[]`; arquivo sobrando ou índice inexistente é 400.
+        - JSON aceita links, canvas e SWOT. Arquivos exigem multipart/form-data: `items` em string JSON, com `file_index` apontando para `files[]`; arquivo sobrando ou índice inexistente é 400.
         - Os arquivos ficam em armazenamento privado, sem URL pública; o download é por GET /api/deliverable-items/{item_id}/file.
         - O projeto precisa ter desafio, título e resumo (400 validation_error).
         - Cada envio cria version_number sequencial; versões anteriores são preservadas.
         - Equipe desclassificada ou incompleta não envia (P-23).
 
-        **Pendências relacionadas (api-pendencias.md):** P-23, P-43
+        **Pendências relacionadas (api-pendencias.md):** P-23, P-43, P-47
       x-status: proposed
       x-requirements:
       - RF31
@@ -5666,6 +5677,7 @@ paths:
       x-pendencias:
       - P-23
       - P-43
+      - P-47
       parameters:
       - $ref: '#/components/parameters/ProjectId'
       - $ref: '#/components/parameters/StageId'
@@ -5706,6 +5718,16 @@ paths:
                   file_url: /api/deliverable-items/301/file
                   file_name: relatorio.pdf
                   size_bytes: 1048576
+                  content:
+                    customer_segments: Texto do bloco.
+                    value_propositions: Texto do bloco.
+                    channels: Texto do bloco.
+                    customer_relationships: Texto do bloco.
+                    revenue_streams: Texto do bloco.
+                    key_resources: Texto do bloco.
+                    key_activities: Texto do bloco.
+                    key_partnerships: Texto do bloco.
+                    cost_structure: Texto do bloco.
                 receipt:
                   verification_code: DX-2026-1-7F3K9Q
                   file_url: https://storage.projetox.edu.br/comprovantes/DX-2026-1-7F3K9Q.pdf
@@ -11085,6 +11107,13 @@ components:
           format: int64
           examples:
           - 1048576
+        content:
+          oneOf:
+          - oneOf:
+            - $ref: '#/components/schemas/CanvasContent'
+            - $ref: '#/components/schemas/SwotContent'
+            description: Conteúdo preenchido no sistema (campo CANVAS ou SWOT). Nulo para link e arquivo (P-47).
+          - type: 'null'
       required:
       - id
       - field_id
@@ -11093,6 +11122,7 @@ components:
       - file_url
       - file_name
       - size_bytes
+      - content
     ReceiptSummary:
       type: object
       properties:
@@ -11186,9 +11216,112 @@ components:
       - status
       - official_version_id
       - versions
+    CanvasContent:
+      type: object
+      description: 'Business Model Canvas (campo CANVAS): um texto não vazio por bloco, todos obrigatórios (P-47).'
+      properties:
+        customer_segments:
+          type: string
+          minLength: 1
+          examples:
+          - Texto do bloco.
+        value_propositions:
+          type: string
+          minLength: 1
+          examples:
+          - Texto do bloco.
+        channels:
+          type: string
+          minLength: 1
+          examples:
+          - Texto do bloco.
+        customer_relationships:
+          type: string
+          minLength: 1
+          examples:
+          - Texto do bloco.
+        revenue_streams:
+          type: string
+          minLength: 1
+          examples:
+          - Texto do bloco.
+        key_resources:
+          type: string
+          minLength: 1
+          examples:
+          - Texto do bloco.
+        key_activities:
+          type: string
+          minLength: 1
+          examples:
+          - Texto do bloco.
+        key_partnerships:
+          type: string
+          minLength: 1
+          examples:
+          - Texto do bloco.
+        cost_structure:
+          type: string
+          minLength: 1
+          examples:
+          - Texto do bloco.
+      required:
+      - customer_segments
+      - value_propositions
+      - channels
+      - customer_relationships
+      - revenue_streams
+      - key_resources
+      - key_activities
+      - key_partnerships
+      - cost_structure
+      additionalProperties: false
+    SwotContent:
+      type: object
+      description: 'Matriz SWOT (campo SWOT): ao menos um texto não vazio por quadrante (P-47).'
+      properties:
+        strengths:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            examples:
+            - Texto do item.
+          minItems: 1
+        weaknesses:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            examples:
+            - Texto do item.
+          minItems: 1
+        opportunities:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            examples:
+            - Texto do item.
+          minItems: 1
+        threats:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            examples:
+            - Texto do item.
+          minItems: 1
+      required:
+      - strengths
+      - weaknesses
+      - opportunities
+      - threats
+      additionalProperties: false
     DeliverableSubmissionItem:
       type: object
-      description: Informe `link` (campo LINK) ou `file_index` (campo FILE), apenas um dos dois.
+      description: Informe `link` (campo LINK), `file_index` (campo FILE) ou `content` (campo CANVAS ou SWOT), apenas um dos
+        três.
       properties:
         field_id:
           type: integer
@@ -11205,12 +11338,17 @@ components:
           minimum: 0
           examples:
           - 0
+        content:
+          oneOf:
+          - $ref: '#/components/schemas/CanvasContent'
+          - $ref: '#/components/schemas/SwotContent'
+          description: Conteúdo do campo CANVAS (CanvasContent) ou SWOT (SwotContent).
       required:
       - field_id
       additionalProperties: false
     DeliverableSubmission:
       type: object
-      description: Envio só com links, em JSON. Com arquivos (FILE), use multipart/form-data (DeliverableSubmissionMultipart,
+      description: Envio com links, canvas e SWOT, em JSON. Com arquivos (FILE), use multipart/form-data (DeliverableSubmissionMultipart,
         P-43).
       properties:
         items:
@@ -11218,7 +11356,7 @@ components:
           items:
             $ref: '#/components/schemas/DeliverableSubmissionItem'
           minItems: 1
-          description: Um item por campo da etapa; campos obrigatórios devem constar. Em JSON só há links.
+          description: Um item por campo da etapa; campos obrigatórios devem constar. Em JSON vão links, canvas e SWOT.
         notes:
           type: string
           examples:
