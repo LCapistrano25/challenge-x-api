@@ -250,7 +250,7 @@ class FinalEvaluationView(APIView):
                 {
                     "question": question,
                     "value": answer.get("value"),
-                    "text": answer.get("answer_text") or "",
+                    "text": answer.get("text") or "",
                 }
             )
         evaluation = evaluate_finalist(
@@ -258,6 +258,6 @@ class FinalEvaluationView(APIView):
             project=project,
             answers=answers,
             comment=data.get("comment") or "",
-            finalize=data["status"] == "FINALIZED",
+            finalize=data["status"] == "EVALUATED",
         )
         return Response(FinalEvaluationSerializer(evaluation).data)

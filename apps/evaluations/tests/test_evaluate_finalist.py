@@ -174,14 +174,14 @@ def client_for(user):
     return client
 
 
-def corpo(form, status="FINALIZED", value="8.00"):
+def corpo(form, status="EVALUATED", value="8.00"):
     nota, texto = form.questions.all()
     return {
         "status": status,
         "comment": "Apresentação objetiva.",
         "answers": [
             {"question_id": nota.pk, "value": value},
-            {"question_id": texto.pk, "answer_text": "Bom pitch."},
+            {"question_id": texto.pk, "text": "Bom pitch."},
         ],
     }
 
@@ -228,7 +228,7 @@ def test_api_painel_nao_vaza_nota_nem_entrega(project, reviewer, form):
 def test_api_get_devolve_formulario_e_avaliacao(project, reviewer, form):
     client = client_for(reviewer.user)
     antes = client.get(url(project))
-    client.put(url(project), corpo(form, "IN_PROGRESS"), format="json")
+    client.put(url(project), corpo(form, "PENDING"), format="json")
     depois = client.get(url(project))
 
     assert antes.status_code == 200 and antes.data["evaluation"] is None

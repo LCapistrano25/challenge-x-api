@@ -312,25 +312,23 @@ class FinalAnswerWriteSerializer(serializers.Serializer):
     value = serializers.DecimalField(
         max_digits=5, decimal_places=2, required=False, allow_null=True
     )
-    answer_text = serializers.CharField(
-        required=False, allow_null=True, allow_blank=True
-    )
+    text = serializers.CharField(required=False, allow_null=True, allow_blank=True)
 
 
 class FinalEvaluationWriteSerializer(serializers.Serializer):
-    # IN_PROGRESS salva o rascunho; FINALIZED tranca a avaliação.
-    status = serializers.ChoiceField(choices=["IN_PROGRESS", "FINALIZED"])
+    # PENDING salva o rascunho; EVALUATED tranca a avaliação.
+    status = serializers.ChoiceField(choices=["PENDING", "EVALUATED"])
     comment = serializers.CharField(required=False, allow_null=True, allow_blank=True)
     answers = FinalAnswerWriteSerializer(many=True)
 
 
 class FinalAnswerSerializer(serializers.Serializer):
     question_id = serializers.IntegerField()
-    type = serializers.CharField(source="question.kind")
+    kind = serializers.CharField(source="question.kind")
     value = serializers.DecimalField(max_digits=5, decimal_places=2, allow_null=True)
-    answer_text = serializers.SerializerMethodField()
+    text = serializers.SerializerMethodField()
 
-    def get_answer_text(self, answer):
+    def get_text(self, answer):
         return answer.text or None
 
 
