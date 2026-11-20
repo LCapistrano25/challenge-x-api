@@ -39,8 +39,11 @@ class Team(TimeStampedModel):
         verbose_name = "equipe"
         verbose_name_plural = "equipes"
         constraints = [
+            # Equipe desfeita libera o nome para uma equipe nova.
             models.UniqueConstraint(
-                fields=["edition", "name"], name="unique_team_name_per_edition"
+                fields=["edition", "name"],
+                condition=~Q(status=TeamStatus.DISBANDED),
+                name="unique_team_name_per_edition",
             ),
             models.CheckConstraint(
                 condition=(

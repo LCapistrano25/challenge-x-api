@@ -8,7 +8,7 @@ from django.utils import timezone
 from apps.accounts.enums import UserRole
 from apps.accounts.factories import StudentFactory, UserFactory
 from apps.editions.factories import EditionFactory, StageFactory
-from apps.teams.enums import InvitationStatus, MemberRole
+from apps.teams.enums import InvitationStatus, MemberRole, TeamStatus
 from apps.teams.factories import TeamFactory, TeamMemberFactory
 from apps.teams.models import Invitation, Team, TeamMember
 from apps.teams.use_cases.create_team import (
@@ -235,6 +235,22 @@ def test_convite_recusado_desfaz_a_criacao_da_equipe():
 
     assert Team.objects.count() == teams_antes
     assert Invitation.objects.count() == 0
+
+
+def test_nome_de_equipe_desfeita_pode_ser_reutilizado():
+    student = StudentFactory()
+    edition = EditionFactory()
+    abre_formacao(edition)
+    TeamFactory(edition=edition, name="Equipe Aurora", status=TeamStatus.DISBANDED)
+
+    team = create_team(
+        actor=student.user,
+        edition_id=edition.id,
+        name="Equipe Aurora",
+        invitations=convites(),
+    )
+
+    assert team.status == TeamStatus.ACTIVE
 
 
 def test_nao_pode_criar_equipe_com_nome_duplicado_na_edicao():

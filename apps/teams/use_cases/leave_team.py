@@ -115,12 +115,23 @@ def leave_team(
 def _disband_team(team: Team, now) -> None:
     team.status = TeamStatus.DISBANDED
     team.save(update_fields=["status", "updated_at"])
-    Invitation.objects.filter(team=team, status=InvitationStatus.PENDING).update(
-        status=InvitationStatus.CANCELLED, updated_at=now
-    )
-    JoinRequest.objects.filter(team=team, status=RequestStatus.PENDING).update(
-        status=RequestStatus.CANCELLED, updated_at=now
-    )
+    invitations = Invitation.objects.filter(team=team, status=InvitationStatus.PENDING)
+    requests = JoinRequest.objects.filter(team=team, status=RequestStatus.PENDING)
+    # Avisa quem esperava resposta antes de cancelar, senão o convite some em silêncio.
+    waiting = [*invitations.select_related("student__user")]
+    waiting += [*requests.select_related("student__user")]
+    for item in waiting:
+        create_notification(
+            user=item.student.user,
+            notification_type=NotificationType.TEAM,
+            title="Equipe desfeita",
+            message=(
+                f"A equipe {team.name} foi desfeita; "
+                "o convite ou a solicitação foi cancelado."
+            ),
+        )
+    invitations.update(status=InvitationStatus.CANCELLED, updated_at=now)
+    requests.update(status=RequestStatus.CANCELLED, updated_at=now)
 
 
 def _invalidate_challenge(project) -> None:

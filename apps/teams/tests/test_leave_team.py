@@ -112,6 +112,21 @@ def test_lider_sozinho_sai_e_desfaz_a_equipe():
     assert pedido.status == RequestStatus.CANCELLED
 
 
+def test_quem_esperava_resposta_e_avisado_quando_a_equipe_e_desfeita():
+    team = TeamFactory()
+    create_open_formation(team.edition)
+    leader = team.members.get(role=MemberRole.LEADER, active=True)
+    convidado = InvitationFactory(team=team).student
+    solicitante = JoinRequestFactory(team=team).student
+
+    with patch("apps.teams.use_cases.leave_team.create_notification") as notify:
+        leave_team(actor=leader.student.user, team_id=team.id)
+
+    avisados = {call.kwargs["user"] for call in notify.call_args_list}
+    assert avisados == {convidado.user, solicitante.user}
+    assert all(c.kwargs["title"] == "Equipe desfeita" for c in notify.call_args_list)
+
+
 def test_aluno_que_desfez_a_equipe_pode_entrar_em_outra():
     team = TeamFactory()
     create_open_formation(team.edition)

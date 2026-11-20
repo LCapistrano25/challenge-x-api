@@ -38,6 +38,9 @@ def request_to_join(
     if team is None:
         raise JoinRequestRejected("Equipe não encontrada.")
 
+    if team.status == TeamStatus.DISBANDED:
+        raise JoinRequestRejected("Esta equipe foi desfeita.")
+
     if team.status != TeamStatus.ACTIVE:
         raise JoinRequestRejected(
             "Não é possível solicitar entrada em uma equipe desclassificada."

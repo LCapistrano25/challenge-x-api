@@ -10,7 +10,7 @@ from apps.accounts.models import Student, User
 from apps.core.exceptions import BusinessRuleViolation
 from apps.editions.enums import StageKind
 from apps.editions.models import Edition, Stage
-from apps.teams.enums import MemberRole
+from apps.teams.enums import MemberRole, TeamStatus
 from apps.teams.models import Team, TeamMember
 from apps.teams.use_cases.invite_member import InvitationRejected, invite_member
 
@@ -85,7 +85,11 @@ def create_team(
     if not name:
         raise TeamCreationRejected("O nome da equipe é obrigatório.")
 
-    if Team.objects.filter(edition=edition, name=name).exists():
+    if (
+        Team.objects.filter(edition=edition, name=name)
+        .exclude(status=TeamStatus.DISBANDED)
+        .exists()
+    ):
         raise TeamCreationRejected("Já existe uma equipe com esse nome nesta edição.")
 
     invitations = invitations or []
