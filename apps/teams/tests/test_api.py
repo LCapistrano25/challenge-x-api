@@ -852,7 +852,9 @@ def test_aluno_sai_da_equipe_pela_api():
 
     client = authenticated_client(student.user)
 
-    response = client.post(f"{TEAMS_URL}/{team.id}/leave")
+    response = client.post(
+        f"{TEAMS_URL}/{team.id}/leave", {"confirm": True}, format="json"
+    )
 
     assert response.status_code == 204
 
@@ -948,3 +950,20 @@ def test_professor_nao_consegue_sair_pela_api():
     response = client.post(f"{TEAMS_URL}/{team.id}/leave")
 
     assert response.status_code == 403
+
+
+def test_saida_abaixo_do_minimo_pede_confirmacao_pela_api():
+    team = TeamFactory()
+    create_open_formation(team.edition)
+    saindo = TeamMemberFactory(team=team, role=MemberRole.MEMBER)
+    client = authenticated_client(saindo.student.user)
+
+    sem_confirmar = client.post(f"{TEAMS_URL}/{team.id}/leave")
+    confirmando = client.post(
+        f"{TEAMS_URL}/{team.id}/leave", {"confirm": True}, format="json"
+    )
+
+    assert sem_confirmar.status_code == 409
+    assert sem_confirmar.data["error"]["code"] == "leave_below_minimum"
+    assert "1 de 3 integrantes" in sem_confirmar.data["error"]["message"]
+    assert confirmando.status_code == 204

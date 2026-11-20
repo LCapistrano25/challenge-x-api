@@ -15,17 +15,28 @@ class LeaveTeamRejected(Exception):
     """A saída da equipe foi rejeitada por uma regra de negócio."""
 
 
+class LeaveBelowMinimum(LeaveTeamRejected):
+    """A saída deixa a equipe abaixo do mínimo e ainda não foi confirmada."""
+
+    code = "leave_below_minimum"
+
+
 @transaction.atomic
 def leave_team(
     *,
     actor: User,
     team_id: int,
+    confirm: bool = False,
 ) -> TeamMember:
     """Encerra o vínculo do acadêmico com sua equipe, preservando o histórico.
 
     O líder só sai depois de transferir a liderança, a não ser que esteja sozinho:
     aí a saída desfaz a equipe (status DISBANDED) e cancela os convites e as
     solicitações pendentes, para o aluno poder entrar em outra equipe.
+
+    Se a saída deixa a equipe com algum integrante, mas abaixo do mínimo da
+    edição, ela só vale com confirm=True (LeaveBelowMinimum): perto do fim do
+    prazo a equipe não tem tempo de repor a vaga.
     """
     if actor.role != UserRole.STUDENT:
         raise LeaveTeamRejected("Somente alunos podem sair de equipes.")
@@ -75,6 +86,19 @@ def leave_team(
             raise LeaveTeamRejected("Transfira a liderança antes de sair da equipe.")
         _disband_team(team, now)
 
+    remaining = (
+        TeamMember.objects.filter(team=team, active=True)
+        .exclude(pk=membership.pk)
+        .count()
+    )
+    minimum = team.edition.min_members
+    below_minimum = 0 < remaining < minimum
+    if below_minimum and not confirm:
+        raise LeaveBelowMinimum(
+            f"Sua saída deixa a equipe com {remaining} de {minimum} integrantes. "
+            "Confirme para sair."
+        )
+
     membership.active = False
     membership.left_at = now
     membership.save(update_fields=["active", "left_at", "updated_at"])
@@ -105,7 +129,14 @@ def leave_team(
             user=member.student.user,
             notification_type=NotificationType.TEAM,
             title="Integrante saiu da equipe",
-            message=f"{student.user.name} saiu da equipe {team.name}.",
+            message=(
+                f"{student.user.name} saiu da equipe {team.name}."
+                + (
+                    f" A equipe ficou com {remaining} de {minimum} integrantes."
+                    if below_minimum
+                    else ""
+                )
+            ),
             link=f"/equipes/{team.id}",
         )
 

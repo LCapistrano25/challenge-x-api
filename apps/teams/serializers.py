@@ -4,6 +4,11 @@ from apps.teams.enums import InvitationStatus, RequestStatus
 from apps.teams.models import Invitation, JoinRequest, Team, TeamMember
 
 
+class TeamLeaveSerializer(serializers.Serializer):
+    # Confirma a saída que deixa a equipe abaixo do mínimo de integrantes.
+    confirm = serializers.BooleanField(default=False)
+
+
 class TeamMemberSerializer(serializers.ModelSerializer):
     student = serializers.SerializerMethodField()
 

@@ -18,6 +18,7 @@ from apps.teams.factories import (
     TeamMemberFactory,
 )
 from apps.teams.use_cases.leave_team import (
+    LeaveBelowMinimum,
     LeaveTeamRejected,
     leave_team,
 )
@@ -56,6 +57,7 @@ def test_leave_team_successfully():
     membership = leave_team(
         actor=student.user,
         team_id=team.id,
+        confirm=True,
     )
 
     membership.refresh_from_db()
@@ -239,6 +241,7 @@ def test_leave_team_invalidates_challenge_without_course_representative():
         leave_team(
             actor=student.user,
             team_id=team.id,
+            confirm=True,
         )
 
     invalidate.assert_called_once_with(project)
@@ -264,6 +267,7 @@ def test_leave_team_notifies_remaining_members():
         leave_team(
             actor=student.user,
             team_id=team.id,
+            confirm=True,
         )
 
     notify.assert_called_once()
@@ -273,3 +277,47 @@ def test_leave_team_notifies_remaining_members():
     assert notification["user"] == leader.student.user
     assert notification["notification_type"] == NotificationType.TEAM
     assert notification["title"] == "Integrante saiu da equipe"
+
+
+def test_saida_que_deixa_a_equipe_abaixo_do_minimo_exige_confirmacao():
+    team = TeamFactory()  # min_members=3 por padrão
+    create_open_formation(team.edition)
+    TeamMemberFactory(team=team, role=MemberRole.MEMBER)
+    saindo = TeamMemberFactory(team=team, role=MemberRole.MEMBER)
+
+    with pytest.raises(LeaveBelowMinimum, match="2 de 3 integrantes"):
+        leave_team(actor=saindo.student.user, team_id=team.id)
+
+    saindo.refresh_from_db()
+    assert saindo.active is True
+
+    leave_team(actor=saindo.student.user, team_id=team.id, confirm=True)
+
+    saindo.refresh_from_db()
+    assert saindo.active is False
+
+
+def test_saida_que_mantem_o_minimo_nao_pede_confirmacao():
+    team = TeamFactory()
+    create_open_formation(team.edition)
+    for _ in range(2):
+        TeamMemberFactory(team=team, role=MemberRole.MEMBER)
+    saindo = TeamMemberFactory(team=team, role=MemberRole.MEMBER)  # sobram 3 de 3
+
+    leave_team(actor=saindo.student.user, team_id=team.id)
+
+    saindo.refresh_from_db()
+    assert saindo.active is False
+
+
+def test_aviso_aos_demais_diz_quanto_a_equipe_ficou_abaixo_do_minimo():
+    team = TeamFactory()
+    create_open_formation(team.edition)
+    saindo = TeamMemberFactory(team=team, role=MemberRole.MEMBER)
+
+    with patch("apps.teams.use_cases.leave_team.create_notification") as notify:
+        leave_team(actor=saindo.student.user, team_id=team.id, confirm=True)
+
+    assert (
+        "A equipe ficou com 1 de 3 integrantes." in notify.call_args.kwargs["message"]
+    )

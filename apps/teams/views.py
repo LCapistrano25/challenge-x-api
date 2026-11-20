@@ -22,6 +22,7 @@ from apps.teams.serializers import (
     JoinRequestStatusFilterSerializer,
     TeamAvailabilitySerializer,
     TeamCreateSerializer,
+    TeamLeaveSerializer,
     TeamSerializer,
 )
 from apps.teams.use_cases.create_team import create_team
@@ -472,10 +473,14 @@ class TeamLeaveView(APIView):
     permission_classes = [IsAuthenticated, IsStudent]
 
     def post(self, request, team_id):
+        serializer = TeamLeaveSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
         try:
             leave_team(
                 actor=request.user,
                 team_id=team_id,
+                **serializer.validated_data,
             )
         except LeaveTeamRejected as error:
             message = str(error)
@@ -497,7 +502,7 @@ class TeamLeaveView(APIView):
                     ),
                 }
 
-                code = error_codes.get(
+                code = getattr(error, "code", None) or error_codes.get(
                     message,
                     "leave_team_rejected",
                 )
