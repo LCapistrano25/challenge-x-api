@@ -1,13 +1,15 @@
 from collections import Counter, defaultdict
 from decimal import Decimal
 
+from django.db.models import Q
 from django.utils import timezone
 
-from apps.accounts.models import Teacher
+from apps.accounts.models import ExternalReviewer, Teacher
 from apps.editions.enums import EditionStatus, StageKind
-from apps.editions.models import Stage
-from apps.evaluations.enums import EvaluationStatus, ScoreStatus
-from apps.evaluations.models import Evaluation, StageScore
+from apps.editions.models import EditionReviewer, Stage
+from apps.evaluations.enums import EvaluationStatus, FinalEvaluationStatus, ScoreStatus
+from apps.evaluations.exceptions import FinalFormNotPublished
+from apps.evaluations.models import Evaluation, FinalEvaluation, FinalForm, StageScore
 from apps.projects.enums import DeliveryStatus
 from apps.projects.models import DeadlineExtension, Project, SubmissionVersion
 from apps.projects.selectors import get_delivery_status
@@ -178,3 +180,60 @@ def get_project_scores(project: Project) -> list[dict]:
             }
         )
     return result
+
+
+def list_finalists(
+    *,
+    reviewer: ExternalReviewer,
+    course_id: int | None = None,
+    category_id: int | None = None,
+) -> list[dict]:
+    """Finalistas da edição vigente dentro da abrangência do avaliador (RF42).
+
+    Vínculo sem curso cobre todos os cursos; com curso, só os desafios dele.
+    Levanta FinalFormNotPublished se a edição ainda não publicou o formulário.
+    """
+    links = list(
+        EditionReviewer.objects.filter(
+            reviewer=reviewer, edition__status=EditionStatus.PUBLISHED
+        )
+    )
+    published = set(
+        FinalForm.objects.filter(
+            published=True, edition_id__in=[link.edition_id for link in links]
+        ).values_list("edition_id", flat=True)
+    )
+    if links and not published:
+        raise FinalFormNotPublished
+    scope = Q(pk__in=[])
+    for link in links:
+        if link.edition_id in published:
+            scope |= Q(edition_id=link.edition_id) & (
+                Q(challenge__course_id=link.course_id) if link.course_id else Q()
+            )
+    projects = (
+        Project.objects.filter(scope, result__finalist=True)
+        .select_related(
+            "team", "edition", "challenge__course", "challenge__sdg", "category"
+        )
+        .order_by("pk")
+    )
+    if course_id is not None:
+        projects = projects.filter(challenge__course_id=course_id)
+    if category_id is not None:
+        projects = projects.filter(category_id=category_id)
+    statuses = dict(
+        FinalEvaluation.objects.filter(reviewer=reviewer).values_list(
+            "project_id", "status"
+        )
+    )
+    return [
+        {
+            "project": project,
+            "team": project.team,
+            "my_evaluation_status": statuses.get(
+                project.pk, FinalEvaluationStatus.PENDING
+            ),
+        }
+        for project in projects
+    ]
