@@ -4,21 +4,25 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts.permissions import IsAdmin, IsStudent, IsTeacher
-from apps.editions.models import Stage
-from apps.evaluations.models import Evaluation, EvaluationItem
+from apps.editions.models import Edition, Stage
+from apps.evaluations.models import Evaluation, EvaluationItem, FinalForm
 from apps.evaluations.rules import ensure_teacher_in_challenge_course
 from apps.evaluations.selectors import get_project_scores, list_teacher_rows
 from apps.evaluations.serializers import (
     EvaluationFormSerializer,
     EvaluationSerializer,
     EvaluationWriteSerializer,
+    FinalFormSerializer,
+    FinalFormWriteSerializer,
     ProjectScoresSerializer,
     RectificationSerializer,
     RectificationWriteSerializer,
     TeacherProjectQuerySerializer,
     TeacherProjectRowSerializer,
 )
+from apps.evaluations.use_cases.configure_final_form import configure_final_form
 from apps.evaluations.use_cases.evaluate_submission import evaluate_submission
+from apps.evaluations.use_cases.publish_final_form import publish_final_form
 from apps.evaluations.use_cases.rectify_score import rectify_score
 from apps.projects.models import Project
 from apps.projects.rules import ensure_actor_can_view_project
@@ -127,3 +131,39 @@ class RectificationCreateView(APIView):
         return Response(
             RectificationSerializer(rectification).data, status=status.HTTP_201_CREATED
         )
+
+
+def get_final_form(edition_id):
+    form = FinalForm.objects.filter(edition_id=edition_id).first()
+    if form is None:
+        raise NotFound("Formulário da etapa final não encontrado.")
+    return form
+
+
+class FinalFormView(APIView):
+    permission_classes = [IsAdmin]
+
+    def get(self, request, edition_id):
+        return Response(FinalFormSerializer(get_final_form(edition_id)).data)
+
+    def put(self, request, edition_id):
+        edition = Edition.objects.filter(pk=edition_id).first()
+        if edition is None:
+            raise NotFound("Edição não encontrada.")
+        serializer = FinalFormWriteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        form = configure_final_form(
+            actor=request.user,
+            edition=edition,
+            title=serializer.validated_data["title"],
+            questions=serializer.validated_data["questions"],
+        )
+        return Response(FinalFormSerializer(form).data)
+
+
+class FinalFormPublishView(APIView):
+    permission_classes = [IsAdmin]
+
+    def post(self, request, edition_id):
+        form = publish_final_form(actor=request.user, form=get_final_form(edition_id))
+        return Response(FinalFormSerializer(form).data)

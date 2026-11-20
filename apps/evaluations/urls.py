@@ -4,6 +4,16 @@ from apps.evaluations import views
 
 urlpatterns = [
     path(
+        "admin/editions/<int:edition_id>/final-form",
+        views.FinalFormView.as_view(),
+        name="final-form",
+    ),
+    path(
+        "admin/editions/<int:edition_id>/final-form/publish",
+        views.FinalFormPublishView.as_view(),
+        name="final-form-publish",
+    ),
+    path(
         "admin/evaluations/<int:evaluation_id>/rectifications",
         views.RectificationCreateView.as_view(),
         name="rectification-create",

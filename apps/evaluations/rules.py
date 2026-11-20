@@ -4,7 +4,12 @@ from django.utils import timezone
 
 from apps.editions.enums import EditionStatus, StageKind
 from apps.evaluations.enums import EvaluationStatus, QuestionKind
-from apps.evaluations.exceptions import TeacherNotInCourse
+from apps.evaluations.exceptions import (
+    FinalFormAlreadyPublished,
+    FinalFormEmpty,
+    FinalFormHasAnswers,
+    TeacherNotInCourse,
+)
 
 # Os models importam estas regras; por isso elas pegam os models pelo registro
 # do Django (como a FK por string), sem import que fecharia o ciclo.
@@ -132,3 +137,17 @@ def ensure_all_criteria_scored(evaluation) -> None:
     criteria = evaluation.stage.criterion_links
     if not criteria.exists() or criteria.exclude(pk__in=scored).exists():
         raise ValidationError({"items": "Pontue todos os critérios da etapa."})
+
+
+def ensure_final_form_editable(form) -> None:
+    """Formulário publicado não muda se já houver resposta (RF12)."""
+    if form.published and form.evaluations.filter(answers__isnull=False).exists():
+        raise FinalFormHasAnswers
+
+
+def ensure_final_form_publishable(form) -> None:
+    """Publica só formulário ainda não publicado e com perguntas (RF12)."""
+    if form.published:
+        raise FinalFormAlreadyPublished
+    if not form.questions.exists():
+        raise FinalFormEmpty

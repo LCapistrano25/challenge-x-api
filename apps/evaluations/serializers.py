@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from apps.editions.models import StageCriterion
-from apps.evaluations.enums import EvaluationStatus, ScoreStatus
+from apps.evaluations.enums import EvaluationStatus, QuestionKind, ScoreStatus
 from apps.evaluations.models import StageScore
 
 
@@ -192,3 +192,60 @@ class RectificationSerializer(serializers.Serializer):
             "value": None if score.value is None else str(score.value),
             "evaluation_count": score.evaluation_count,
         }
+
+
+class FinalQuestionWriteSerializer(serializers.Serializer):
+    order = serializers.IntegerField(min_value=1)
+    prompt = serializers.CharField()
+    kind = serializers.ChoiceField(choices=QuestionKind.choices)
+    max_score = serializers.DecimalField(
+        max_digits=4, decimal_places=2, required=False, allow_null=True
+    )
+
+    def validate(self, data):
+        max_score = data.get("max_score")
+        if data["kind"] == QuestionKind.SCORE:
+            if max_score is None or max_score <= 0:
+                raise serializers.ValidationError(
+                    {"max_score": "Pergunta de nota exige pontuação máxima positiva."}
+                )
+        elif max_score is not None:
+            raise serializers.ValidationError(
+                {"max_score": "Só pergunta de nota tem pontuação máxima."}
+            )
+        data["max_score"] = max_score
+        return data
+
+
+class FinalFormWriteSerializer(serializers.Serializer):
+    title = serializers.CharField(max_length=150, allow_blank=True, allow_null=True)
+    questions = FinalQuestionWriteSerializer(many=True, allow_empty=False)
+
+    def validate_questions(self, questions):
+        orders = [q["order"] for q in questions]
+        if len(orders) != len(set(orders)):
+            raise serializers.ValidationError("A ordem das perguntas não pode repetir.")
+        return questions
+
+
+class FinalQuestionSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    order = serializers.IntegerField()
+    prompt = serializers.CharField()
+    kind = serializers.CharField()
+    max_score = serializers.DecimalField(
+        max_digits=4, decimal_places=2, allow_null=True
+    )
+
+
+class FinalFormSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    edition_id = serializers.IntegerField()
+    title = serializers.SerializerMethodField()
+    published = serializers.BooleanField()
+    questions = FinalQuestionSerializer(many=True)
+    created_at = serializers.DateTimeField()
+    updated_at = serializers.DateTimeField()
+
+    def get_title(self, form):
+        return form.title or None
