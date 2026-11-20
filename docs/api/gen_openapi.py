@@ -141,7 +141,7 @@ def op(method, path, opid, tag, summary, rf, roles, desc, *, authz=None, rules=(
 # ---------------------------------------------------------------- enums (DBML)
 enum("UserRole", ["STUDENT", "TEACHER", "EXTERNAL_EVALUATOR", "ADMIN"], "Perfil do usuário (enum user_role).")
 enum("EditionStatus", ["SETUP", "PUBLISHED", "IN_PROGRESS", "CLOSED"], "Situação da edição (enum edition_status).")
-enum("TeamStatus", ["ACTIVE", "DISQUALIFIED"], "Situação disciplinar da equipe (enum team_status).")
+enum("TeamStatus", ["ACTIVE", "DISQUALIFIED", "DISBANDED"], "Situação da equipe (enum team_status). DISBANDED: o líder saiu sozinho e a equipe foi desfeita.")
 enum("TeamQualification", ["QUALIFIED", "NOT_QUALIFIED"], "Resultado da verificação da equipe ao fim da formação (enum team_qualification). Semântica pendente (P-23).")
 enum("MemberRole", ["LEADER", "MEMBER"], "Papel do integrante na equipe (enum member_role).")
 enum("ProjectStatus", ["IN_PROGRESS", "SUBMITTED", "UNDER_EVALUATION", "APPROVED", "REJECTED"], "Situação do projeto (enum project_status). Transições pendentes (P-26).")
@@ -412,7 +412,10 @@ SC["Team"] = obj({
     "disqualification_reason": nul(TXT(ex=None)), "members": arr(ref("TeamMember"), description="Somente vínculos ativos."),
     "created_at": DT(), "updated_at": DT(),
 }, ["id", "edition_id", "name", "code", "status", "qualification", "disqualification_reason", "members", "created_at", "updated_at"])
-SC["TeamCreate"] = obj({"name": STR(ex="Equipe Aurora", maxLength=150)}, ["name"], strict=True)
+SC["TeamCreate"] = obj({"name": STR(ex="Equipe Aurora", maxLength=150),
+                        "invitations": arr(ref("InvitationCreate"), minItems=1,
+                                           description="Alunos a convidar, por student_id ou email. De min_members - 1 a max_members - 1 (nunca menos de 1).")},
+                       ["name", "invitations"], strict=True)
 SC["TeamListing"] = obj({"id": INT(ex=12), "name": STR(ex="Equipe Aurora"), "code": STR(ex="DXA7K2"), "member_count": INT(ex=3),
                          "available_slots": INT(ex=2), "courses": arr(ref("CourseSummary"))},
                         ["id", "name", "code", "member_count", "available_slots", "courses"])
@@ -939,7 +942,9 @@ op("get", "/api/me/dashboard", "teamsGetStudentDashboard", "teams", "Painel do a
 op("post", "/api/teams", "teamsCreate", "teams", "Criar equipe", ["RF21"], ["STUDENT"],
    "Cria uma equipe na edição vigente; o criador vira LEADER e o sistema gera o código da equipe.",
    body=ref("TeamCreate"), ok=ref("Team"), ok_code="201", ok_desc="Equipe criada.",
-   rules=[EV, "Somente durante o prazo da etapa FORMATION.", "O aluno não pode estar em outra equipe ativa na edição.", "Nome único na edição."],
+   rules=[EV, "Somente durante o prazo da etapa FORMATION.", "O aluno não pode estar em outra equipe ativa na edição.", "Nome único na edição.",
+          "A equipe não nasce só com o líder: o corpo traz de min_members - 1 a max_members - 1 convites (nunca menos de 1); fora disso, 400 team_invitations_required.",
+          "Equipe e convites são criados na mesma transação; um convite recusado por regra (aluno já em equipe, sem cadastro confirmado) desfaz a criação."],
    conflicts=[FORM_CLOSED, IN_TEAM, ("team_name_taken", "Já existe equipe com este nome na edição."), ("no_current_edition", "Não há edição vigente.")],
    pend=["P-41"])
 op("get", "/api/teams", "teamsListAvailable", "teams", "Consultar equipes com vagas", ["RF24"], ["STUDENT"],
@@ -982,7 +987,7 @@ op("post", "/api/join-requests/{join_request_id}/respond", "teamsRespondJoinRequ
 op("post", "/api/teams/{team_id}/leave", "teamsLeave", "teams", "Sair da equipe", ["RF26"], ["STUDENT"],
    "Encerra o vínculo do próprio aluno (left_at preenchido, active=false), preservando o histórico.", params=["TeamId"],
    ok_code="204", ok_desc="Saída registrada.", errs=["404"], authz="Somente o próprio integrante ativo.",
-   rules=["Somente durante a formação; depois disso a composição é congelada.", "O LEADER deve transferir a liderança antes (RF27).",
+   rules=["Somente durante a formação; depois disso a composição é congelada.", "O LEADER deve transferir a liderança antes (RF27), a não ser que esteja sozinho: aí a saída desfaz a equipe (status DISBANDED) e cancela os convites e as solicitações pendentes, e o aluno pode entrar em outra equipe.",
           "Se o curso do desafio ficar sem representante, a seleção do desafio deve ser invalidada (P-25)."],
    conflicts=[FORM_CLOSED, ("leader_must_transfer", "Transfira a liderança antes de sair da equipe.")], pend=["P-25"])
 op("post", "/api/teams/{team_id}/leadership-transfer", "teamsTransferLeadership", "teams", "Transferir liderança", ["RF27"], ["STUDENT"],

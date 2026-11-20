@@ -6422,6 +6422,8 @@ paths:
         - Somente durante o prazo da etapa FORMATION.
         - O aluno não pode estar em outra equipe ativa na edição.
         - Nome único na edição.
+        - A equipe não nasce só com o líder: o corpo traz de min_members - 1 a max_members - 1 convites (nunca menos de 1); fora disso, 400 team_invitations_required.
+        - Equipe e convites são criados na mesma transação; um convite recusado por regra (aluno já em equipe, sem cadastro confirmado) desfaz a criação.
 
         **Pendências relacionadas (api-pendencias.md):** P-41
       x-status: confirmed
@@ -6439,6 +6441,8 @@ paths:
               $ref: '#/components/schemas/TeamCreate'
             example:
               name: Equipe Aurora
+              invitations:
+              - student_id: 42
       responses:
         '201':
           description: Equipe criada.
@@ -7182,7 +7186,7 @@ paths:
 
         **Regras de negócio:**
         - Somente durante a formação; depois disso a composição é congelada.
-        - O LEADER deve transferir a liderança antes (RF27).
+        - O LEADER deve transferir a liderança antes (RF27), a não ser que esteja sozinho: aí a saída desfaz a equipe (status DISBANDED) e cancela os convites e as solicitações pendentes, e o aluno pode entrar em outra equipe.
         - Se o curso do desafio ficar sem representante, a seleção do desafio deve ser invalidada (P-25).
 
         **Pendências relacionadas (api-pendencias.md):** P-25
@@ -8083,7 +8087,8 @@ components:
       enum:
       - ACTIVE
       - DISQUALIFIED
-      description: Situação disciplinar da equipe (enum team_status).
+      - DISBANDED
+      description: 'Situação da equipe (enum team_status). DISBANDED: o líder saiu sozinho e a equipe foi desfeita.'
     TeamQualification:
       type: string
       enum:
@@ -10445,8 +10450,15 @@ components:
           maxLength: 150
           examples:
           - Equipe Aurora
+        invitations:
+          type: array
+          items:
+            $ref: '#/components/schemas/InvitationCreate'
+          minItems: 1
+          description: Alunos a convidar, por student_id ou email. De min_members - 1 a max_members - 1 (nunca menos de 1).
       required:
       - name
+      - invitations
       additionalProperties: false
     TeamListing:
       type: object
