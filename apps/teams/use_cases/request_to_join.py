@@ -3,12 +3,11 @@ from django.utils import timezone
 
 from apps.accounts.enums import UserRole
 from apps.accounts.models import Student, User
-from apps.editions.enums import StageKind
-from apps.editions.models import Stage
 from apps.notifications.models import NotificationType
 from apps.notifications.services import create_notification
 from apps.teams.enums import MemberRole, RequestStatus, TeamStatus
 from apps.teams.models import JoinRequest, Team, TeamMember
+from apps.teams.rules import is_formation_open_for_team
 
 
 class JoinRequestRejected(Exception):
@@ -38,6 +37,9 @@ def request_to_join(
     if team is None:
         raise JoinRequestRejected("Equipe não encontrada.")
 
+    if team.status == TeamStatus.DISBANDED:
+        raise JoinRequestRejected("Esta equipe foi desfeita.")
+
     if team.status != TeamStatus.ACTIVE:
         raise JoinRequestRejected(
             "Não é possível solicitar entrada em uma equipe desclassificada."
@@ -45,12 +47,7 @@ def request_to_join(
 
     now = timezone.now()
 
-    formation_open = Stage.objects.filter(
-        edition=team.edition,
-        kind=StageKind.FORMATION,
-        starts_at__lte=now,
-        ends_at__gte=now,
-    ).exists()
+    formation_open = is_formation_open_for_team(team, now)
 
     if not formation_open:
         raise JoinRequestRejected(

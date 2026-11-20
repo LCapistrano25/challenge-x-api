@@ -9,7 +9,7 @@ from apps.accounts.enums import UserRole
 from apps.accounts.factories import StudentFactory, UserFactory
 from apps.editions.factories import StageFactory
 from apps.notifications.models import Notification, NotificationType
-from apps.teams.enums import MemberRole, RequestStatus
+from apps.teams.enums import MemberRole, RequestStatus, TeamStatus
 from apps.teams.factories import (
     JoinRequestFactory,
     TeamFactory,
@@ -212,6 +212,16 @@ def test_nao_pode_enviar_solicitacao_duplicada():
         ).count()
         == 1
     )
+
+
+def test_equipe_desfeita_nao_pode_receber_solicitacao():
+    team = TeamFactory(status=TeamStatus.DISBANDED)
+    create_open_formation(team.edition)
+
+    with pytest.raises(JoinRequestRejected, match="Esta equipe foi desfeita."):
+        request_to_join(actor=StudentFactory().user, team_id=team.id)
+
+    assert JoinRequest.objects.count() == 0
 
 
 def test_equipe_desclassificada_nao_pode_receber_solicitacao():

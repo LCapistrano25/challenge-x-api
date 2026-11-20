@@ -3746,6 +3746,7 @@ paths:
                 status: ACTIVE
                 qualification: QUALIFIED
                 disqualification_reason: null
+                formation_extended_until: null
                 members:
                 - id: 101
                   student:
@@ -5029,6 +5030,7 @@ paths:
                   status: ACTIVE
                   qualification: QUALIFIED
                   disqualification_reason: null
+                  formation_extended_until: null
                   members:
                   - id: 101
                     student:
@@ -6421,7 +6423,9 @@ paths:
         - A edição vigente é a edição com status PUBLISHED ou IN_PROGRESS (P-41).
         - Somente durante o prazo da etapa FORMATION.
         - O aluno não pode estar em outra equipe ativa na edição.
-        - Nome único na edição.
+        - Nome único na edição (equipe desfeita libera o nome).
+        - A equipe não nasce só com o líder: o corpo traz de min_members - 1 a max_members - 1 convites (nunca menos de 1); fora disso, 400 team_invitations_required.
+        - Equipe e convites são criados na mesma transação; um convite recusado por regra (aluno já em equipe, sem cadastro confirmado) desfaz a criação.
 
         **Pendências relacionadas (api-pendencias.md):** P-41
       x-status: confirmed
@@ -6439,6 +6443,8 @@ paths:
               $ref: '#/components/schemas/TeamCreate'
             example:
               name: Equipe Aurora
+              invitations:
+              - student_id: 42
       responses:
         '201':
           description: Equipe criada.
@@ -6454,6 +6460,7 @@ paths:
                 status: ACTIVE
                 qualification: QUALIFIED
                 disqualification_reason: null
+                formation_extended_until: null
                 members:
                 - id: 101
                   student:
@@ -6597,6 +6604,7 @@ paths:
                 status: ACTIVE
                 qualification: QUALIFIED
                 disqualification_reason: null
+                formation_extended_until: null
                 members:
                 - id: 101
                   student:
@@ -7120,6 +7128,7 @@ paths:
                 status: ACTIVE
                 qualification: QUALIFIED
                 disqualification_reason: null
+                formation_extended_until: null
                 members:
                 - id: 101
                   student:
@@ -7182,8 +7191,10 @@ paths:
 
         **Regras de negócio:**
         - Somente durante a formação; depois disso a composição é congelada.
-        - O LEADER deve transferir a liderança antes (RF27).
+        - O LEADER deve transferir a liderança antes (RF27), a não ser que esteja sozinho: aí a saída desfaz a equipe (status DISBANDED) e cancela os convites e as solicitações pendentes, avisando por notificação quem esperava resposta, e o aluno pode entrar em outra equipe.
         - Se o curso do desafio ficar sem representante, a seleção do desafio deve ser invalidada (P-25).
+        - Se a saída deixa a equipe com algum integrante, mas abaixo do mínimo da edição, a API responde 409 leave_below_minimum até receber confirm true; os demais integrantes são avisados de quantos restaram.
+        - Se a saída ocorre nas últimas 24 horas do prazo de formação e deixa a equipe abaixo do mínimo, a equipe ganha, uma única vez, 48 horas depois do fim do prazo (formation_extended_until) para convidar, receber solicitações e aceitar convites. Durante a janela extra ninguém sai.
 
         **Pendências relacionadas (api-pendencias.md):** P-25
       x-status: proposed
@@ -7195,9 +7206,19 @@ paths:
       - P-25
       parameters:
       - $ref: '#/components/parameters/TeamId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TeamLeave'
+            example:
+              confirm: false
       responses:
         '204':
           description: Saída registrada.
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -7224,6 +7245,13 @@ paths:
                     error:
                       code: leader_must_transfer
                       message: Transfira a liderança antes de sair da equipe.
+                      details: null
+                leave_below_minimum:
+                  summary: A saída deixa a equipe com algum integrante, mas abaixo do mínimo; reenvie com confirm true.
+                  value:
+                    error:
+                      code: leave_below_minimum
+                      message: A saída deixa a equipe com algum integrante, mas abaixo do mínimo; reenvie com confirm true.
                       details: null
   /api/teams/{team_id}/member-notes:
     post:
@@ -8083,7 +8111,8 @@ components:
       enum:
       - ACTIVE
       - DISQUALIFIED
-      description: Situação disciplinar da equipe (enum team_status).
+      - DISBANDED
+      description: 'Situação da equipe (enum team_status). DISBANDED: o líder saiu sozinho e a equipe foi desfeita.'
     TeamQualification:
       type: string
       enum:
@@ -10381,6 +10410,8 @@ components:
       - joined_at
     Team:
       type: object
+      description: 'formation_extended_until: fim da janela extra para repor a vaga, concedida uma vez quando uma saída nas
+        últimas 24 horas do prazo deixa a equipe abaixo do mínimo; nulo se não houve.'
       properties:
         id:
           type: integer
@@ -10411,6 +10442,13 @@ components:
           - 'null'
           examples:
           - null
+        formation_extended_until:
+          type:
+          - string
+          - 'null'
+          format: date-time
+          examples:
+          - null
         members:
           type: array
           items:
@@ -10434,9 +10472,21 @@ components:
       - status
       - qualification
       - disqualification_reason
+      - formation_extended_until
       - members
       - created_at
       - updated_at
+    TeamLeave:
+      type: object
+      properties:
+        confirm:
+          type: boolean
+          description: Confirma a saída que deixa a equipe abaixo do mínimo de integrantes. Corpo opcional; sem ele, confirm
+            é false.
+          examples:
+          - false
+      additionalProperties: false
+      description: Corpo opcional.
     TeamCreate:
       type: object
       properties:
@@ -10445,8 +10495,15 @@ components:
           maxLength: 150
           examples:
           - Equipe Aurora
+        invitations:
+          type: array
+          items:
+            $ref: '#/components/schemas/InvitationCreate'
+          minItems: 1
+          description: Alunos a convidar, por student_id ou email. De min_members - 1 a max_members - 1 (nunca menos de 1).
       required:
       - name
+      - invitations
       additionalProperties: false
     TeamListing:
       type: object
