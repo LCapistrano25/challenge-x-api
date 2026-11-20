@@ -3,8 +3,16 @@ from django.core.exceptions import ValidationError
 from django.utils import timezone
 
 from apps.editions.enums import EditionStatus, StageKind
-from apps.evaluations.enums import EvaluationStatus, QuestionKind
-from apps.evaluations.exceptions import TeacherNotInCourse
+from apps.evaluations.enums import EvaluationStatus, FinalEvaluationStatus, QuestionKind
+from apps.evaluations.exceptions import (
+    FinalEvaluationAlreadyFinalized,
+    FinalFormAlreadyPublished,
+    FinalFormEmpty,
+    FinalFormHasAnswers,
+    FinalFormNotPublished,
+    FinalistNotFound,
+    TeacherNotInCourse,
+)
 
 # Os models importam estas regras; por isso elas pegam os models pelo registro
 # do Django (como a FK por string), sem import que fecharia o ciclo.
@@ -132,3 +140,56 @@ def ensure_all_criteria_scored(evaluation) -> None:
     criteria = evaluation.stage.criterion_links
     if not criteria.exists() or criteria.exclude(pk__in=scored).exists():
         raise ValidationError({"items": "Pontue todos os critérios da etapa."})
+
+
+def ensure_final_form_editable(form) -> None:
+    """Formulário publicado não muda se já houver resposta (RF12)."""
+    if form.published and form.evaluations.filter(answers__isnull=False).exists():
+        raise FinalFormHasAnswers
+
+
+def ensure_final_form_publishable(form) -> None:
+    """Publica só formulário ainda não publicado e com perguntas (RF12)."""
+    if form.published:
+        raise FinalFormAlreadyPublished
+    if not form.questions.exists():
+        raise FinalFormEmpty
+
+
+def ensure_reviewer_covers_finalist(reviewer, project) -> None:
+    """Só avalia finalista da edição para a qual o avaliador foi vinculado (RF42).
+
+    O vínculo sem curso vale para todos os cursos; com curso, só para os projetos
+    de desafios daquele curso. Fora disso o projeto "não existe" para ele.
+    """
+    result = getattr(project, "result", None)
+    links = apps.get_model("editions", "EditionReviewer").objects.filter(
+        edition_id=project.edition_id, reviewer=reviewer
+    )
+    covered = any(
+        link.course_id in (None, project.challenge.course_id) for link in links
+    )
+    if result is None or not result.finalist or not covered:
+        raise FinalistNotFound
+
+
+def ensure_final_form_published(form) -> None:
+    """A etapa final só abre com o formulário publicado (RF12)."""
+    if form is None or not form.published:
+        raise FinalFormNotPublished
+
+
+def ensure_final_evaluation_is_draft(evaluation) -> None:
+    """Avaliação finalizada é imutável (RF43)."""
+    if evaluation.status == FinalEvaluationStatus.EVALUATED:
+        raise FinalEvaluationAlreadyFinalized
+
+
+def ensure_all_questions_answered(evaluation) -> None:
+    """Finalizar exige resposta para todas as perguntas do formulário (RF43)."""
+    answered = set(evaluation.answers.values_list("question_id", flat=True))
+    missing = set(evaluation.form.questions.values_list("pk", flat=True)) - answered
+    if missing:
+        raise ValidationError(
+            {"answers": "Responda todas as perguntas para finalizar."}
+        )
