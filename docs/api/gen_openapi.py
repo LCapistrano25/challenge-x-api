@@ -409,9 +409,12 @@ SC["TeamMember"] = obj({"id": INT("Identificador do vínculo (team_member).", 10
 SC["Team"] = obj({
     "id": INT(ex=12), "edition_id": INT(ex=3), "name": STR(ex="Equipe Aurora"), "code": STR("Código de identificação da equipe.", "DXA7K2"),
     "status": ref("TeamStatus"), "qualification": nul(ref("TeamQualification")),
-    "disqualification_reason": nul(TXT(ex=None)), "members": arr(ref("TeamMember"), description="Somente vínculos ativos."),
+    "disqualification_reason": nul(TXT(ex=None)),
+    "formation_extended_until": nul(DT(ex=None)),
+    "members": arr(ref("TeamMember"), description="Somente vínculos ativos."),
     "created_at": DT(), "updated_at": DT(),
-}, ["id", "edition_id", "name", "code", "status", "qualification", "disqualification_reason", "members", "created_at", "updated_at"])
+}, ["id", "edition_id", "name", "code", "status", "qualification", "disqualification_reason", "formation_extended_until", "members", "created_at", "updated_at"],
+    desc="formation_extended_until: fim da janela extra para repor a vaga, concedida uma vez quando uma saída nas últimas 24 horas do prazo deixa a equipe abaixo do mínimo; nulo se não houve.")
 SC["TeamLeave"] = obj({"confirm": BOOL("Confirma a saída que deixa a equipe abaixo do mínimo de integrantes. Corpo opcional; sem ele, confirm é false.", False)},
                       description="Corpo opcional.", strict=True)
 SC["TeamCreate"] = obj({"name": STR(ex="Equipe Aurora", maxLength=150),
@@ -991,7 +994,8 @@ op("post", "/api/teams/{team_id}/leave", "teamsLeave", "teams", "Sair da equipe"
    ok_code="204", ok_desc="Saída registrada.", errs=["404"], authz="Somente o próprio integrante ativo.",
    rules=["Somente durante a formação; depois disso a composição é congelada.", "O LEADER deve transferir a liderança antes (RF27), a não ser que esteja sozinho: aí a saída desfaz a equipe (status DISBANDED) e cancela os convites e as solicitações pendentes, avisando por notificação quem esperava resposta, e o aluno pode entrar em outra equipe.",
           "Se o curso do desafio ficar sem representante, a seleção do desafio deve ser invalidada (P-25).",
-          "Se a saída deixa a equipe com algum integrante, mas abaixo do mínimo da edição, a API responde 409 leave_below_minimum até receber confirm true; os demais integrantes são avisados de quantos restaram."],
+          "Se a saída deixa a equipe com algum integrante, mas abaixo do mínimo da edição, a API responde 409 leave_below_minimum até receber confirm true; os demais integrantes são avisados de quantos restaram.",
+          "Se a saída ocorre nas últimas 24 horas do prazo de formação e deixa a equipe abaixo do mínimo, a equipe ganha, uma única vez, 48 horas depois do fim do prazo (formation_extended_until) para convidar, receber solicitações e aceitar convites. Durante a janela extra ninguém sai."],
    conflicts=[FORM_CLOSED, ("leader_must_transfer", "Transfira a liderança antes de sair da equipe."),
               ("leave_below_minimum", "A saída deixa a equipe com algum integrante, mas abaixo do mínimo; reenvie com confirm true.")], pend=["P-25"])
 op("post", "/api/teams/{team_id}/leadership-transfer", "teamsTransferLeadership", "teams", "Transferir liderança", ["RF27"], ["STUDENT"],

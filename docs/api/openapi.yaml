@@ -3746,6 +3746,7 @@ paths:
                 status: ACTIVE
                 qualification: QUALIFIED
                 disqualification_reason: null
+                formation_extended_until: null
                 members:
                 - id: 101
                   student:
@@ -5029,6 +5030,7 @@ paths:
                   status: ACTIVE
                   qualification: QUALIFIED
                   disqualification_reason: null
+                  formation_extended_until: null
                   members:
                   - id: 101
                     student:
@@ -6458,6 +6460,7 @@ paths:
                 status: ACTIVE
                 qualification: QUALIFIED
                 disqualification_reason: null
+                formation_extended_until: null
                 members:
                 - id: 101
                   student:
@@ -6601,6 +6604,7 @@ paths:
                 status: ACTIVE
                 qualification: QUALIFIED
                 disqualification_reason: null
+                formation_extended_until: null
                 members:
                 - id: 101
                   student:
@@ -7124,6 +7128,7 @@ paths:
                 status: ACTIVE
                 qualification: QUALIFIED
                 disqualification_reason: null
+                formation_extended_until: null
                 members:
                 - id: 101
                   student:
@@ -7189,6 +7194,7 @@ paths:
         - O LEADER deve transferir a liderança antes (RF27), a não ser que esteja sozinho: aí a saída desfaz a equipe (status DISBANDED) e cancela os convites e as solicitações pendentes, avisando por notificação quem esperava resposta, e o aluno pode entrar em outra equipe.
         - Se o curso do desafio ficar sem representante, a seleção do desafio deve ser invalidada (P-25).
         - Se a saída deixa a equipe com algum integrante, mas abaixo do mínimo da edição, a API responde 409 leave_below_minimum até receber confirm true; os demais integrantes são avisados de quantos restaram.
+        - Se a saída ocorre nas últimas 24 horas do prazo de formação e deixa a equipe abaixo do mínimo, a equipe ganha, uma única vez, 48 horas depois do fim do prazo (formation_extended_until) para convidar, receber solicitações e aceitar convites. Durante a janela extra ninguém sai.
 
         **Pendências relacionadas (api-pendencias.md):** P-25
       x-status: proposed
@@ -10404,6 +10410,8 @@ components:
       - joined_at
     Team:
       type: object
+      description: 'formation_extended_until: fim da janela extra para repor a vaga, concedida uma vez quando uma saída nas
+        últimas 24 horas do prazo deixa a equipe abaixo do mínimo; nulo se não houve.'
       properties:
         id:
           type: integer
@@ -10434,6 +10442,13 @@ components:
           - 'null'
           examples:
           - null
+        formation_extended_until:
+          type:
+          - string
+          - 'null'
+          format: date-time
+          examples:
+          - null
         members:
           type: array
           items:
@@ -10457,6 +10472,7 @@ components:
       - status
       - qualification
       - disqualification_reason
+      - formation_extended_until
       - members
       - created_at
       - updated_at
