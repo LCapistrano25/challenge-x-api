@@ -217,7 +217,6 @@ paths:
                 course:
                   id: 1
                   name: Engenharia de Software
-                  slug: ES
                 sdg:
                   id: 9
                   number: 9
@@ -1152,7 +1151,6 @@ paths:
                 course:
                   id: 1
                   name: Engenharia de Software
-                  slug: ES
                 sdg:
                   id: 9
                   number: 9
@@ -1217,7 +1215,6 @@ paths:
                 course:
                   id: 1
                   name: Engenharia de Software
-                  slug: ES
                 sdg:
                   id: 9
                   number: 9
@@ -1506,7 +1503,6 @@ paths:
                 course:
                   id: 1
                   name: Engenharia de Software
-                  slug: ES
                 created_at: '2026-10-22T16:00:00Z'
                 updated_at: '2026-10-22T16:00:00Z'
         '401':
@@ -1570,7 +1566,6 @@ paths:
                 course:
                   id: 1
                   name: Engenharia de Software
-                  slug: ES
                 created_at: '2026-10-22T16:00:00Z'
                 updated_at: '2026-10-22T16:00:00Z'
         '400':
@@ -1651,7 +1646,6 @@ paths:
                 course:
                   id: 1
                   name: Engenharia de Software
-                  slug: ES
                 created_at: '2026-10-22T16:00:00Z'
                 updated_at: '2026-10-22T16:00:00Z'
         '400':
@@ -2272,6 +2266,179 @@ paths:
                       code: edition_closed
                       message: A edição está encerrada e não pode ser alterada.
                       details: null
+  /api/admin/email-domains:
+    get:
+      tags:
+      - accounts
+      operationId: accountsListEmailDomains
+      summary: Listar domínios institucionais
+      description: |-
+        Lista os domínios de e-mail institucionais cadastrados.
+
+        **Requisitos:** RF02
+
+        **Autenticação:** obrigatória (Bearer JWT).
+
+        **Perfis permitidos:** ADMIN
+      x-status: confirmed
+      x-requirements:
+      - RF02
+      x-roles:
+      - ADMIN
+      parameters:
+      - $ref: '#/components/parameters/ActiveFilter'
+      - $ref: '#/components/parameters/InstitutionalRoleFilter'
+      responses:
+        '200':
+          description: Operação concluída.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EmailDomain'
+              example:
+              - id: 1
+                name: a.catolica-to.edu.br
+                role: STUDENT
+                active: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags:
+      - accounts
+      operationId: accountsCreateEmailDomain
+      summary: Cadastrar domínio institucional
+      description: |-
+        Cadastra um domínio de e-mail institucional associado a um perfil (STUDENT ou TEACHER).
+
+        **Requisitos:** RF02
+
+        **Autenticação:** obrigatória (Bearer JWT).
+
+        **Perfis permitidos:** ADMIN
+
+        **Regras de negócio:**
+        - O nome é normalizado para minúsculas e sem espaços; formato de domínio válido é obrigatório.
+        - Unicidade case-insensitive (409 email_domain_taken).
+        - Apenas STUDENT e TEACHER são aceitos.
+      x-status: confirmed
+      x-requirements:
+      - RF02
+      x-roles:
+      - ADMIN
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailDomainCreate'
+            example:
+              name: a.catolica-to.edu.br
+              role: STUDENT
+              active: true
+      responses:
+        '201':
+          description: Domínio criado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmailDomain'
+              example:
+                id: 1
+                name: a.catolica-to.edu.br
+                role: STUDENT
+                active: true
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: Conflito com uma regra de negócio.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                email_domain_taken:
+                  summary: Já existe um domínio de e-mail cadastrado com este nome.
+                  value:
+                    error:
+                      code: email_domain_taken
+                      message: Já existe um domínio de e-mail cadastrado com este nome.
+                      details: null
+  /api/admin/email-domains/{domain_id}:
+    patch:
+      tags:
+      - accounts
+      operationId: accountsUpdateEmailDomain
+      summary: Atualizar domínio institucional
+      description: |-
+        Edita nome, perfil ou status de ativação de um domínio institucional.
+
+        **Requisitos:** RF02
+
+        **Autenticação:** obrigatória (Bearer JWT).
+
+        **Perfis permitidos:** ADMIN
+
+        **Regras de negócio:**
+        - Aplica as mesmas regras de normalização, formato e unicidade case-insensitive do cadastro.
+      x-status: confirmed
+      x-requirements:
+      - RF02
+      x-roles:
+      - ADMIN
+      parameters:
+      - $ref: '#/components/parameters/DomainId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailDomainUpdate'
+            example:
+              name: a.catolica-to.edu.br
+              role: STUDENT
+              active: false
+      responses:
+        '200':
+          description: Operação concluída.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmailDomain'
+              example:
+                id: 1
+                name: a.catolica-to.edu.br
+                role: STUDENT
+                active: true
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Conflito com uma regra de negócio.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                email_domain_taken:
+                  summary: Já existe um domínio de e-mail cadastrado com este nome.
+                  value:
+                    error:
+                      code: email_domain_taken
+                      message: Já existe um domínio de e-mail cadastrado com este nome.
+                      details: null
   /api/admin/external-evaluators:
     get:
       tags:
@@ -2323,7 +2490,6 @@ paths:
                     course:
                       id: 1
                       name: Engenharia de Software
-                      slug: ES
                   created_at: '2026-10-22T16:00:00Z'
                   updated_at: '2026-10-22T16:00:00Z'
         '401':
@@ -2374,7 +2540,6 @@ paths:
                   course:
                     id: 1
                     name: Engenharia de Software
-                    slug: ES
                 created_at: '2026-10-22T16:00:00Z'
                 updated_at: '2026-10-22T16:00:00Z'
         '401':
@@ -2439,7 +2604,6 @@ paths:
                   course:
                     id: 1
                     name: Engenharia de Software
-                    slug: ES
                 created_at: '2026-10-22T16:00:00Z'
                 updated_at: '2026-10-22T16:00:00Z'
         '400':
@@ -3053,7 +3217,6 @@ paths:
                   course:
                     id: 1
                     name: Engenharia de Software
-                    slug: ES
                   term: 4
                   created_at: '2026-10-22T16:00:00Z'
                   updated_at: '2026-10-22T16:00:00Z'
@@ -3098,7 +3261,6 @@ paths:
                 course:
                   id: 1
                   name: Engenharia de Software
-                  slug: ES
                 term: 4
                 created_at: '2026-10-22T16:00:00Z'
                 updated_at: '2026-10-22T16:00:00Z'
@@ -3160,7 +3322,6 @@ paths:
                 course:
                   id: 1
                   name: Engenharia de Software
-                  slug: ES
                 term: 4
                 created_at: '2026-10-22T16:00:00Z'
                 updated_at: '2026-10-22T16:00:00Z'
@@ -3488,7 +3649,6 @@ paths:
                   - course:
                       id: 1
                       name: Engenharia de Software
-                      slug: ES
                     active: true
                   created_at: '2026-10-22T16:00:00Z'
                   updated_at: '2026-10-22T16:00:00Z'
@@ -3533,7 +3693,6 @@ paths:
                 - course:
                     id: 1
                     name: Engenharia de Software
-                    slug: ES
                   active: true
                 created_at: '2026-10-22T16:00:00Z'
                 updated_at: '2026-10-22T16:00:00Z'
@@ -3594,7 +3753,6 @@ paths:
                 - course:
                     id: 1
                     name: Engenharia de Software
-                    slug: ES
                   active: true
                 created_at: '2026-10-22T16:00:00Z'
                 updated_at: '2026-10-22T16:00:00Z'
@@ -3769,7 +3927,6 @@ paths:
                     course:
                       id: 1
                       name: Engenharia de Software
-                      slug: ES
                   role: LEADER
                   joined_at: '2026-10-22T16:00:00Z'
                 created_at: '2026-10-22T16:00:00Z'
@@ -3958,7 +4115,7 @@ paths:
       operationId: authCreateMicrosoftSession
       summary: Autenticar aluno ou professor com a Microsoft
       description: |-
-        Troca o authorization code da Microsoft por um JWT da aplicação. A troca do código e a consulta ao Microsoft Graph ocorrem no backend.
+        Troca o authorization code da Microsoft pela identidade do usuário e cria a sessão (cookie), como o login com senha. A troca do código ocorre no backend, com o client secret do app (plataforma Web no Entra ID). Exige o cabeçalho X-CSRFToken, obtido em GET /api/auth/csrf.
 
         **Requisitos:** RF18, RF36
 
@@ -3967,12 +4124,14 @@ paths:
         **Perfis permitidos:** qualquer visitante
 
         **Regras de negócio:**
-        - Domínio @a.catolica-to.edu.br define o perfil STUDENT; @p.catolica-to.edu.br define TEACHER. Outros domínios são rejeitados (403).
-        - No primeiro acesso, cria users e accounts (provider MICROSOFT, provider_account_id = identidade Microsoft), sem criar student/teacher.
+        - Só contas do tenant da instituição são aceitas; código inválido, expirado, já usado ou de outro tenant retorna 401 invalid_credentials.
+        - Domínio @a.catolica-to.edu.br define o perfil STUDENT; @p.catolica-to.edu.br define TEACHER. Outros domínios são rejeitados (403 domain_role_mismatch).
+        - No primeiro acesso, cria o usuário com a identidade Microsoft (oid), sem senha e sem criar student/teacher. Usuário já cadastrado com o mesmo e-mail (ex.: professor criado pelo administrador) é vinculado à identidade.
         - Se o e-mail já estiver vinculado a outra identidade Microsoft, a autenticação é recusada (409).
-        - Usuários inativos não recebem sessão (403).
+        - Usuários inativos não recebem sessão (403 inactive_account).
         - profile_completed=false indica que o frontend deve conduzir ao autocadastro (RF19) ou à configuração do professor (RF36.1).
-        - Expiração do token pendente (P-03).
+        - Microsoft indisponível ou login não configurado: 503 external_service_error.
+        - A sessão expira após 30 minutos de inatividade, renovados a cada requisição (P-03).
 
         **Pendências relacionadas (api-pendencias.md):** P-02, P-03, P-42
       x-status: confirmed
@@ -4001,11 +4160,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/MicrosoftSessionResponse'
               example:
-                token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                user_id: 42
+                name: Ana Ribeiro
+                email: ana@a.catolica-to.edu.br
                 role: STUDENT
                 profile_completed: false
         '400':
           $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
         '409':
@@ -4168,8 +4331,6 @@ paths:
       operationId: authCompleteTeacherProfile
       summary: Configurar perfil do professor
       description: |-
-        **Status: PROPOSTO** — o contrato depende da decisão de P-04 e pode mudar.
-
         Cria o perfil de professor (teacher) e os vínculos teacher_course com os cursos informados.
 
         **Requisitos:** RF36.1
@@ -4181,19 +4342,18 @@ paths:
         **Autorização adicional:** Somente o próprio usuário autenticado.
 
         **Regras de negócio:**
-        - Todos os cursos devem existir e estar ativos; não há vínculos duplicados.
+        - Todos os cursos devem existir e estar ativos (400 registration_rejected); não há vínculos duplicados.
         - Operação transacional.
-        - Se o vínculo criado concede escopo de avaliação imediatamente ou depende de aprovação do ADMIN está pendente (P-04).
+        - A escolha é única, no primeiro acesso: os vínculos já nascem ativos e concedem o escopo de avaliação. Depois disso, só o ADMIN altera os cursos (P-04, #68).
 
-        **Pendências relacionadas (api-pendencias.md):** P-02, P-04
-      x-status: proposed
+        **Pendências relacionadas (api-pendencias.md):** P-02
+      x-status: confirmed
       x-requirements:
       - RF36.1
       x-roles:
       - TEACHER
       x-pendencias:
       - P-02
-      - P-04
       requestBody:
         required: true
         content:
@@ -4267,7 +4427,49 @@ paths:
               example:
               - id: 1
                 name: Engenharia de Software
-                slug: ES
+  /api/deliverable-items/{item_id}/file:
+    get:
+      tags:
+      - projects
+      operationId: projectsDownloadDeliverableFile
+      summary: Baixar arquivo de um item da entrega
+      description: |-
+        Devolve o arquivo enviado em um item de campo FILE. O armazenamento é privado: este é o único caminho de acesso.
+
+        **Requisitos:** RF31
+
+        **Autenticação:** obrigatória (Bearer JWT).
+
+        **Perfis permitidos:** STUDENT, TEACHER, ADMIN
+
+        **Autorização adicional:** STUDENT: integrante ativo da equipe. TEACHER: vínculo ativo com o curso do desafio. ADMIN: qualquer (403 project_access_denied nos demais).
+
+        **Regras de negócio:**
+        - Item inexistente, de link ou com arquivo removido do armazenamento: 404.
+      x-status: confirmed
+      x-requirements:
+      - RF31
+      x-roles:
+      - STUDENT
+      - TEACHER
+      - ADMIN
+      parameters:
+      - $ref: '#/components/parameters/ItemId'
+      responses:
+        '200':
+          description: 'Conteúdo do arquivo, como anexo (`Content-Disposition: attachment`, `X-Content-Type-Options: nosniff`,
+            `Cache-Control: private, no-store`).'
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/deliverable-versions/{version_id}/receipt:
     get:
       tags:
@@ -4386,7 +4588,6 @@ paths:
                     course:
                       id: 1
                       name: Engenharia de Software
-                      slug: ES
                     sdg:
                       id: 9
                       number: 9
@@ -4463,7 +4664,6 @@ paths:
                   course:
                     id: 1
                     name: Engenharia de Software
-                    slug: ES
                   sdg:
                     id: 9
                     number: 9
@@ -4753,7 +4953,6 @@ paths:
                   course:
                     id: 1
                     name: Engenharia de Software
-                    slug: ES
                 status: PENDING
                 created_at: '2026-10-22T16:00:00Z'
                 responded_at: null
@@ -5011,7 +5210,6 @@ paths:
                       course:
                         id: 1
                         name: Engenharia de Software
-                        slug: ES
                     role: LEADER
                     joined_at: '2026-10-22T16:00:00Z'
                   created_at: '2026-10-22T16:00:00Z'
@@ -5025,11 +5223,10 @@ paths:
                   edition_id: 3
                   challenge:
                     id: 15
-                    title: Uso eficiente de recursos hídricos no campus
+                    description: Propor uma solução para reduzir o desperdício de água nas instalações da universidade.
                     course:
                       id: 1
                       name: Engenharia de Software
-                      slug: ES
                     sdg:
                       id: 9
                       number: 9
@@ -5044,7 +5241,6 @@ paths:
                   courses:
                   - id: 1
                     name: Engenharia de Software
-                    slug: ES
                   created_at: '2026-10-22T16:00:00Z'
                   updated_at: '2026-10-22T16:00:00Z'
                 stages:
@@ -5163,7 +5359,6 @@ paths:
                   course:
                     id: 1
                     name: Engenharia de Software
-                    slug: ES
                 status: PENDING
                 created_at: '2026-10-22T16:00:00Z'
                 responded_at: null
@@ -5351,7 +5546,7 @@ paths:
                     field_id: 31
                     type: LINK
                     link: null
-                    file_url: https://storage.projetox.edu.br/entregas/40/7/relatorio.pdf
+                    file_url: /api/deliverable-items/301/file
                     file_name: relatorio.pdf
                     size_bytes: 1048576
                   receipt:
@@ -5527,9 +5722,13 @@ paths:
         **Regras de negócio:**
         - Somente etapas pontuadas do tipo EVALUATION.
         - 0 ≤ points ≤ max_score do critério (400 points_out_of_range).
+        - Só avalia projeto com entrega válida: versão enviada até o prazo da equipe, com a prorrogação se houver.
+        - Um item por critério da etapa, sem repetição; critério de outra etapa é recusado.
         - FINALIZED exige todos os critérios e torna a avaliação imutável; retificação é escopo do RF14 (P-21).
-        - Ao finalizar, recalcula stage_score (média simples; FINALIZED quando evaluation_count ≥ min_evaluators).
+        - FINALIZED só depois do prazo de entrega da equipe, para não travar a nota numa versão que ela ainda pode substituir; o rascunho (DRAFT) pode ser salvo antes.
+        - Ao finalizar, recalcula stage_score (média simples; FINALIZED quando evaluation_count ≥ min_evaluators). A retificação do admin (RF14) também recalcula.
         - Respeita o prazo de avaliação (P-19).
+        - Violações de regra (avaliação finalizada, prazo, entrega inválida, critério repetido) voltam como 400 validation_error; professor sem vínculo com o curso volta 403 teacher_not_in_course.
 
         **Pendências relacionadas (api-pendencias.md):** P-19, P-21, P-33
       x-status: proposed
@@ -5592,20 +5791,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
               examples:
-                evaluation_already_finalized:
-                  summary: A avaliação já foi finalizada.
-                  value:
-                    error:
-                      code: evaluation_already_finalized
-                      message: A avaliação já foi finalizada.
-                      details: null
-                evaluation_period_closed:
-                  summary: O prazo de avaliação está encerrado.
-                  value:
-                    error:
-                      code: evaluation_period_closed
-                      message: O prazo de avaliação está encerrado.
-                      details: null
                 edition_closed:
                   summary: A edição está encerrada e não pode ser alterada.
                   value:
@@ -5633,8 +5818,12 @@ paths:
         **Autorização adicional:** O usuário deve ser o LEADER ativo da equipe.
 
         **Regras de negócio:**
-        - Somente dentro do prazo da etapa.
-        - Todos os campos obrigatórios preenchidos e válidos (formatos e tamanho máximo).
+        - Somente dentro do prazo da etapa, incluindo a prorrogação da equipe (409 stage_deadline_closed); antes do início, 409 stage_not_open.
+        - Todos os campos obrigatórios (LINK e FILE) respondidos, sem repetir, cada item com o tipo do seu campo (400 validation_error).
+        - Arquivo: extensão permitida pelos formatos do campo (400 file_format_not_allowed), até o tamanho máximo do campo e do servidor (400 file_too_large), não vazio e com conteúdo que combine com a extensão. Executáveis e scripts nunca entram.
+        - JSON aceita só links. Arquivos exigem multipart/form-data: `items` em string JSON, com `file_index` apontando para `files[]`; arquivo sobrando ou índice inexistente é 400.
+        - Os arquivos ficam em armazenamento privado, sem URL pública; o download é por GET /api/deliverable-items/{item_id}/file.
+        - O projeto precisa ter desafio, título e resumo (400 validation_error).
         - Cada envio cria version_number sequencial; versões anteriores são preservadas.
         - Equipe desclassificada ou incompleta não envia (P-23).
 
@@ -5653,9 +5842,17 @@ paths:
       requestBody:
         required: true
         content:
-          multipart/form-data:
+          application/json:
             schema:
               $ref: '#/components/schemas/DeliverableSubmission'
+            example:
+              items:
+              - field_id: 31
+                link: https://github.com/equipe/projeto
+              notes: Correção do relatório.
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DeliverableSubmissionMultipart'
       responses:
         '201':
           description: Versão registrada.
@@ -5676,7 +5873,7 @@ paths:
                   field_id: 31
                   type: LINK
                   link: null
-                  file_url: https://storage.projetox.edu.br/entregas/40/7/relatorio.pdf
+                  file_url: /api/deliverable-items/301/file
                   file_name: relatorio.pdf
                   size_bytes: 1048576
                 receipt:
@@ -5719,6 +5916,13 @@ paths:
                       code: team_incomplete
                       message: Equipes incompletas não podem realizar entregas.
                       details: null
+                stage_not_open:
+                  summary: A etapa ainda não está aberta.
+                  value:
+                    error:
+                      code: stage_not_open
+                      message: A etapa ainda não está aberta.
+                      details: null
                 edition_closed:
                   summary: A edição está encerrada e não pode ser alterada.
                   value:
@@ -5726,6 +5930,17 @@ paths:
                       code: edition_closed
                       message: A edição está encerrada e não pode ser alterada.
                       details: null
+        '503':
+          description: Armazenamento de arquivos indisponível.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  code: storage_unavailable
+                  message: Armazenamento indisponível.
+                  details: null
   /api/public/editions:
     get:
       tags:
@@ -5825,12 +6040,10 @@ paths:
                   icon: ods-09.svg
                 challenges:
                 - id: 15
-                  title: Uso eficiente de recursos hídricos no campus
                   description: Propor uma solução para reduzir o desperdício de água nas instalações da universidade.
                   course:
                     id: 1
                     name: Engenharia de Software
-                    slug: ES
                   sdg:
                     id: 9
                     number: 9
@@ -5883,7 +6096,6 @@ paths:
                 course:
                   id: 1
                   name: Engenharia de Software
-                  slug: ES
                 category:
                   id: 2
                   name: Protótipos e Artefatos
@@ -5900,7 +6112,6 @@ paths:
                   course:
                     id: 1
                     name: Engenharia de Software
-                    slug: ES
                   sdg:
                     id: 9
                     number: 9
@@ -5975,7 +6186,6 @@ paths:
                   course:
                     id: 1
                     name: Engenharia de Software
-                    slug: ES
                   sdg:
                     id: 9
                     number: 9
@@ -6030,7 +6240,6 @@ paths:
                 course:
                   id: 1
                   name: Engenharia de Software
-                  slug: ES
                 sdg:
                   id: 9
                   number: 9
@@ -6312,11 +6521,20 @@ paths:
         **Perfis permitidos:** TEACHER
 
         **Autorização adicional:** Somente projetos cujo desafio pertence a curso com vínculo ativo do professor. Não há atribuição individual de projetos.
+
+        **Regras de negócio:**
+        - Uma linha por projeto e etapa pontuada de entrega, só de edição publicada.
+        - deliverable_status é derivado (P-27): versão no prazo da equipe = SUBMITTED; sem versão e prazo aberto = NOT_SUBMITTED; sem versão e prazo encerrado = NOT_DELIVERED.
+        - pending_only devolve só entregas SUBMITTED que o professor autenticado ainda não finalizou.
+
+        **Pendências relacionadas (api-pendencias.md):** P-27
       x-status: confirmed
       x-requirements:
       - RF37
       x-roles:
       - TEACHER
+      x-pendencias:
+      - P-27
       parameters:
       - $ref: '#/components/parameters/CourseFilter'
       - $ref: '#/components/parameters/StageFilter'
@@ -6345,7 +6563,6 @@ paths:
                   challenge_course:
                     id: 1
                     name: Engenharia de Software
-                    slug: ES
                   stage:
                     id: 7
                     name: Entrega Preliminar
@@ -6418,7 +6635,6 @@ paths:
                     course:
                       id: 1
                       name: Engenharia de Software
-                      slug: ES
                   role: LEADER
                   joined_at: '2026-10-22T16:00:00Z'
                 created_at: '2026-10-22T16:00:00Z'
@@ -6509,7 +6725,6 @@ paths:
                   courses:
                   - id: 1
                     name: Engenharia de Software
-                    slug: ES
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -6563,7 +6778,6 @@ paths:
                     course:
                       id: 1
                       name: Engenharia de Software
-                      slug: ES
                   role: LEADER
                   joined_at: '2026-10-22T16:00:00Z'
                 created_at: '2026-10-22T16:00:00Z'
@@ -6778,7 +6992,6 @@ paths:
                   course:
                     id: 1
                     name: Engenharia de Software
-                    slug: ES
                 status: PENDING
                 created_at: '2026-10-22T16:00:00Z'
                 responded_at: null
@@ -6867,7 +7080,6 @@ paths:
                   course:
                     id: 1
                     name: Engenharia de Software
-                    slug: ES
                 status: PENDING
                 created_at: '2026-10-22T16:00:00Z'
                 responded_at: null
@@ -7089,7 +7301,6 @@ paths:
                     course:
                       id: 1
                       name: Engenharia de Software
-                      slug: ES
                   role: LEADER
                   joined_at: '2026-10-22T16:00:00Z'
                 created_at: '2026-10-22T16:00:00Z'
@@ -7328,11 +7539,10 @@ paths:
                 edition_id: 3
                 challenge:
                   id: 15
-                  title: Uso eficiente de recursos hídricos no campus
+                  description: Propor uma solução para reduzir o desperdício de água nas instalações da universidade.
                   course:
                     id: 1
                     name: Engenharia de Software
-                    slug: ES
                   sdg:
                     id: 9
                     number: 9
@@ -7347,7 +7557,6 @@ paths:
                 courses:
                 - id: 1
                   name: Engenharia de Software
-                  slug: ES
                 created_at: '2026-10-22T16:00:00Z'
                 updated_at: '2026-10-22T16:00:00Z'
         '401':
@@ -7356,41 +7565,34 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+  /api/teams/{team_id}/project/category:
     put:
       tags:
       - projects
-      operationId: projectsSaveTeamProject
-      summary: Cadastrar ou atualizar projeto (desafio, categoria e dados)
+      operationId: projectsSelectCategory
+      summary: Escolher a categoria do projeto
       description: |-
-        **Status: PROPOSTO** — o contrato depende da decisão de P-25 e pode mudar.
+        Grava a categoria escolhida pela equipe. Não altera desafio, título, resumo nem objetivo.
 
-        Cria ou atualiza o projeto em uma única operação, pois o modelo exige desafio, título e resumo juntos (P-25).
-
-        **Requisitos:** RF29, RF30, RF50
+        **Requisitos:** RF30, RF49
 
         **Autenticação:** obrigatória (Bearer JWT).
 
         **Perfis permitidos:** STUDENT
 
-        **Autorização adicional:** O usuário deve ser o LEADER ativo da equipe.
+        **Autorização adicional:** O usuário deve ser o LEADER ativo da equipe. Erro 403: not_team_leader.
 
         **Regras de negócio:**
-        - Somente durante a formação; depois os dados ficam congelados.
-        - Desafio deve pertencer a curso de integrante ativo (400 challenge_not_eligible).
-        - Categoria ativa da edição (400 category_not_available).
-        - A ODS e o curso do desafio são vinculados automaticamente.
-        - Título único na edição, ignorando maiúsculas/minúsculas e espaços extras.
-
-        **Pendências relacionadas (api-pendencias.md):** P-25
-      x-status: proposed
+        - Somente durante a formação; depois a categoria fica congelada (409 formation_closed).
+        - O projeto já existe, criado ao escolher o desafio (409 project_not_found).
+        - Categoria ativa da edição da equipe (400 category_not_available).
+        - Pode trocar de categoria até o fim da formação; não é possível limpá-la.
+      x-status: confirmed
       x-requirements:
-      - RF29
       - RF30
-      - RF50
+      - RF49
       x-roles:
       - STUDENT
-      x-pendencias:
-      - P-25
       parameters:
       - $ref: '#/components/parameters/TeamId'
       requestBody:
@@ -7398,16 +7600,12 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ProjectWrite'
+              $ref: '#/components/schemas/CategorySelection'
             example:
-              challenge_id: 15
               category_id: 2
-              title: Monitoramento inteligente do consumo de água
-              summary: Sensores de baixo custo e um painel web para identificar vazamentos no campus.
-              objective: Reduzir em 20% o desperdício de água no campus.
       responses:
         '200':
-          description: Projeto atualizado.
+          description: Operação concluída.
           content:
             application/json:
               schema:
@@ -7418,11 +7616,10 @@ paths:
                 edition_id: 3
                 challenge:
                   id: 15
-                  title: Uso eficiente de recursos hídricos no campus
+                  description: Propor uma solução para reduzir o desperdício de água nas instalações da universidade.
                   course:
                     id: 1
                     name: Engenharia de Software
-                    slug: ES
                   sdg:
                     id: 9
                     number: 9
@@ -7437,15 +7634,8 @@ paths:
                 courses:
                 - id: 1
                   name: Engenharia de Software
-                  slug: ES
                 created_at: '2026-10-22T16:00:00Z'
                 updated_at: '2026-10-22T16:00:00Z'
-        '201':
-          description: Projeto criado.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Project'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -7467,6 +7657,204 @@ paths:
                     error:
                       code: formation_closed
                       message: O prazo de formação de equipes está encerrado.
+                      details: null
+                project_not_found:
+                  summary: A equipe ainda não tem projeto. Escolha o desafio primeiro.
+                  value:
+                    error:
+                      code: project_not_found
+                      message: A equipe ainda não tem projeto. Escolha o desafio primeiro.
+                      details: null
+  /api/teams/{team_id}/project/challenge:
+    put:
+      tags:
+      - projects
+      operationId: projectsSelectChallenge
+      summary: Escolher o desafio do projeto
+      description: |-
+        Grava o desafio escolhido pela equipe e cria o projeto se ele ainda não existe. Não altera título, resumo nem categoria.
+
+        **Requisitos:** RF29
+
+        **Autenticação:** obrigatória (Bearer JWT).
+
+        **Perfis permitidos:** STUDENT
+
+        **Autorização adicional:** O usuário deve ser o LEADER ativo da equipe. Erro 403: not_team_leader.
+
+        **Regras de negócio:**
+        - Somente durante a formação; depois o desafio fica congelado (409 formation_closed).
+        - Desafio ativo da edição e de curso de integrante ativo (400 challenge_not_eligible).
+        - A ODS e o curso do desafio são vinculados automaticamente.
+      x-status: confirmed
+      x-requirements:
+      - RF29
+      x-roles:
+      - STUDENT
+      parameters:
+      - $ref: '#/components/parameters/TeamId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChallengeSelection'
+            example:
+              challenge_id: 15
+      responses:
+        '200':
+          description: Operação concluída.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+              example:
+                id: 40
+                team_id: 12
+                edition_id: 3
+                challenge:
+                  id: 15
+                  description: Propor uma solução para reduzir o desperdício de água nas instalações da universidade.
+                  course:
+                    id: 1
+                    name: Engenharia de Software
+                  sdg:
+                    id: 9
+                    number: 9
+                    title: Indústria, Inovação e Infraestrutura
+                category:
+                  id: 2
+                  name: Protótipos e Artefatos
+                title: Monitoramento inteligente do consumo de água
+                summary: Sensores de baixo custo e um painel web para identificar vazamentos no campus.
+                objective: Reduzir em 20% o desperdício de água no campus.
+                status: IN_PROGRESS
+                courses:
+                - id: 1
+                  name: Engenharia de Software
+                created_at: '2026-10-22T16:00:00Z'
+                updated_at: '2026-10-22T16:00:00Z'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Conflito com uma regra de negócio.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                formation_closed:
+                  summary: O prazo de formação de equipes está encerrado.
+                  value:
+                    error:
+                      code: formation_closed
+                      message: O prazo de formação de equipes está encerrado.
+                      details: null
+  /api/teams/{team_id}/project/details:
+    put:
+      tags:
+      - projects
+      operationId: projectsSaveProjectDetails
+      summary: Cadastrar ou atualizar os dados do projeto
+      description: |-
+        Grava título, resumo e objetivo do projeto; serve para cadastrar e para atualizar. Exige desafio já escolhido.
+
+        **Requisitos:** RF30
+
+        **Autenticação:** obrigatória (Bearer JWT).
+
+        **Perfis permitidos:** STUDENT
+
+        **Autorização adicional:** O usuário deve ser o LEADER ativo da equipe. Erro 403: not_team_leader.
+
+        **Regras de negócio:**
+        - Somente durante a formação; depois os dados ficam congelados (409 formation_closed).
+        - O desafio deve ter sido escolhido antes (409 challenge_not_selected).
+        - Título único na edição, ignorando maiúsculas/minúsculas e espaços extras.
+      x-status: confirmed
+      x-requirements:
+      - RF30
+      x-roles:
+      - STUDENT
+      parameters:
+      - $ref: '#/components/parameters/TeamId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectDetailsWrite'
+            example:
+              title: Monitoramento inteligente do consumo de água
+              summary: Sensores de baixo custo e um painel web para identificar vazamentos no campus.
+              objective: Reduzir em 20% o desperdício de água no campus.
+      responses:
+        '200':
+          description: Operação concluída.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+              example:
+                id: 40
+                team_id: 12
+                edition_id: 3
+                challenge:
+                  id: 15
+                  description: Propor uma solução para reduzir o desperdício de água nas instalações da universidade.
+                  course:
+                    id: 1
+                    name: Engenharia de Software
+                  sdg:
+                    id: 9
+                    number: 9
+                    title: Indústria, Inovação e Infraestrutura
+                category:
+                  id: 2
+                  name: Protótipos e Artefatos
+                title: Monitoramento inteligente do consumo de água
+                summary: Sensores de baixo custo e um painel web para identificar vazamentos no campus.
+                objective: Reduzir em 20% o desperdício de água no campus.
+                status: IN_PROGRESS
+                courses:
+                - id: 1
+                  name: Engenharia de Software
+                created_at: '2026-10-22T16:00:00Z'
+                updated_at: '2026-10-22T16:00:00Z'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Conflito com uma regra de negócio.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                formation_closed:
+                  summary: O prazo de formação de equipes está encerrado.
+                  value:
+                    error:
+                      code: formation_closed
+                      message: O prazo de formação de equipes está encerrado.
+                      details: null
+                challenge_not_selected:
+                  summary: Escolha o desafio antes de cadastrar os dados do projeto.
+                  value:
+                    error:
+                      code: challenge_not_selected
+                      message: Escolha o desafio antes de cadastrar os dados do projeto.
                       details: null
                 project_title_taken:
                   summary: Já existe projeto com título equivalente nesta edição.
@@ -7509,12 +7897,10 @@ paths:
               example:
                 challenges:
                 - id: 15
-                  title: Uso eficiente de recursos hídricos no campus
                   description: Propor uma solução para reduzir o desperdício de água nas instalações da universidade.
                   course:
                     id: 1
                     name: Engenharia de Software
-                    slug: ES
                   sdg:
                     id: 9
                     number: 9
@@ -7542,6 +7928,14 @@ components:
       in: path
       required: true
       description: Identificador do usuário.
+      schema:
+        type: integer
+        minimum: 1
+    DomainId:
+      name: domain_id
+      in: path
+      required: true
+      description: Identificador do domínio de e-mail.
       schema:
         type: integer
         minimum: 1
@@ -7637,6 +8031,13 @@ components:
       description: Identificador do projeto.
       schema:
         type: integer
+    ItemId:
+      name: item_id
+      in: path
+      required: true
+      description: Identificador do item da entrega.
+      schema:
+        type: integer
     VersionId:
       name: version_id
       in: path
@@ -7700,6 +8101,16 @@ components:
       description: Filtra pelo status de ativação.
       schema:
         type: boolean
+    InstitutionalRoleFilter:
+      name: role
+      in: query
+      required: false
+      description: Filtra pelo perfil institucional.
+      schema:
+        type: string
+        enum:
+        - STUDENT
+        - TEACHER
     CourseFilter:
       name: course_id
       in: query
@@ -8056,14 +8467,9 @@ components:
           type: string
           examples:
           - Engenharia de Software
-        slug:
-          type: string
-          examples:
-          - ES
       required:
       - id
       - name
-      - slug
     SdgSummary:
       type: object
       properties:
@@ -8219,17 +8625,17 @@ components:
           type: integer
           examples:
           - 15
-        title:
+        description:
           type: string
           examples:
-          - Uso eficiente de recursos hídricos no campus
+          - Propor uma solução para reduzir o desperdício de água nas instalações da universidade.
         course:
           $ref: '#/components/schemas/CourseSummary'
         sdg:
           $ref: '#/components/schemas/SdgSummary'
       required:
       - id
-      - title
+      - description
       - course
       - sdg
     MicrosoftSessionRequest:
@@ -8245,12 +8651,23 @@ components:
       additionalProperties: false
     MicrosoftSessionResponse:
       type: object
+      description: Usuário da sessão, como em SessionResponse. A credencial vai no cookie de sessão, não no corpo (#70, P-03).
       properties:
-        token:
-          type: string
-          description: JWT da aplicação.
+        user_id:
+          type: integer
+          minimum: 1
           examples:
-          - eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+          - 42
+        name:
+          type: string
+          examples:
+          - Ana Ribeiro
+        email:
+          type: string
+          format: email
+          maxLength: 254
+          examples:
+          - ana@a.catolica-to.edu.br
         role:
           $ref: '#/components/schemas/UserRole'
         profile_completed:
@@ -8259,7 +8676,9 @@ components:
           examples:
           - false
       required:
-      - token
+      - user_id
+      - name
+      - email
       - role
       - profile_completed
     PasswordSessionRequest:
@@ -8643,7 +9062,7 @@ components:
           type:
           - string
           - 'null'
-          maxLength: 200
+          maxLength: 150
           examples:
           - Instituto Tecnológico do Tocantins
       additionalProperties: false
@@ -8672,7 +9091,7 @@ components:
           type:
           - string
           - 'null'
-          maxLength: 200
+          maxLength: 150
           examples:
           - Instituto Tecnológico do Tocantins
       required:
@@ -8702,6 +9121,76 @@ components:
           - email
       required:
       - external_evaluator
+    EmailDomain:
+      type: object
+      properties:
+        id:
+          type: integer
+          examples:
+          - 1
+        name:
+          type: string
+          examples:
+          - a.catolica-to.edu.br
+        role:
+          type: string
+          enum:
+          - STUDENT
+          - TEACHER
+          example: STUDENT
+        active:
+          type: boolean
+          examples:
+          - true
+      required:
+      - id
+      - name
+      - role
+      - active
+    EmailDomainCreate:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 100
+          examples:
+          - a.catolica-to.edu.br
+        role:
+          type: string
+          enum:
+          - STUDENT
+          - TEACHER
+          example: STUDENT
+        active:
+          type: boolean
+          default: true
+          examples:
+          - true
+      required:
+      - name
+      - role
+      additionalProperties: false
+    EmailDomainUpdate:
+      type: object
+      description: Ao menos um campo deve ser informado.
+      properties:
+        name:
+          type: string
+          maxLength: 100
+          examples:
+          - a.catolica-to.edu.br
+        role:
+          type: string
+          enum:
+          - STUDENT
+          - TEACHER
+          example: TEACHER
+        active:
+          type: boolean
+          examples:
+          - false
+      additionalProperties: false
+      minProperties: 1
     Course:
       type: object
       properties:
@@ -9986,10 +10475,6 @@ components:
           type: integer
           examples:
           - 15
-        title:
-          type: string
-          examples:
-          - Uso eficiente de recursos hídricos no campus
         description:
           type: string
           examples:
@@ -10000,7 +10485,6 @@ components:
           $ref: '#/components/schemas/SdgSummary'
       required:
       - id
-      - title
       - description
       - course
       - sdg
@@ -10630,23 +11114,25 @@ components:
           examples:
           - 3
         challenge:
-          $ref: '#/components/schemas/ChallengeSummary'
+          oneOf:
+          - $ref: '#/components/schemas/ChallengeSummary'
+          - type: 'null'
         category:
           oneOf:
           - $ref: '#/components/schemas/CategoryRef'
           - type: 'null'
         title:
           type: string
+          description: Em branco até o líder cadastrar os dados do projeto (RF30).
           examples:
           - Monitoramento inteligente do consumo de água
         summary:
           type: string
+          description: Em branco até o líder cadastrar os dados do projeto (RF30).
           examples:
           - Sensores de baixo custo e um painel web para identificar vazamentos no campus.
         objective:
-          type:
-          - string
-          - 'null'
+          type: string
           examples:
           - Reduzir em 20% o desperdício de água no campus.
         status:
@@ -10679,17 +11165,29 @@ components:
       - courses
       - created_at
       - updated_at
-    ProjectWrite:
+    ChallengeSelection:
       type: object
       properties:
         challenge_id:
           type: integer
           examples:
           - 15
+      required:
+      - challenge_id
+      additionalProperties: false
+    CategorySelection:
+      type: object
+      properties:
         category_id:
           type: integer
           examples:
           - 2
+      required:
+      - category_id
+      additionalProperties: false
+    ProjectDetailsWrite:
+      type: object
+      properties:
         title:
           type: string
           maxLength: 200
@@ -10702,14 +11200,10 @@ components:
           examples:
           - Sensores de baixo custo e um painel web para identificar vazamentos no campus.
         objective:
-          type:
-          - string
-          - 'null'
+          type: string
           examples:
           - Reduzir em 20% o desperdício de água no campus.
       required:
-      - challenge_id
-      - category_id
       - title
       - summary
       additionalProperties: false
@@ -10772,9 +11266,11 @@ components:
           type:
           - string
           - 'null'
-          format: uri
+          description: Caminho autenticado de download (GET projectsDownloadDeliverableFile), nunca uma URL pública do armazenamento.
+            Nulo para link.
+          format: uri-reference
           examples:
-          - https://storage.projetox.edu.br/entregas/40/7/relatorio.pdf
+          - /api/deliverable-items/301/file
         file_name:
           type:
           - string
@@ -10890,30 +11386,68 @@ components:
       - status
       - official_version_id
       - versions
+    DeliverableSubmissionItem:
+      type: object
+      description: Informe `link` (campo LINK) ou `file_index` (campo FILE), apenas um dos dois.
+      properties:
+        field_id:
+          type: integer
+          examples:
+          - 31
+        link:
+          type: string
+          format: uri
+          examples:
+          - https://github.com/equipe/projeto
+        file_index:
+          type: integer
+          description: Posição do arquivo em `files[]`. Só vale em multipart.
+          minimum: 0
+          examples:
+          - 0
+      required:
+      - field_id
+      additionalProperties: false
     DeliverableSubmission:
       type: object
-      description: Formato multipart proposto (P-43).
+      description: Envio só com links, em JSON. Com arquivos (FILE), use multipart/form-data (DeliverableSubmissionMultipart,
+        P-43).
       properties:
         items:
-          type: string
-          description: 'JSON (string) com a lista de itens: [{"field_id": int, "link": string}] para LINK e [{"field_id":
-            int, "file_index": int}] para FILE, onde file_index aponta para a posição em files.'
-          contentMediaType: application/json
-          examples:
-          - '[{"field_id":31,"file_index":0},{"field_id":32,"link":"https://youtu.be/abc123"}]'
-        files:
           type: array
           items:
-            type: string
-            format: binary
-            contentMediaType: application/octet-stream
-          description: Arquivos referenciados por file_index.
+            $ref: '#/components/schemas/DeliverableSubmissionItem'
+          minItems: 1
+          description: Um item por campo da etapa; campos obrigatórios devem constar. Em JSON só há links.
         notes:
           type: string
           examples:
           - Correção do relatório.
       required:
       - items
+      additionalProperties: false
+    DeliverableSubmissionMultipart:
+      type: object
+      description: Envio com arquivos (P-43). Aceita também o nome de campo `files`.
+      properties:
+        items:
+          type: string
+          description: Lista de itens em JSON, como em `DeliverableSubmission.items`. Item de arquivo usa `file_index`.
+          examples:
+          - '[{"field_id": 31, "link": "https://github.com/equipe/projeto"}, {"field_id": 32, "file_index": 0}]'
+        notes:
+          type: string
+          examples:
+          - Correção do relatório.
+        files[]:
+          type: array
+          items:
+            type: string
+            format: binary
+          description: Arquivos da entrega; cada item de arquivo aponta para um deles por `file_index`. Sem arquivo sobrando.
+      required:
+      - items
+      additionalProperties: false
     Receipt:
       type: object
       properties:
