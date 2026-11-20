@@ -942,7 +942,7 @@ op("get", "/api/me/dashboard", "teamsGetStudentDashboard", "teams", "Painel do a
 op("post", "/api/teams", "teamsCreate", "teams", "Criar equipe", ["RF21"], ["STUDENT"],
    "Cria uma equipe na edição vigente; o criador vira LEADER e o sistema gera o código da equipe.",
    body=ref("TeamCreate"), ok=ref("Team"), ok_code="201", ok_desc="Equipe criada.",
-   rules=[EV, "Somente durante o prazo da etapa FORMATION.", "O aluno não pode estar em outra equipe ativa na edição.", "Nome único na edição.",
+   rules=[EV, "Somente durante o prazo da etapa FORMATION.", "O aluno não pode estar em outra equipe ativa na edição.", "Nome único na edição (equipe desfeita libera o nome).",
           "A equipe não nasce só com o líder: o corpo traz de min_members - 1 a max_members - 1 convites (nunca menos de 1); fora disso, 400 team_invitations_required.",
           "Equipe e convites são criados na mesma transação; um convite recusado por regra (aluno já em equipe, sem cadastro confirmado) desfaz a criação."],
    conflicts=[FORM_CLOSED, IN_TEAM, ("team_name_taken", "Já existe equipe com este nome na edição."), ("no_current_edition", "Não há edição vigente.")],
@@ -987,7 +987,7 @@ op("post", "/api/join-requests/{join_request_id}/respond", "teamsRespondJoinRequ
 op("post", "/api/teams/{team_id}/leave", "teamsLeave", "teams", "Sair da equipe", ["RF26"], ["STUDENT"],
    "Encerra o vínculo do próprio aluno (left_at preenchido, active=false), preservando o histórico.", params=["TeamId"],
    ok_code="204", ok_desc="Saída registrada.", errs=["404"], authz="Somente o próprio integrante ativo.",
-   rules=["Somente durante a formação; depois disso a composição é congelada.", "O LEADER deve transferir a liderança antes (RF27), a não ser que esteja sozinho: aí a saída desfaz a equipe (status DISBANDED) e cancela os convites e as solicitações pendentes, e o aluno pode entrar em outra equipe.",
+   rules=["Somente durante a formação; depois disso a composição é congelada.", "O LEADER deve transferir a liderança antes (RF27), a não ser que esteja sozinho: aí a saída desfaz a equipe (status DISBANDED) e cancela os convites e as solicitações pendentes, avisando por notificação quem esperava resposta, e o aluno pode entrar em outra equipe.",
           "Se o curso do desafio ficar sem representante, a seleção do desafio deve ser invalidada (P-25)."],
    conflicts=[FORM_CLOSED, ("leader_must_transfer", "Transfira a liderança antes de sair da equipe.")], pend=["P-25"])
 op("post", "/api/teams/{team_id}/leadership-transfer", "teamsTransferLeadership", "teams", "Transferir liderança", ["RF27"], ["STUDENT"],
