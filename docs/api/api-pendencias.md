@@ -369,7 +369,8 @@ Dois desvios do contrato de auth, ambos pela regra "DBML como referência":
 | Requisito | Situação | Endpoints principais |
 |---|---|---|
 | RF01 | Coberto | `POST /api/auth/sessions/password` |
-| RF02, RF10, RF15, RF16 | Removidos no documento de requisitos | — |
+| RF02 | Coberto | `/api/admin/email-domains` |
+| RF10, RF15, RF16 | Removidos no documento de requisitos | — |
 | RF03, RF04 | Coberto | `/api/admin/courses`, `/api/admin/sdgs`, `/api/admin/editions/{id}/sdgs` |
 | RF05, RF06, RF07, RF08, RF49 | Coberto | `/api/admin/editions/{id}/challenges`, `/criteria`, `/stages`, `/categories`, `/api/admin/stages/{id}/criteria` |
 | RF09 | Coberto | `POST /api/admin/editions/{id}/publish` |
