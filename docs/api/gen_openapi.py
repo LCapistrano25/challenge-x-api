@@ -524,11 +524,11 @@ SC["StageDeliverable"] = obj({
 }, ["stage", "fields", "status", "official_version_id", "versions"])
 _CANVAS_BLOCKS = ["customer_segments", "value_propositions", "channels", "customer_relationships", "revenue_streams",
                   "key_resources", "key_activities", "key_partnerships", "cost_structure"]
-SC["CanvasContent"] = obj({b: STR(ex="Texto do bloco.", minLength=1) for b in _CANVAS_BLOCKS}, _CANVAS_BLOCKS, strict=True,
-                          desc="Business Model Canvas (campo CANVAS): um texto não vazio por bloco, todos obrigatórios (P-47).")
+SC["CanvasContent"] = obj({b: STR(ex="Texto do bloco.", minLength=1, maxLength=5000) for b in _CANVAS_BLOCKS}, _CANVAS_BLOCKS, strict=True,
+                          desc="Business Model Canvas (campo CANVAS): um texto não vazio por bloco, de até 5000 caracteres, todos obrigatórios (P-47).")
 _SWOT_QUADRANTS = ["strengths", "weaknesses", "opportunities", "threats"]
-SC["SwotContent"] = obj({q: arr(STR(ex="Texto do item.", minLength=1), minItems=1) for q in _SWOT_QUADRANTS}, _SWOT_QUADRANTS, strict=True,
-                        desc="Matriz SWOT (campo SWOT): ao menos um texto não vazio por quadrante (P-47).")
+SC["SwotContent"] = obj({q: arr(STR(ex="Texto do item.", minLength=1, maxLength=5000), minItems=1, maxItems=20) for q in _SWOT_QUADRANTS}, _SWOT_QUADRANTS, strict=True,
+                        desc="Matriz SWOT (campo SWOT): de 1 a 20 textos não vazios por quadrante, de até 5000 caracteres cada (P-47).")
 SC["DeliverableSubmissionItem"] = obj({"field_id": INT(ex=31), "link": URL(ex="https://github.com/equipe/projeto"),
                                        "file_index": INT("Posição do arquivo em `files[]`. Só vale em multipart.", 0, minimum=0),
                                        "content": {"oneOf": [ref("CanvasContent"), ref("SwotContent")],
@@ -1092,7 +1092,7 @@ op("post", "/api/projects/{project_id}/stages/{stage_id}/versions", "projectsSub
          "example": {"error": {"code": "storage_unavailable", "message": "Armazenamento indisponível.", "details": None}}}}}},
    rules=["Somente dentro do prazo da etapa, incluindo a prorrogação da equipe (409 stage_deadline_closed); antes do início, 409 stage_not_open.",
           "Todos os campos obrigatórios (LINK, FILE, CANVAS e SWOT) respondidos, sem repetir, cada item com o tipo do seu campo (400 validation_error).",
-          "Canvas: um texto não vazio nos nove blocos. SWOT: ao menos um texto não vazio em cada quadrante. Chave desconhecida ou bloco vazio é 400 validation_error (P-47).",
+          "Canvas: um texto não vazio, de até 5000 caracteres, nos nove blocos. SWOT: de 1 a 20 textos não vazios, de até 5000 caracteres, em cada quadrante. Chave desconhecida ou bloco vazio é 400 validation_error (P-47).",
           "Arquivo: extensão permitida pelos formatos do campo (400 file_format_not_allowed), até o tamanho máximo do campo e do servidor (400 file_too_large), não vazio e com conteúdo que combine com a extensão. Executáveis e scripts nunca entram.",
           "JSON aceita links, canvas e SWOT. Arquivos exigem multipart/form-data: `items` em string JSON, com `file_index` apontando para `files[]`; arquivo sobrando ou índice inexistente é 400.",
           "Os arquivos ficam em armazenamento privado, sem URL pública; o download é por GET /api/deliverable-items/{item_id}/file.",

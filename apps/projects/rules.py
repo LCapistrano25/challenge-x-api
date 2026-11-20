@@ -253,8 +253,18 @@ CANVAS_BLOCKS = (
 SWOT_QUADRANTS = ("strengths", "weaknesses", "opportunities", "threats")
 
 
+# shortcut: limites fixos no código, sem configuração; ajustar se o professor pedir
+# mais (P-47). Sem eles, uma versão (que nunca é apagada) poderia ter megabytes.
+CONTENT_TEXT_MAX_LENGTH = 5000
+SWOT_QUADRANT_MAX_ITEMS = 20
+
+
 def _is_text(value) -> bool:
-    return isinstance(value, str) and bool(value.strip())
+    return (
+        isinstance(value, str)
+        and bool(value.strip())
+        and len(value) <= CONTENT_TEXT_MAX_LENGTH
+    )
 
 
 def _ensure_exact_keys(content, keys: tuple[str, ...], label: str) -> None:
@@ -278,7 +288,10 @@ def ensure_canvas_content(content) -> None:
     for block in CANVAS_BLOCKS:
         if not _is_text(content[block]):
             raise ValidationError(
-                {"items": f"Canvas: o bloco {block} precisa de um texto."}
+                {
+                    "items": f"Canvas: o bloco {block} precisa de um texto de até "
+                    f"{CONTENT_TEXT_MAX_LENGTH} caracteres."
+                }
             )
 
 
@@ -287,11 +300,16 @@ def ensure_swot_content(content) -> None:
     _ensure_exact_keys(content, SWOT_QUADRANTS, "SWOT")
     for quadrant in SWOT_QUADRANTS:
         texts = content[quadrant]
-        if not isinstance(texts, list) or not texts or not all(map(_is_text, texts)):
+        if (
+            not isinstance(texts, list)
+            or not 1 <= len(texts) <= SWOT_QUADRANT_MAX_ITEMS
+            or not all(map(_is_text, texts))
+        ):
             raise ValidationError(
                 {
-                    "items": f"SWOT: o quadrante {quadrant} precisa de uma lista "
-                    "com ao menos um texto, sem itens vazios."
+                    "items": f"SWOT: o quadrante {quadrant} precisa de uma lista de "
+                    f"1 a {SWOT_QUADRANT_MAX_ITEMS} textos, cada um não vazio e de "
+                    f"até {CONTENT_TEXT_MAX_LENGTH} caracteres."
                 }
             )
 

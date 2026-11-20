@@ -5660,7 +5660,7 @@ paths:
         **Regras de negócio:**
         - Somente dentro do prazo da etapa, incluindo a prorrogação da equipe (409 stage_deadline_closed); antes do início, 409 stage_not_open.
         - Todos os campos obrigatórios (LINK, FILE, CANVAS e SWOT) respondidos, sem repetir, cada item com o tipo do seu campo (400 validation_error).
-        - Canvas: um texto não vazio nos nove blocos. SWOT: ao menos um texto não vazio em cada quadrante. Chave desconhecida ou bloco vazio é 400 validation_error (P-47).
+        - Canvas: um texto não vazio, de até 5000 caracteres, nos nove blocos. SWOT: de 1 a 20 textos não vazios, de até 5000 caracteres, em cada quadrante. Chave desconhecida ou bloco vazio é 400 validation_error (P-47).
         - Arquivo: extensão permitida pelos formatos do campo (400 file_format_not_allowed), até o tamanho máximo do campo e do servidor (400 file_too_large), não vazio e com conteúdo que combine com a extensão. Executáveis e scripts nunca entram.
         - JSON aceita links, canvas e SWOT. Arquivos exigem multipart/form-data: `items` em string JSON, com `file_index` apontando para `files[]`; arquivo sobrando ou índice inexistente é 400.
         - Os arquivos ficam em armazenamento privado, sem URL pública; o download é por GET /api/deliverable-items/{item_id}/file.
@@ -11218,51 +11218,61 @@ components:
       - versions
     CanvasContent:
       type: object
-      description: 'Business Model Canvas (campo CANVAS): um texto não vazio por bloco, todos obrigatórios (P-47).'
+      description: 'Business Model Canvas (campo CANVAS): um texto não vazio por bloco, de até 5000 caracteres, todos obrigatórios
+        (P-47).'
       properties:
         customer_segments:
           type: string
           minLength: 1
+          maxLength: 5000
           examples:
           - Texto do bloco.
         value_propositions:
           type: string
           minLength: 1
+          maxLength: 5000
           examples:
           - Texto do bloco.
         channels:
           type: string
           minLength: 1
+          maxLength: 5000
           examples:
           - Texto do bloco.
         customer_relationships:
           type: string
           minLength: 1
+          maxLength: 5000
           examples:
           - Texto do bloco.
         revenue_streams:
           type: string
           minLength: 1
+          maxLength: 5000
           examples:
           - Texto do bloco.
         key_resources:
           type: string
           minLength: 1
+          maxLength: 5000
           examples:
           - Texto do bloco.
         key_activities:
           type: string
           minLength: 1
+          maxLength: 5000
           examples:
           - Texto do bloco.
         key_partnerships:
           type: string
           minLength: 1
+          maxLength: 5000
           examples:
           - Texto do bloco.
         cost_structure:
           type: string
           minLength: 1
+          maxLength: 5000
           examples:
           - Texto do bloco.
       required:
@@ -11278,40 +11288,48 @@ components:
       additionalProperties: false
     SwotContent:
       type: object
-      description: 'Matriz SWOT (campo SWOT): ao menos um texto não vazio por quadrante (P-47).'
+      description: 'Matriz SWOT (campo SWOT): de 1 a 20 textos não vazios por quadrante, de até 5000 caracteres cada (P-47).'
       properties:
         strengths:
           type: array
           items:
             type: string
             minLength: 1
+            maxLength: 5000
             examples:
             - Texto do item.
           minItems: 1
+          maxItems: 20
         weaknesses:
           type: array
           items:
             type: string
             minLength: 1
+            maxLength: 5000
             examples:
             - Texto do item.
           minItems: 1
+          maxItems: 20
         opportunities:
           type: array
           items:
             type: string
             minLength: 1
+            maxLength: 5000
             examples:
             - Texto do item.
           minItems: 1
+          maxItems: 20
         threats:
           type: array
           items:
             type: string
             minLength: 1
+            maxLength: 5000
             examples:
             - Texto do item.
           minItems: 1
+          maxItems: 20
       required:
       - strengths
       - weaknesses

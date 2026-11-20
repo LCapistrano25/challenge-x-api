@@ -33,6 +33,8 @@ from apps.projects.exceptions import (
 )
 from apps.projects.factories import DeadlineExtensionFactory, ProjectFactory
 from apps.projects.rules import (
+    CONTENT_TEXT_MAX_LENGTH,
+    SWOT_QUADRANT_MAX_ITEMS,
     ensure_actor_is_team_leader,
     ensure_category_available,
     ensure_challenge_eligible,
@@ -567,9 +569,17 @@ def with_block(**changes):
         with_block(extra="x"),
         with_block(channels="   "),
         with_block(channels=["lista"]),
+        with_block(channels="x" * (CONTENT_TEXT_MAX_LENGTH + 1)),
         ["não é objeto"],
     ],
-    ids=["bloco-faltando", "chave-desconhecida", "bloco-vazio", "bloco-lista", "lista"],
+    ids=[
+        "bloco-faltando",
+        "chave-desconhecida",
+        "bloco-vazio",
+        "bloco-lista",
+        "bloco-longo",
+        "lista",
+    ],
 )
 def test_canvas_incompleto_ou_fora_do_formato_e_recusado(stage, canvas_field, content):
     with pytest.raises(ValidationError):
@@ -584,6 +594,8 @@ def test_canvas_incompleto_ou_fora_do_formato_e_recusado(stage, canvas_field, co
         {**valid_swot(), "threats": []},
         {**valid_swot(), "threats": ["ok", " "]},
         {**valid_swot(), "threats": "texto solto"},
+        {**valid_swot(), "threats": ["x"] * (SWOT_QUADRANT_MAX_ITEMS + 1)},
+        {**valid_swot(), "threats": ["x" * (CONTENT_TEXT_MAX_LENGTH + 1)]},
     ],
     ids=[
         "quadrante-faltando",
@@ -591,6 +603,8 @@ def test_canvas_incompleto_ou_fora_do_formato_e_recusado(stage, canvas_field, co
         "lista-vazia",
         "texto-vazio",
         "texto",
+        "itens-demais",
+        "texto-longo",
     ],
 )
 def test_swot_incompleto_ou_fora_do_formato_e_recusado(stage, swot_field, content):
@@ -614,3 +628,24 @@ def test_canvas_obrigatorio_nao_respondido_e_recusado(stage, canvas_field):
     answered = StageSubmissionFieldFactory(stage=stage)
     with pytest.raises(ValidationError):
         ensure_items_match_stage_fields(stage, [link_item(answered)])
+
+
+def test_canvas_e_swot_no_limite_de_tamanho_sao_aceitos(
+    stage, canvas_field, swot_field
+):
+    canvas = with_block(channels="x" * CONTENT_TEXT_MAX_LENGTH)
+    swot = {
+        **valid_swot(),
+        "threats": ["x" * CONTENT_TEXT_MAX_LENGTH] * SWOT_QUADRANT_MAX_ITEMS,
+    }
+
+    ensure_items_match_stage_fields(
+        stage, [content_item(canvas_field, canvas), content_item(swot_field, swot)]
+    )
+
+
+def test_canvas_opcional_pode_ficar_sem_item(stage):
+    answered = StageSubmissionFieldFactory(stage=stage)
+    StageSubmissionFieldFactory(stage=stage, kind=FieldKind.CANVAS, required=False)
+
+    ensure_items_match_stage_fields(stage, [link_item(answered)])
