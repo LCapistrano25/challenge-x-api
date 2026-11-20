@@ -2266,6 +2266,78 @@ paths:
                       code: edition_closed
                       message: A edição está encerrada e não pode ser alterada.
                       details: null
+  /api/admin/evaluations/{evaluation_id}/rectifications:
+    post:
+      tags:
+      - evaluations
+      operationId: evaluationsCreateRectification
+      summary: Retificar a nota de um critério
+      description: |-
+        **Status: PROPOSTO** — o contrato depende da decisão de P-21 e pode mudar.
+
+        Altera os pontos de um critério de uma avaliação finalizada e grava o ajuste no histórico, que não pode ser alterado nem excluído.
+
+        **Requisitos:** RF14
+
+        **Autenticação:** obrigatória (Bearer JWT).
+
+        **Perfis permitidos:** ADMIN
+
+        **Regras de negócio:**
+        - Somente avaliação finalizada; o rascunho continua do professor.
+        - Vale mesmo com o prazo de avaliação encerrado.
+        - Justificativa obrigatória; new_points entre 0 e o máximo do critério e diferente do valor atual.
+        - O critério precisa ter sido pontuado na avaliação (400 validation_error).
+        - Edição encerrada não aceita ajuste, nem do administrador (RN33).
+        - Recalcula a nota da etapa; a resposta traz o valor novo em stage_score.
+
+        **Pendências relacionadas (api-pendencias.md):** P-21
+      x-status: proposed
+      x-requirements:
+      - RF14
+      x-roles:
+      - ADMIN
+      x-pendencias:
+      - P-21
+      parameters:
+      - $ref: '#/components/parameters/EvaluationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RectificationWrite'
+            example:
+              stage_criterion_id: 51
+              new_points: '1.50'
+              reason: Erro de digitação do professor.
+      responses:
+        '201':
+          description: Retificação registrada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Rectification'
+              example:
+                id: 9
+                evaluation_id: 201
+                stage_criterion_id: 51
+                previous_points: '1.00'
+                new_points: '1.50'
+                reason: Erro de digitação do professor.
+                rectified_by: 1
+                rectified_at: '2026-11-18T21:30:00Z'
+                stage_score:
+                  value: '2.40'
+                  evaluation_count: 2
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/admin/external-evaluators:
     get:
       tags:
@@ -7783,6 +7855,13 @@ components:
       description: Identificador da solicitação de liderança.
       schema:
         type: integer
+    EvaluationId:
+      name: evaluation_id
+      in: path
+      required: true
+      description: Identificador da avaliação.
+      schema:
+        type: integer
     ProjectId:
       name: project_id
       in: path
@@ -11471,6 +11550,100 @@ components:
       - status
       - items
       additionalProperties: false
+    RectificationWrite:
+      type: object
+      properties:
+        stage_criterion_id:
+          type: integer
+          examples:
+          - 51
+        new_points:
+          type: string
+          description: Novo valor; de 0 até o máximo do critério e diferente do atual.
+          format: decimal
+          pattern: ^\d{1,2}(\.\d{1,2})?$
+          examples:
+          - '1.50'
+        reason:
+          type: string
+          description: Justificativa técnica ou operacional (obrigatória).
+          examples:
+          - Erro de digitação do professor.
+      required:
+      - stage_criterion_id
+      - new_points
+      - reason
+      additionalProperties: false
+    Rectification:
+      type: object
+      properties:
+        id:
+          type: integer
+          examples:
+          - 9
+        evaluation_id:
+          type: integer
+          examples:
+          - 201
+        stage_criterion_id:
+          type: integer
+          examples:
+          - 51
+        previous_points:
+          type: string
+          format: decimal
+          pattern: ^\d{1,2}(\.\d{1,2})?$
+          examples:
+          - '1.00'
+        new_points:
+          type: string
+          format: decimal
+          pattern: ^\d{1,2}(\.\d{1,2})?$
+          examples:
+          - '1.50'
+        reason:
+          type: string
+          examples:
+          - Erro de digitação do professor.
+        rectified_by:
+          type: integer
+          description: Id do administrador.
+          examples:
+          - 1
+        rectified_at:
+          type: string
+          format: date-time
+          examples:
+          - '2026-11-18T21:30:00Z'
+        stage_score:
+          type: object
+          description: Nota da etapa já recalculada.
+          properties:
+            value:
+              type:
+              - string
+              - 'null'
+              format: decimal
+              pattern: ^\d{1,2}(\.\d{1,2})?$
+              examples:
+              - '2.40'
+            evaluation_count:
+              type: integer
+              examples:
+              - 2
+          required:
+          - value
+          - evaluation_count
+      required:
+      - id
+      - evaluation_id
+      - stage_criterion_id
+      - previous_points
+      - new_points
+      - reason
+      - rectified_by
+      - rectified_at
+      - stage_score
     StageScoreDetail:
       type: object
       properties:

@@ -2,6 +2,7 @@ from rest_framework import serializers
 
 from apps.editions.models import StageCriterion
 from apps.evaluations.enums import EvaluationStatus, ScoreStatus
+from apps.evaluations.models import StageScore
 
 
 class EvaluationItemWriteSerializer(serializers.Serializer):
@@ -163,3 +164,31 @@ class ProjectScoresSerializer(serializers.Serializer):
 
     def get_project(self, data):
         return {"id": data["project"].pk, "title": data["project"].title}
+
+
+class RectificationWriteSerializer(serializers.Serializer):
+    stage_criterion_id = serializers.IntegerField()
+    new_points = serializers.DecimalField(max_digits=5, decimal_places=2, min_value=0)
+    reason = serializers.CharField()
+
+
+class RectificationSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    evaluation_id = serializers.IntegerField(source="item.evaluation_id")
+    stage_criterion_id = serializers.IntegerField(source="item.stage_criterion_id")
+    previous_points = serializers.DecimalField(max_digits=5, decimal_places=2)
+    new_points = serializers.DecimalField(max_digits=5, decimal_places=2)
+    reason = serializers.CharField()
+    rectified_by = serializers.IntegerField(source="rectified_by_id")
+    rectified_at = serializers.DateTimeField()
+    stage_score = serializers.SerializerMethodField()
+
+    def get_stage_score(self, rectification):
+        evaluation = rectification.item.evaluation
+        score = StageScore.objects.get(
+            project=evaluation.project, stage=evaluation.stage
+        )
+        return {
+            "value": None if score.value is None else str(score.value),
+            "evaluation_count": score.evaluation_count,
+        }
