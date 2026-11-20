@@ -8,15 +8,31 @@ from django.utils import timezone
 from apps.accounts.enums import UserRole
 from apps.accounts.factories import StudentFactory, UserFactory
 from apps.editions.factories import EditionFactory, StageFactory
-from apps.teams.enums import MemberRole
+from apps.teams.enums import InvitationStatus, MemberRole
 from apps.teams.factories import TeamFactory, TeamMemberFactory
-from apps.teams.models import Team, TeamMember
+from apps.teams.models import Invitation, Team, TeamMember
 from apps.teams.use_cases.create_team import (
     TeamCreationRejected,
+    TeamInvitationsRequired,
     create_team,
 )
 
 pytestmark = pytest.mark.django_db
+
+
+def convites(quantidade=2):
+    """Convites para alunos novos: com min_members=3 o líder convida ao menos 2."""
+    return [{"student_id": StudentFactory().pk} for _ in range(quantidade)]
+
+
+def abre_formacao(edition):
+    now = timezone.now()
+    StageFactory(
+        edition=edition,
+        formation=True,
+        starts_at=now - timedelta(days=1),
+        ends_at=now + timedelta(days=7),
+    )
 
 
 def test_aluno_cria_equipe_e_se_torna_lider():
@@ -31,10 +47,12 @@ def test_aluno_cria_equipe_e_se_torna_lider():
         ends_at=now + timedelta(days=7),
     )
 
+    invited = convites()
     team = create_team(
         actor=student.user,
         edition_id=edition.id,
         name="Equipe Teste",
+        invitations=invited,
     )
 
     assert isinstance(team, Team)
@@ -49,6 +67,8 @@ def test_aluno_cria_equipe_e_se_torna_lider():
     )
     assert membership.role == MemberRole.LEADER
     assert membership.left_at is None
+    pendentes = Invitation.objects.filter(team=team, status=InvitationStatus.PENDING)
+    assert {i.student_id for i in pendentes} == {d["student_id"] for d in invited}
 
 
 def test_usuario_que_nao_e_aluno_nao_pode_criar_equipe():
@@ -150,41 +170,71 @@ def test_nao_pode_criar_equipe_com_nome_vazio():
     assert Team.objects.count() == 0
 
 
-def test_permite_criar_equipe_abaixo_do_minimo_durante_formacao():
+def test_nao_cria_equipe_so_com_o_lider():
     student = StudentFactory()
-    edition = EditionFactory(
-        min_members=3,
-        max_members=5,
-    )
+    edition = EditionFactory(min_members=3, max_members=5)
+    abre_formacao(edition)
 
-    now = timezone.now()
-    StageFactory(
-        edition=edition,
-        formation=True,
-        starts_at=now - timedelta(days=1),
-        ends_at=now + timedelta(days=7),
-    )
+    with pytest.raises(TeamInvitationsRequired, match="Convide de 2 a 4 alunos"):
+        create_team(actor=student.user, edition_id=edition.id, name="Equipe Inicial")
+
+    assert Team.objects.count() == 0
+
+
+@pytest.mark.parametrize("quantidade", [1, 5])
+def test_quantidade_de_convites_fora_do_limite_da_edicao_e_recusada(quantidade):
+    student = StudentFactory()
+    edition = EditionFactory(min_members=3, max_members=5)
+    abre_formacao(edition)
+
+    with pytest.raises(TeamInvitationsRequired):
+        create_team(
+            actor=student.user,
+            edition_id=edition.id,
+            name="Equipe Inicial",
+            invitations=convites(quantidade),
+        )
+
+    assert Team.objects.count() == 0
+    assert Invitation.objects.count() == 0
+
+
+def test_edicao_com_minimo_1_ainda_exige_ao_menos_um_convite():
+    student = StudentFactory()
+    edition = EditionFactory(min_members=1, max_members=5)
+    abre_formacao(edition)
+
+    with pytest.raises(TeamInvitationsRequired, match="Convide de 1 a 4 alunos"):
+        create_team(actor=student.user, edition_id=edition.id, name="Equipe Solo")
 
     team = create_team(
         actor=student.user,
         edition_id=edition.id,
-        name="Equipe Inicial",
+        name="Equipe Solo",
+        invitations=convites(1),
     )
+    assert Invitation.objects.filter(team=team).count() == 1
 
-    assert (
-        TeamMember.objects.filter(
-            team=team,
-            active=True,
-        ).count()
-        == 1
-    )
 
-    assert TeamMember.objects.filter(
-        team=team,
-        student=student,
-        role=MemberRole.LEADER,
-        active=True,
-    ).exists()
+def test_convite_recusado_desfaz_a_criacao_da_equipe():
+    student = StudentFactory()
+    edition = EditionFactory(min_members=3, max_members=5)
+    abre_formacao(edition)
+    ocupado = StudentFactory()
+    TeamMemberFactory(team=TeamFactory(edition=edition), student=ocupado)
+    teams_antes = Team.objects.count()
+
+    with pytest.raises(TeamCreationRejected, match="já participa de uma equipe"):
+        create_team(
+            actor=student.user,
+            edition_id=edition.id,
+            name="Equipe Inicial",
+            invitations=[{"student_id": StudentFactory().pk}]
+            + [{"student_id": ocupado.pk}],
+        )
+
+    assert Team.objects.count() == teams_antes
+    assert Invitation.objects.count() == 0
 
 
 def test_nao_pode_criar_equipe_com_nome_duplicado_na_edicao():
@@ -272,6 +322,7 @@ def test_remove_espacos_do_nome_da_equipe():
         actor=student.user,
         edition_id=edition.id,
         name="  Equipe Teste  ",
+        invitations=convites(),
     )
 
     assert team.name == "Equipe Teste"
@@ -301,6 +352,7 @@ def test_tenta_novo_codigo_quando_codigo_ja_existe(monkeypatch):
         actor=student.user,
         edition_id=edition.id,
         name="Nova Equipe",
+        invitations=convites(),
     )
 
     assert team.code == "NOVO01"
@@ -335,6 +387,7 @@ def test_rejeita_criacao_quando_nao_consegue_gerar_codigo_unico(
             actor=student.user,
             edition_id=edition.id,
             name="Nova Equipe",
+            invitations=convites(),
         )
 
     assert Team.objects.count() == 1
@@ -364,6 +417,7 @@ def test_reverte_criacao_da_equipe_se_falhar_ao_criar_lider():
                 actor=student.user,
                 edition_id=edition.id,
                 name="Equipe Teste",
+                invitations=convites(),
             )
 
     assert Team.objects.count() == 0

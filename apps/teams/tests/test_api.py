@@ -29,7 +29,7 @@ from apps.teams.factories import (
     TeamFactory,
     TeamMemberFactory,
 )
-from apps.teams.models import Team, TeamMember
+from apps.teams.models import Invitation, Team, TeamMember
 
 pytestmark = pytest.mark.django_db
 
@@ -58,7 +58,13 @@ def test_aluno_cria_equipe_pela_api():
 
     response = client.post(
         TEAMS_URL,
-        {"name": "Equipe API"},
+        {
+            "name": "Equipe API",
+            "invitations": [
+                {"student_id": StudentFactory().pk},
+                {"email": StudentFactory().user.email},
+            ],
+        },
         format="json",
     )
 
@@ -68,6 +74,28 @@ def test_aluno_cria_equipe_pela_api():
 
     team = Team.objects.get(name="Equipe API")
     assert team.edition == edition
+    assert Invitation.objects.filter(team=team).count() == 2
+
+
+def test_criacao_so_com_o_nome_retorna_400_pedindo_convites():
+    student = StudentFactory()
+    edition = EditionFactory(status=EditionStatus.PUBLISHED)
+
+    now = timezone.now()
+    StageFactory(
+        edition=edition,
+        formation=True,
+        starts_at=now - timedelta(days=1),
+        ends_at=now + timedelta(days=7),
+    )
+
+    response = authenticated_client(student.user).post(
+        TEAMS_URL, {"name": "Equipe Solo"}, format="json"
+    )
+
+    assert response.status_code == 400
+    assert response.data["error"]["code"] == "team_invitations_required"
+    assert not Team.objects.filter(name="Equipe Solo").exists()
 
 
 def test_aluno_integrante_consulta_equipe():
