@@ -3,12 +3,15 @@ from django.utils import timezone
 
 from apps.accounts.enums import UserRole
 from apps.accounts.models import Student, User
-from apps.editions.enums import StageKind
-from apps.editions.models import Stage
 from apps.notifications.models import NotificationType
 from apps.notifications.services import create_notification
 from apps.teams.enums import InvitationStatus, MemberRole, RequestStatus, TeamStatus
 from apps.teams.models import Invitation, JoinRequest, Team, TeamMember
+from apps.teams.rules import (
+    FORMATION_EXTENSION,
+    FORMATION_LAST_HOURS,
+    get_open_formation_stage,
+)
 
 
 class LeaveTeamRejected(Exception):
@@ -66,14 +69,9 @@ def leave_team(
 
     now = timezone.now()
 
-    formation_open = Stage.objects.filter(
-        edition=team.edition,
-        kind=StageKind.FORMATION,
-        starts_at__lte=now,
-        ends_at__gte=now,
-    ).exists()
+    formation_stage = get_open_formation_stage(team.edition, now)
 
-    if not formation_open:
+    if formation_stage is None:
         raise LeaveTeamRejected("Não existe prazo de formação aberto para esta equipe.")
 
     if membership.role == MemberRole.LEADER:
@@ -98,6 +96,16 @@ def leave_team(
             f"Sua saída deixa a equipe com {remaining} de {minimum} integrantes. "
             "Confirme para sair."
         )
+
+    # Saída em cima da hora que derruba a equipe: ela ganha tempo para repor a vaga.
+    extension_granted = (
+        below_minimum
+        and team.formation_extended_until is None
+        and formation_stage.ends_at - now <= FORMATION_LAST_HOURS
+    )
+    if extension_granted:
+        team.formation_extended_until = formation_stage.ends_at + FORMATION_EXTENSION
+        team.save(update_fields=["formation_extended_until", "updated_at"])
 
     membership.active = False
     membership.left_at = now
@@ -134,6 +142,13 @@ def leave_team(
                 + (
                     f" A equipe ficou com {remaining} de {minimum} integrantes."
                     if below_minimum
+                    else ""
+                )
+                + (
+                    " A equipe tem até "
+                    f"{timezone.localtime(team.formation_extended_until):%d/%m %H:%M}"
+                    " para repor a vaga."
+                    if extension_granted
                     else ""
                 )
             ),

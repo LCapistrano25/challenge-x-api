@@ -25,6 +25,8 @@ class Team(TimeStampedModel):
     )
     # Motivo, data e responsável da desclassificação andam juntos (RF13, P-22).
     disqualification_reason = models.TextField(blank=True)
+    # Janela extra para repor a vaga de quem saiu em cima da hora (uma por equipe).
+    formation_extended_until = models.DateTimeField(null=True, blank=True)
     disqualified_at = models.DateTimeField(null=True, blank=True)
     disqualified_by = models.ForeignKey(
         "accounts.User",

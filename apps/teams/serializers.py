@@ -42,6 +42,7 @@ class TeamSerializer(serializers.ModelSerializer):
             "status",
             "qualification",
             "disqualification_reason",
+            "formation_extended_until",
             "members",
             "created_at",
             "updated_at",

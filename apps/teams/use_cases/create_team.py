@@ -8,10 +8,10 @@ from django.utils import timezone
 from apps.accounts.enums import UserRole
 from apps.accounts.models import Student, User
 from apps.core.exceptions import BusinessRuleViolation
-from apps.editions.enums import StageKind
-from apps.editions.models import Edition, Stage
+from apps.editions.models import Edition
 from apps.teams.enums import MemberRole, TeamStatus
 from apps.teams.models import Team, TeamMember
+from apps.teams.rules import get_open_formation_stage
 from apps.teams.use_cases.invite_member import InvitationRejected, invite_member
 
 
@@ -60,12 +60,7 @@ def create_team(
     if edition is None:
         raise TeamCreationRejected("Edição não encontrada.")
 
-    formation_open = Stage.objects.filter(
-        edition=edition,
-        kind=StageKind.FORMATION,
-        starts_at__lte=now,
-        ends_at__gte=now,
-    ).exists()
+    formation_open = get_open_formation_stage(edition, now) is not None
 
     if not formation_open:
         raise TeamCreationRejected(
