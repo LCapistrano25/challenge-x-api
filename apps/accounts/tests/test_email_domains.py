@@ -1,4 +1,7 @@
+import importlib
+
 import pytest
+from django.apps import apps as django_apps
 from django.core.exceptions import ValidationError
 
 from apps.accounts.enums import UserRole
@@ -8,6 +11,7 @@ from apps.accounts.exceptions import (
     NotAdminActor,
 )
 from apps.accounts.factories import EmailDomainFactory, UserFactory
+from apps.accounts.models import EmailDomain
 from apps.accounts.selectors import list_email_domains
 from apps.accounts.use_cases.create_email_domain import create_email_domain
 from apps.accounts.use_cases.update_email_domain import update_email_domain
@@ -116,3 +120,43 @@ def test_list_email_domains_filtra_por_ativo_e_perfil():
     assert list(list_email_domains()) == [d2, d1]
     assert list(list_email_domains(active=True)) == [d1]
     assert list(list_email_domains(role=UserRole.TEACHER)) == [d2]
+
+
+def test_migracao_passa_nomes_antigos_para_minusculas():
+    migration = importlib.import_module(
+        "apps.accounts.migrations.0005_emaildomain_unique_email_domain_name_ci"
+    )
+    domain = EmailDomainFactory(name="x.edu.br")
+    # update() ignora o save() que normaliza: simula o dado antigo do admin.
+    EmailDomain.objects.filter(pk=domain.pk).update(name="Mixed.EDU.br")
+
+    migration.lowercase_domain_names(django_apps, None)
+
+    domain.refresh_from_db()
+    assert domain.name == "mixed.edu.br"
+
+
+def test_migracao_para_com_mensagem_se_ha_dominios_repetidos_na_caixa():
+    migration = importlib.import_module(
+        "apps.accounts.migrations.0005_emaildomain_unique_email_domain_name_ci"
+    )
+
+    class Domain:
+        def __init__(self, name):
+            self.name = name
+
+        def save(self, **_):
+            pass
+
+    class FakeModel:
+        # A constraint nova impede criar o par no banco de teste.
+        objects = type(
+            "Manager",
+            (),
+            {"order_by": lambda self, *_: [Domain("A.edu.br"), Domain("a.edu.br")]},
+        )()
+
+    fake_apps = type("Apps", (), {"get_model": lambda self, *_: FakeModel})()
+
+    with pytest.raises(RuntimeError, match="Domínios repetidos"):
+        migration.lowercase_domain_names(fake_apps, None)
