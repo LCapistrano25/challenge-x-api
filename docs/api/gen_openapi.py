@@ -93,7 +93,7 @@ def op(method, path, opid, tag, summary, rf, roles, desc, *, authz=None, rules=(
     assert opid not in OPIDS, opid
     OPIDS.add(opid)
     lines = [desc, "", "**Requisitos:** " + ", ".join(rf), ""]
-    lines.append("**Autenticação:** " + ("pública (não exige token)." if public else "obrigatória (Bearer JWT)."))
+    lines.append("**Autenticação:** " + ("pública (não exige sessão)." if public else "obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken)."))
     lines += ["", "**Perfis permitidos:** " + (", ".join(roles) if roles else "qualquer visitante")]
     if authz: lines += ["", "**Autorização adicional:** " + authz]
     if rules: lines += ["", "**Regras de negócio:**"] + ["- " + r for r in rules]
@@ -750,6 +750,10 @@ op("post", "/api/auth/sessions/microsoft", "authCreateMicrosoftSession", "auth",
           "A sessão expira após 30 minutos de inatividade, renovados a cada requisição (P-03)."],
    errs=["401", "403"], conflicts=[("microsoft_identity_mismatch", "O e-mail já está vinculado a outra identidade Microsoft.")],
    pend=["P-02", "P-03", "P-42"])
+SC["CsrfToken"] = obj({"csrfToken": STR("Valor para o cabeçalho X-CSRFToken. A resposta também grava o cookie csrftoken.", "pZ1d3x...")}, ["csrfToken"])
+op("get", "/api/auth/csrf", "authGetCsrfToken", "auth", "Obter o token CSRF",
+   ["RF01"], [], "Devolve o token CSRF e grava o cookie csrftoken. O frontend envia o token no cabeçalho X-CSRFToken em toda escrita, inclusive no login.",
+   public=True, ok=ref("CsrfToken"))
 op("post", "/api/auth/sessions/password", "authCreatePasswordSession", "auth", "Autenticar administrador ou avaliador externo com e-mail e senha",
    ["RF01", "RF41"], [], "Autentica contas com senha local (ADMIN e EXTERNAL_REVIEWER) e cria a sessão (cookie). Exige o cabeçalho X-CSRFToken, obtido em GET /api/auth/csrf.", public=True,
    body=ref("PasswordSessionRequest"), ok=ref("SessionResponse"), ok_desc="Sessão criada.",
@@ -1267,7 +1271,7 @@ spec = {
             "",
             "Fonte de dados: models do código (nomes e enums em inglês do guia de implementação). Os perfis são STUDENT, TEACHER, EXTERNAL_REVIEWER e ADMIN (enum UserRole).",
             "",
-            "**Autenticação:** alunos e professores entram com a Microsoft; administradores e avaliadores externos, com e-mail e senha. Rotas protegidas usam Bearer JWT.",
+            "**Autenticação:** alunos e professores entram com a Microsoft; administradores e avaliadores externos, com e-mail e senha. Rotas protegidas usam a sessão criada no login (cookie `sessionid`); POST, PUT, PATCH e DELETE exigem o cabeçalho `X-CSRFToken` com o token de `GET /api/auth/csrf`. Sem sessão, 401 `not_authenticated`.",
             "",
             "**Convenções adotadas:** formato de erro `Error` (P-37) e paginação `page`/`page_size` (P-38). Regra de negócio violada responde 409 com `code` estável.",
             "",
@@ -1277,7 +1281,7 @@ spec = {
         ]),
     },
     "servers": [{"url": "http://localhost:8000", "description": "Ambiente local de desenvolvimento"}],
-    "security": [{"bearerAuth": []}],
+    "security": [{"sessionAuth": []}],
     "tags": [
         {"name": "auth", "description": "Autenticação, sessões e autocadastro."},
         {"name": "accounts", "description": "Gerenciamento administrativo de usuários e perfis."},
@@ -1293,8 +1297,12 @@ spec = {
     ],
     "paths": dict(sorted(PATHS.items())),
     "components": {
-        "securitySchemes": {"bearerAuth": {"type": "http", "scheme": "bearer", "bearerFormat": "JWT",
-                                           "description": "JWT da aplicação emitido pelas rotas de sessão."}},
+        "securitySchemes": {
+            "sessionAuth": {"type": "apiKey", "in": "cookie", "name": "sessionid",
+                            "description": "Cookie de sessão do Django, criado pelas rotas de login e encerrado em POST /api/auth/logout. Expira após 30 minutos sem uso (P-03)."},
+            "csrfToken": {"type": "apiKey", "in": "header", "name": "X-CSRFToken",
+                          "description": "Token de GET /api/auth/csrf, exigido em POST, PUT, PATCH e DELETE (inclusive no login)."},
+        },
         "parameters": PARAMS,
         "responses": {
             "BadRequest": {"description": "Requisição inválida.", "content": {"application/json": {"schema": ref("Error"),
