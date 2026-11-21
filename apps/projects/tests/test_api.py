@@ -23,7 +23,7 @@ from apps.editions.factories import (
 )
 from apps.projects.factories import ProjectFactory
 from apps.projects.files import get_delivery_storage
-from apps.projects.tests.conftest import stored_keys
+from apps.projects.tests.conftest import stored_keys, valid_canvas
 from apps.teams.enums import MemberRole
 from apps.teams.factories import TeamFactory, TeamMemberFactory
 
@@ -1129,3 +1129,76 @@ def test_download_com_arquivo_removido_do_armazenamento_da_404(
     response = client_for(dleader).get(sent_file["file_url"])
     assert response.status_code == 404
     assert "deliveries/" not in json.dumps(response.data)
+
+
+# Canvas e SWOT preenchidos no sistema (RF31, UC34)
+
+
+@pytest.fixture
+def canvas_field(dstage):
+    return StageSubmissionFieldFactory(stage=dstage, kind=FieldKind.CANVAS)
+
+
+def content_payload(field, content, **extra):
+    return {"items": [{"field_id": field.pk, "content": content}], **extra}
+
+
+def test_lider_envia_o_canvas_e_a_consulta_devolve_o_conteudo(
+    dproject, dleader, dstage, canvas_field
+):
+    response = post_version(
+        dleader, dproject, dstage, content_payload(canvas_field, valid_canvas())
+    )
+
+    assert response.status_code == 201, response.data
+    item = response.data["items"][0]
+    assert item["type"] == "CANVAS"
+    assert item["content"] == valid_canvas()
+    assert item["link"] is None
+
+    listed = client_for(dleader).get(deliverables_url(dproject))
+    assert listed.data[0]["versions"][0]["items"][0]["content"] == valid_canvas()
+
+
+def test_item_de_link_devolve_content_nulo(dproject, dleader, dstage, dfield):
+    response = post_version(dleader, dproject, dstage, payload(dfield))
+
+    assert response.data["items"][0]["content"] is None
+
+
+def test_canvas_incompleto_responde_400(dproject, dleader, dstage, canvas_field):
+    response = post_version(
+        dleader,
+        dproject,
+        dstage,
+        content_payload(canvas_field, {"channels": "só um bloco"}),
+    )
+
+    assert response.status_code == 400
+
+
+def test_item_com_link_e_content_responde_400(dproject, dleader, dstage, canvas_field):
+    body = {
+        "items": [
+            {
+                "field_id": canvas_field.pk,
+                "link": "https://github.com/equipe/projeto",
+                "content": valid_canvas(),
+            }
+        ]
+    }
+    response = post_version(dleader, dproject, dstage, body)
+
+    assert response.status_code == 400
+
+
+def test_canvas_vai_tambem_no_multipart(dproject, dleader, dstage, canvas_field):
+    response = post_multipart(
+        dleader,
+        dproject,
+        dstage,
+        [{"field_id": canvas_field.pk, "content": valid_canvas()}],
+    )
+
+    assert response.status_code == 201, response.data
+    assert response.data["items"][0]["content"] == valid_canvas()

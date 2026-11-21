@@ -210,7 +210,8 @@ def ensure_items_match_stage_fields(stage, items: list[dict]) -> None:
     os campos obrigatórios são respondidos (RF31).
 
     `items` é uma lista de {"field": StageSubmissionField, "link": str} para campo
-    LINK ou {"field": StageSubmissionField, "file": UploadedFile} para campo FILE.
+    LINK, {"field": StageSubmissionField, "file": UploadedFile} para campo FILE ou
+    {"field": StageSubmissionField, "content": dict} para campo CANVAS ou SWOT.
     """
     if not items:
         raise ValidationError({"items": "Informe ao menos um item."})
@@ -221,13 +222,103 @@ def ensure_items_match_stage_fields(stage, items: list[dict]) -> None:
     if len({f.pk for f in fields}) != len(fields):
         raise ValidationError({"items": "O campo foi enviado mais de uma vez."})
     for item in items:
-        sent = FieldKind.FILE if "file" in item else FieldKind.LINK
-        if item["field"].kind != sent:
+        field = item["field"]
+        if "file" in item:
+            sent = FieldKind.FILE
+        elif "link" in item:
+            sent = FieldKind.LINK
+        else:
+            sent = field.kind if field.kind in CONTENT_VALIDATORS else None
+        if field.kind != sent:
             raise ValidationError({"items": "O tipo do item não é o tipo do campo."})
+        if "content" in item:
+            CONTENT_VALIDATORS[field.kind](item["content"])
 
     required = stage.submission_fields.filter(required=True)
     if required.exclude(pk__in=[f.pk for f in fields]).exists():
         raise ValidationError({"items": "Preencha todos os campos obrigatórios."})
+
+
+CANVAS_BLOCKS = (
+    "customer_segments",
+    "value_propositions",
+    "channels",
+    "customer_relationships",
+    "revenue_streams",
+    "key_resources",
+    "key_activities",
+    "key_partnerships",
+    "cost_structure",
+)
+SWOT_QUADRANTS = ("strengths", "weaknesses", "opportunities", "threats")
+
+
+# shortcut: limites fixos no código, sem configuração; ajustar se o professor pedir
+# mais (P-47). Sem eles, uma versão (que nunca é apagada) poderia ter megabytes.
+CONTENT_TEXT_MAX_LENGTH = 5000
+SWOT_QUADRANT_MAX_ITEMS = 20
+
+
+def _is_text(value) -> bool:
+    return (
+        isinstance(value, str)
+        and bool(value.strip())
+        and len(value) <= CONTENT_TEXT_MAX_LENGTH
+    )
+
+
+def _ensure_exact_keys(content, keys: tuple[str, ...], label: str) -> None:
+    if not isinstance(content, dict):
+        raise ValidationError({"items": f"{label}: o conteúdo deve ser um objeto."})
+    unknown = sorted(set(content) - set(keys))
+    if unknown:
+        raise ValidationError(
+            {"items": f"{label}: chave desconhecida: {', '.join(unknown)}."}
+        )
+    missing = [key for key in keys if key not in content]
+    if missing:
+        raise ValidationError(
+            {"items": f"{label}: faltam os blocos {', '.join(missing)}."}
+        )
+
+
+def ensure_canvas_content(content) -> None:
+    """Canvas completo: um texto não vazio em cada um dos nove blocos (RF31)."""
+    _ensure_exact_keys(content, CANVAS_BLOCKS, "Canvas")
+    for block in CANVAS_BLOCKS:
+        if not _is_text(content[block]):
+            raise ValidationError(
+                {
+                    "items": f"Canvas: o bloco {block} precisa de um texto de até "
+                    f"{CONTENT_TEXT_MAX_LENGTH} caracteres."
+                }
+            )
+
+
+def ensure_swot_content(content) -> None:
+    """SWOT completo: ao menos um texto não vazio em cada quadrante (RF31)."""
+    _ensure_exact_keys(content, SWOT_QUADRANTS, "SWOT")
+    for quadrant in SWOT_QUADRANTS:
+        texts = content[quadrant]
+        if (
+            not isinstance(texts, list)
+            or not 1 <= len(texts) <= SWOT_QUADRANT_MAX_ITEMS
+            or not all(map(_is_text, texts))
+        ):
+            raise ValidationError(
+                {
+                    "items": f"SWOT: o quadrante {quadrant} precisa de uma lista de "
+                    f"1 a {SWOT_QUADRANT_MAX_ITEMS} textos, cada um não vazio e de "
+                    f"até {CONTENT_TEXT_MAX_LENGTH} caracteres."
+                }
+            )
+
+
+# Um envio com conteúdo é validado pelo formato fixo do tipo do campo.
+CONTENT_VALIDATORS = {
+    FieldKind.CANVAS: ensure_canvas_content,
+    FieldKind.SWOT: ensure_swot_content,
+}
 
 
 def _allowed_extensions(field) -> set[str]:

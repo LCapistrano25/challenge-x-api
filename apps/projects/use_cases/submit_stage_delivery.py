@@ -1,4 +1,4 @@
-"""UC34 — Enviar a entrega da etapa com links e arquivos. RF31. Regras: RN01."""
+"""UC34 — Enviar a entrega da etapa (links, arquivos, canvas, SWOT). RF31. RN01."""
 
 from django.db import transaction
 from django.db.models import Max
@@ -43,10 +43,11 @@ def submit_stage_delivery(
     items: list[dict],
     notes: str = "",
 ) -> SubmissionVersion:
-    """Registra uma nova versão da entrega da etapa, com um link ou arquivo por campo.
+    """Registra uma nova versão da entrega da etapa, com um item por campo.
 
     `items` é uma lista de {"field": StageSubmissionField, "link": str} para campo
-    LINK ou {"field": StageSubmissionField, "file": UploadedFile} para campo FILE.
+    LINK, {"field": StageSubmissionField, "file": UploadedFile} para campo FILE ou
+    {"field": StageSubmissionField, "content": dict} para campo CANVAS ou SWOT.
     Cada envio cria a versão seguinte e o comprovante; nenhuma versão anterior muda,
     e arquivo de versão anterior nunca é apagado nem trocado.
 
@@ -96,6 +97,13 @@ def submit_stage_delivery(
         for item in items:
             if "file" in item:
                 _create_file_item(version, item, project, stage, stored_keys)
+            elif "content" in item:
+                SubmissionItem.objects.create(
+                    version=version,
+                    field=item["field"],
+                    kind=item["field"].kind,
+                    content=item["content"],
+                )
             else:
                 SubmissionItem.objects.create(
                     version=version,

@@ -21,3 +21,27 @@ def stored_keys(root):
     return sorted(
         p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_file()
     )
+
+
+def valid_canvas():
+    return {
+        block: f"Texto de {block}"
+        for block in (
+            "customer_segments",
+            "value_propositions",
+            "channels",
+            "customer_relationships",
+            "revenue_streams",
+            "key_resources",
+            "key_activities",
+            "key_partnerships",
+            "cost_structure",
+        )
+    }
+
+
+def valid_swot():
+    return {
+        quadrant: [f"Texto de {quadrant}"]
+        for quadrant in ("strengths", "weaknesses", "opportunities", "threats")
+    }
