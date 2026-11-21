@@ -22,10 +22,15 @@ from apps.teams.serializers import (
     JoinRequestStatusFilterSerializer,
     TeamAvailabilitySerializer,
     TeamCreateSerializer,
+    TeamLeaveSerializer,
     TeamSerializer,
 )
 from apps.teams.use_cases.create_team import create_team
 from apps.teams.use_cases.invite_member import invite_member
+from apps.teams.use_cases.leave_team import (
+    LeaveTeamRejected,
+    leave_team,
+)
 from apps.teams.use_cases.request_to_join import (
     JoinRequestRejected,
     request_to_join,
@@ -337,7 +342,6 @@ class InvitationResponseView(APIView):
                     ): "student_already_in_team",
                     "Este convite não está mais pendente.": ("invitation_not_pending"),
                 }
-
                 code = error_codes.get(
                     message,
                     "invitation_response_rejected",
@@ -463,3 +467,56 @@ class JoinRequestResponseView(APIView):
             JoinRequestSerializer(join_request).data,
             status=status.HTTP_200_OK,
         )
+
+
+class TeamLeaveView(APIView):
+    permission_classes = [IsAuthenticated, IsStudent]
+
+    def post(self, request, team_id):
+        serializer = TeamLeaveSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            leave_team(
+                actor=request.user,
+                team_id=team_id,
+                **serializer.validated_data,
+            )
+        except LeaveTeamRejected as error:
+            message = str(error)
+
+            if message in (
+                "Equipe não encontrada.",
+                "O perfil de aluno não foi encontrado.",
+                "O aluno não possui vínculo ativo com esta equipe.",
+            ):
+                code = "not_found"
+                http_status = status.HTTP_404_NOT_FOUND
+            else:
+                error_codes = {
+                    "Não existe prazo de formação aberto para esta equipe.": (
+                        "formation_closed"
+                    ),
+                    "Transfira a liderança antes de sair da equipe.": (
+                        "leader_must_transfer"
+                    ),
+                }
+
+                code = getattr(error, "code", None) or error_codes.get(
+                    message,
+                    "leave_team_rejected",
+                )
+                http_status = status.HTTP_409_CONFLICT
+
+            return Response(
+                {
+                    "error": {
+                        "code": code,
+                        "message": message,
+                        "details": None,
+                    }
+                },
+                status=http_status,
+            )
+
+        return Response(status=status.HTTP_204_NO_CONTENT)

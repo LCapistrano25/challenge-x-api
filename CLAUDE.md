@@ -2,12 +2,18 @@
 
 Plataforma do Desafio X da UniCatólica. Django 6.1 + DRF, uv, PostgreSQL. Contexto e histórico das decisões: `docs/contexto.md`.
 
-## Fontes de verdade (nesta ordem)
+## Fontes de verdade (uma por assunto)
 
-1. **Guia de implementação** — `docs/guia-implementacao-django.md` (branch `main`). O glossário da seção 7 define os nomes em inglês; termo fora dele se discute antes.
-2. **Modelagem** — `docs/modelagem/desafio-x.dbml` (em português, FKs simples). O código traduz os nomes para inglês. O DBML em inglês do outro chat serve só como fonte de ideias.
-3. **Requisitos** — Google Doc "DOCUMENTAÇÃO PADRÃO DE REQUISITOS | PLATAFORMA DESAFIO X".
-4. **Contrato da API** — `docs/api/` (OpenAPI gerado por `gen_openapi.py`; edite o gerador, nunca o YAML). Quando guia e OpenAPI divergem, vale o guia e o ajuste vai para o gerador.
+| Assunto | Quem vence |
+|---|---|
+| Interface da API (rotas, campos, enums, códigos de erro, status HTTP) | **Contrato** — `docs/api/` (OpenAPI gerado por `gen_openapi.py`; edite o gerador, nunca o YAML) |
+| Comportamento e regras | Requisitos — Google Doc "DOCUMENTAÇÃO PADRÃO DE REQUISITOS \| PLATAFORMA DESAFIO X" |
+| Persistência | Models + migrations, desenhados para cumprir o contrato. Referência de nomes: `docs/modelagem/desafio-x.dbml` |
+| Padrões de código e nomes internos | Guia — `docs/guia-implementacao-django.md` (glossário da seção 7) |
+
+- O contrato define o que vai para o frontend. Quando código e contrato divergem, o código se ajusta ao contrato.
+- O contrato só muda por decisão registrada (issue) → PR no gerador → YAML regenerado. Nunca mude o contrato só para encaixar o código.
+- O contrato não dita o nome interno das colunas, mas o banco precisa conseguir guardar o que ele promete.
 
 ## Rodar
 

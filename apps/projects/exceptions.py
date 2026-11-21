@@ -1,6 +1,6 @@
 from http import HTTPStatus
 
-from apps.core.exceptions import BusinessRuleViolation
+from apps.core.exceptions import BusinessRuleViolation, ExternalServiceError
 
 
 class ProjectError(BusinessRuleViolation):
@@ -78,3 +78,20 @@ class StageNotFound(ProjectError):
     code = "stage_not_found"
     default_message = "Etapa de entrega não encontrada neste projeto."
     http_status = HTTPStatus.NOT_FOUND
+
+
+class FileFormatNotAllowed(ProjectError):
+    code = "file_format_not_allowed"
+    default_message = "Formato de arquivo não permitido para este campo."
+    http_status = HTTPStatus.BAD_REQUEST
+
+
+class FileTooLarge(ProjectError):
+    code = "file_too_large"
+    default_message = "O arquivo passa do tamanho máximo permitido."
+    http_status = HTTPStatus.BAD_REQUEST
+
+
+class StorageUnavailable(ExternalServiceError):
+    code = "storage_unavailable"
+    default_message = "Armazenamento indisponível."

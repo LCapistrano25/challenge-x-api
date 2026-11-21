@@ -85,3 +85,15 @@ class EmailTaken(BusinessRuleViolation):
     code = "email_taken"
     default_message = "E-mail já cadastrado."
     http_status = HTTPStatus.CONFLICT
+
+
+class EmailDomainTaken(BusinessRuleViolation):
+    code = "email_domain_taken"
+    default_message = "Já existe um domínio de e-mail cadastrado com este nome."
+    http_status = HTTPStatus.CONFLICT
+
+
+class EmailDomainNotFound(BusinessRuleViolation):
+    code = "email_domain_not_found"
+    default_message = "Domínio de e-mail não encontrado."
+    http_status = HTTPStatus.NOT_FOUND

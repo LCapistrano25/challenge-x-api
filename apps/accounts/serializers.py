@@ -1,5 +1,10 @@
 from rest_framework import serializers
 
+from apps.accounts.rules import MICROSOFT_ROLES
+
+# Formato e unicidade do nome ficam em rules.py, chamadas pelos casos de uso.
+INSTITUTIONAL_ROLE_CHOICES = sorted(MICROSOFT_ROLES)
+
 
 class LoginSerializer(serializers.Serializer):
     email = serializers.EmailField()
@@ -44,3 +49,29 @@ class ExternalReviewSerializer(serializers.Serializer):
 
     def validate_institution(self, value):
         return value or ""
+
+
+class EmailDomainFilterSerializer(serializers.Serializer):
+    active = serializers.BooleanField(required=False, allow_null=True, default=None)
+    role = serializers.ChoiceField(
+        choices=INSTITUTIONAL_ROLE_CHOICES, required=False, allow_blank=True
+    )
+
+
+class EmailDomainCreateSerializer(serializers.Serializer):
+    name = serializers.CharField(max_length=100)
+    role = serializers.ChoiceField(choices=INSTITUTIONAL_ROLE_CHOICES)
+    active = serializers.BooleanField(default=True)
+
+
+class EmailDomainUpdateSerializer(serializers.Serializer):
+    name = serializers.CharField(max_length=100, required=False)
+    role = serializers.ChoiceField(choices=INSTITUTIONAL_ROLE_CHOICES, required=False)
+    active = serializers.BooleanField(required=False)
+
+    def validate(self, attrs):
+        if not attrs:
+            raise serializers.ValidationError(
+                "Informe ao menos um campo para atualizar."
+            )
+        return attrs

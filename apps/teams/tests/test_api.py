@@ -22,6 +22,7 @@ from apps.teams.enums import (
     InvitationStatus,
     MemberRole,
     RequestStatus,
+    TeamStatus,
 )
 from apps.teams.factories import (
     InvitationFactory,
@@ -29,7 +30,7 @@ from apps.teams.factories import (
     TeamFactory,
     TeamMemberFactory,
 )
-from apps.teams.models import Team, TeamMember
+from apps.teams.models import Invitation, Team, TeamMember
 
 pytestmark = pytest.mark.django_db
 
@@ -58,7 +59,13 @@ def test_aluno_cria_equipe_pela_api():
 
     response = client.post(
         TEAMS_URL,
-        {"name": "Equipe API"},
+        {
+            "name": "Equipe API",
+            "invitations": [
+                {"student_id": StudentFactory().pk},
+                {"email": StudentFactory().user.email},
+            ],
+        },
         format="json",
     )
 
@@ -68,6 +75,28 @@ def test_aluno_cria_equipe_pela_api():
 
     team = Team.objects.get(name="Equipe API")
     assert team.edition == edition
+    assert Invitation.objects.filter(team=team).count() == 2
+
+
+def test_criacao_so_com_o_nome_retorna_400_pedindo_convites():
+    student = StudentFactory()
+    edition = EditionFactory(status=EditionStatus.PUBLISHED)
+
+    now = timezone.now()
+    StageFactory(
+        edition=edition,
+        formation=True,
+        starts_at=now - timedelta(days=1),
+        ends_at=now + timedelta(days=7),
+    )
+
+    response = authenticated_client(student.user).post(
+        TEAMS_URL, {"name": "Equipe Solo"}, format="json"
+    )
+
+    assert response.status_code == 400
+    assert response.data["error"]["code"] == "team_invitations_required"
+    assert not Team.objects.filter(name="Equipe Solo").exists()
 
 
 def test_aluno_integrante_consulta_equipe():
@@ -271,6 +300,20 @@ def test_usuario_que_nao_e_aluno_nao_lista_convites():
     response = client.get(MY_INVITATIONS_URL)
 
     assert response.status_code == 403
+
+
+def test_convite_fora_do_prazo_retorna_409_e_nao_500():
+    team = TeamFactory()  # a edição não tem etapa de formação aberta
+    leader = team.members.get(role="LEADER", active=True).student
+
+    response = authenticated_client(leader.user).post(
+        f"{TEAMS_URL}/{team.id}/invitations",
+        {"student_id": StudentFactory().pk},
+        format="json",
+    )
+
+    assert response.status_code == 409
+    assert "prazo de formação" in response.data["error"]["message"]
 
 
 def test_lider_lista_convites_enviados_pela_equipe():
@@ -802,3 +845,139 @@ def test_lider_rejeita_solicitacao_de_entrada_pela_api():
         student=join_request.student,
         active=True,
     ).exists()
+
+
+def test_aluno_sai_da_equipe_pela_api():
+    team = TeamFactory()
+    create_open_formation(team.edition)
+
+    leader = team.members.get(
+        role=MemberRole.LEADER,
+        active=True,
+    )
+
+    student = StudentFactory(course=leader.student.course)
+
+    membership = TeamMemberFactory(
+        team=team,
+        student=student,
+        role=MemberRole.MEMBER,
+    )
+
+    client = authenticated_client(student.user)
+
+    response = client.post(
+        f"{TEAMS_URL}/{team.id}/leave", {"confirm": True}, format="json"
+    )
+
+    assert response.status_code == 204
+
+    membership.refresh_from_db()
+    assert membership.active is False
+    assert membership.left_at is not None
+
+
+def test_lider_sozinho_sai_pela_api_e_desfaz_a_equipe():
+    team = TeamFactory()
+    create_open_formation(team.edition)
+    leader = team.members.get(role=MemberRole.LEADER, active=True)
+
+    response = authenticated_client(leader.student.user).post(
+        f"{TEAMS_URL}/{team.id}/leave"
+    )
+
+    assert response.status_code == 204
+    team.refresh_from_db()
+    assert team.status == TeamStatus.DISBANDED
+
+
+def test_lider_com_outros_integrantes_nao_consegue_sair_pela_api():
+    team = TeamFactory()
+    create_open_formation(team.edition)
+    TeamMemberFactory(team=team, role=MemberRole.MEMBER)
+
+    leader = team.members.get(
+        role=MemberRole.LEADER,
+        active=True,
+    )
+
+    client = authenticated_client(leader.student.user)
+
+    response = client.post(f"{TEAMS_URL}/{team.id}/leave")
+
+    assert response.status_code == 409
+    assert response.data["error"]["code"] == "leader_must_transfer"
+
+
+def test_aluno_que_nao_e_integrante_nao_consegue_sair_pela_api():
+    team = TeamFactory()
+    create_open_formation(team.edition)
+
+    student = StudentFactory()
+    client = authenticated_client(student.user)
+
+    response = client.post(f"{TEAMS_URL}/{team.id}/leave")
+
+    assert response.status_code == 404
+
+
+def test_aluno_nao_consegue_sair_apos_formacao_pela_api():
+    team = TeamFactory()
+
+    StageFactory(
+        edition=team.edition,
+        formation=True,
+        starts_at=timezone.now() - timedelta(days=3),
+        ends_at=timezone.now() - timedelta(days=1),
+    )
+
+    leader = team.members.get(
+        role=MemberRole.LEADER,
+        active=True,
+    )
+
+    student = StudentFactory(course=leader.student.course)
+
+    membership = TeamMemberFactory(
+        team=team,
+        student=student,
+        role=MemberRole.MEMBER,
+    )
+
+    client = authenticated_client(student.user)
+
+    response = client.post(f"{TEAMS_URL}/{team.id}/leave")
+
+    assert response.status_code == 409
+
+    membership.refresh_from_db()
+    assert membership.active is True
+    assert membership.left_at is None
+
+
+def test_professor_nao_consegue_sair_pela_api():
+    team = TeamFactory()
+    teacher = TeacherFactory()
+
+    client = authenticated_client(teacher.user)
+
+    response = client.post(f"{TEAMS_URL}/{team.id}/leave")
+
+    assert response.status_code == 403
+
+
+def test_saida_abaixo_do_minimo_pede_confirmacao_pela_api():
+    team = TeamFactory()
+    create_open_formation(team.edition)
+    saindo = TeamMemberFactory(team=team, role=MemberRole.MEMBER)
+    client = authenticated_client(saindo.student.user)
+
+    sem_confirmar = client.post(f"{TEAMS_URL}/{team.id}/leave")
+    confirmando = client.post(
+        f"{TEAMS_URL}/{team.id}/leave", {"confirm": True}, format="json"
+    )
+
+    assert sem_confirmar.status_code == 409
+    assert sem_confirmar.data["error"]["code"] == "leave_below_minimum"
+    assert "1 de 3 integrantes" in sem_confirmar.data["error"]["message"]
+    assert confirmando.status_code == 204

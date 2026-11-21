@@ -24,6 +24,7 @@ from apps.projects.factories import (
     SubmissionVersionFactory,
 )
 from apps.projects.models import Project, Submission, SubmissionVersion
+from apps.projects.tests.conftest import valid_canvas
 from apps.teams.factories import TeamFactory
 
 pytestmark = pytest.mark.django_db
@@ -279,3 +280,17 @@ def test_prorrogacao_de_etapa_de_outra_edicao():
 
 def test_factory_de_prorrogacao_valida():
     DeadlineExtensionFactory().full_clean()
+
+
+# Canvas e SWOT: o conteúdo é obrigatório no item desses tipos (RF31)
+
+
+@pytest.mark.parametrize("kind", [FieldKind.CANVAS, FieldKind.SWOT])
+def test_item_canvas_ou_swot_exige_conteudo(kind):
+    with pytest.raises(IntegrityError):
+        SubmissionItemFactory(kind=kind, link="", content=None)
+
+
+@pytest.mark.parametrize("kind", [FieldKind.CANVAS, FieldKind.SWOT])
+def test_item_canvas_ou_swot_com_conteudo_e_valido(kind):
+    SubmissionItemFactory(kind=kind, link="", content=valid_canvas()).full_clean()

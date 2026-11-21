@@ -1,4 +1,7 @@
+import re
+
 from django.apps import apps
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
@@ -8,6 +11,8 @@ from apps.projects.exceptions import (
     CategoryNotAvailable,
     ChallengeNotEligible,
     ChallengeNotSelected,
+    FileFormatNotAllowed,
+    FileTooLarge,
     FormationClosed,
     NotTeamLeader,
     ProjectAccessDenied,
@@ -18,6 +23,12 @@ from apps.projects.exceptions import (
     StageNotOpen,
     TeamDisqualified,
     TeamIncomplete,
+)
+from apps.projects.files import (
+    BLOCKED_EXTENSIONS,
+    SIGNATURE_SIZE,
+    SIGNATURES,
+    get_extension,
 )
 from apps.teams.enums import TeamSituation, TeamStatus
 
@@ -195,10 +206,12 @@ def ensure_stage_deadline_open(project, stage) -> None:
 
 
 def ensure_items_match_stage_fields(stage, items: list[dict]) -> None:
-    """Cada item responde a um campo LINK da etapa, sem repetir, e os obrigatórios
-    são respondidos (RF31). Arquivos ficam para a V5.
+    """Cada item responde a um campo da etapa, sem repetir, com o tipo do campo, e
+    os campos obrigatórios são respondidos (RF31).
 
-    `items` é uma lista de {"field": StageSubmissionField, "link": str}.
+    `items` é uma lista de {"field": StageSubmissionField, "link": str} para campo
+    LINK, {"field": StageSubmissionField, "file": UploadedFile} para campo FILE ou
+    {"field": StageSubmissionField, "content": dict} para campo CANVAS ou SWOT.
     """
     if not items:
         raise ValidationError({"items": "Informe ao menos um item."})
@@ -206,12 +219,139 @@ def ensure_items_match_stage_fields(stage, items: list[dict]) -> None:
     fields = [item["field"] for item in items]
     if any(f.stage_id != stage.pk for f in fields):
         raise ValidationError({"items": "O campo é de outra etapa."})
-    if any(f.kind != FieldKind.LINK for f in fields):
-        raise ValidationError({"items": "Nesta versão só há envio de links."})
     if len({f.pk for f in fields}) != len(fields):
         raise ValidationError({"items": "O campo foi enviado mais de uma vez."})
+    for item in items:
+        field = item["field"]
+        if "file" in item:
+            sent = FieldKind.FILE
+        elif "link" in item:
+            sent = FieldKind.LINK
+        else:
+            sent = field.kind if field.kind in CONTENT_VALIDATORS else None
+        if field.kind != sent:
+            raise ValidationError({"items": "O tipo do item não é o tipo do campo."})
+        if "content" in item:
+            CONTENT_VALIDATORS[field.kind](item["content"])
 
-    required = stage.submission_fields.filter(kind=FieldKind.LINK, required=True)
-    missing = required.exclude(pk__in=[f.pk for f in fields])
-    if missing.exists():
+    required = stage.submission_fields.filter(required=True)
+    if required.exclude(pk__in=[f.pk for f in fields]).exists():
         raise ValidationError({"items": "Preencha todos os campos obrigatórios."})
+
+
+CANVAS_BLOCKS = (
+    "customer_segments",
+    "value_propositions",
+    "channels",
+    "customer_relationships",
+    "revenue_streams",
+    "key_resources",
+    "key_activities",
+    "key_partnerships",
+    "cost_structure",
+)
+SWOT_QUADRANTS = ("strengths", "weaknesses", "opportunities", "threats")
+
+
+# shortcut: limites fixos no código, sem configuração; ajustar se o professor pedir
+# mais (P-47). Sem eles, uma versão (que nunca é apagada) poderia ter megabytes.
+CONTENT_TEXT_MAX_LENGTH = 5000
+SWOT_QUADRANT_MAX_ITEMS = 20
+
+
+def _is_text(value) -> bool:
+    return (
+        isinstance(value, str)
+        and bool(value.strip())
+        and len(value) <= CONTENT_TEXT_MAX_LENGTH
+    )
+
+
+def _ensure_exact_keys(content, keys: tuple[str, ...], label: str) -> None:
+    if not isinstance(content, dict):
+        raise ValidationError({"items": f"{label}: o conteúdo deve ser um objeto."})
+    unknown = sorted(set(content) - set(keys))
+    if unknown:
+        raise ValidationError(
+            {"items": f"{label}: chave desconhecida: {', '.join(unknown)}."}
+        )
+    missing = [key for key in keys if key not in content]
+    if missing:
+        raise ValidationError(
+            {"items": f"{label}: faltam os blocos {', '.join(missing)}."}
+        )
+
+
+def ensure_canvas_content(content) -> None:
+    """Canvas completo: um texto não vazio em cada um dos nove blocos (RF31)."""
+    _ensure_exact_keys(content, CANVAS_BLOCKS, "Canvas")
+    for block in CANVAS_BLOCKS:
+        if not _is_text(content[block]):
+            raise ValidationError(
+                {
+                    "items": f"Canvas: o bloco {block} precisa de um texto de até "
+                    f"{CONTENT_TEXT_MAX_LENGTH} caracteres."
+                }
+            )
+
+
+def ensure_swot_content(content) -> None:
+    """SWOT completo: ao menos um texto não vazio em cada quadrante (RF31)."""
+    _ensure_exact_keys(content, SWOT_QUADRANTS, "SWOT")
+    for quadrant in SWOT_QUADRANTS:
+        texts = content[quadrant]
+        if (
+            not isinstance(texts, list)
+            or not 1 <= len(texts) <= SWOT_QUADRANT_MAX_ITEMS
+            or not all(map(_is_text, texts))
+        ):
+            raise ValidationError(
+                {
+                    "items": f"SWOT: o quadrante {quadrant} precisa de uma lista de "
+                    f"1 a {SWOT_QUADRANT_MAX_ITEMS} textos, cada um não vazio e de "
+                    f"até {CONTENT_TEXT_MAX_LENGTH} caracteres."
+                }
+            )
+
+
+# Um envio com conteúdo é validado pelo formato fixo do tipo do campo.
+CONTENT_VALIDATORS = {
+    FieldKind.CANVAS: ensure_canvas_content,
+    FieldKind.SWOT: ensure_swot_content,
+}
+
+
+def _allowed_extensions(field) -> set[str]:
+    parts = re.split(r"[,;\s]+", (field.formats or "").lower())
+    return {p.lstrip(".") for p in parts if p.lstrip(".")}
+
+
+def ensure_file_matches_field(field, file) -> None:
+    """O arquivo não é vazio, tem extensão permitida pelo campo, cabe no tamanho
+    máximo e começa como a extensão diz (RF31).
+
+    Vale a extensão do nome e o começo do arquivo; o Content-Type enviado pelo
+    cliente é ignorado. Campo sem formatos aceita qualquer extensão, menos as
+    bloqueadas (executáveis e scripts).
+    """
+    if file.size == 0:
+        raise ValidationError({"files": "O arquivo está vazio."})
+
+    extension = get_extension(file.name)
+    allowed = _allowed_extensions(field)
+    if not extension or extension in BLOCKED_EXTENSIONS:
+        raise FileFormatNotAllowed()
+    if allowed and extension not in allowed:
+        raise FileFormatNotAllowed()
+
+    ceiling = settings.DELIVERY_MAX_FILE_MB
+    limit_mb = min(field.max_size_mb, ceiling) if field.max_size_mb else ceiling
+    if file.size > limit_mb * 1024 * 1024:
+        raise FileTooLarge()
+
+    signatures = SIGNATURES.get(extension)
+    if signatures:
+        head = file.read(SIGNATURE_SIZE)
+        file.seek(0)
+        if not head.startswith(signatures):
+            raise FileFormatNotAllowed()

@@ -1,7 +1,18 @@
 from django.apps import apps
 from django.core.exceptions import ValidationError
+from django.utils import timezone
 
-from apps.evaluations.enums import QuestionKind
+from apps.editions.enums import EditionStatus, StageKind
+from apps.evaluations.enums import EvaluationStatus, FinalEvaluationStatus, QuestionKind
+from apps.evaluations.exceptions import (
+    FinalEvaluationAlreadyFinalized,
+    FinalFormAlreadyPublished,
+    FinalFormEmpty,
+    FinalFormHasAnswers,
+    FinalFormNotPublished,
+    FinalistNotFound,
+    TeacherNotInCourse,
+)
 
 # Os models importam estas regras; por isso elas pegam os models pelo registro
 # do Django (como a FK por string), sem import que fecharia o ciclo.
@@ -28,6 +39,19 @@ def ensure_rectification_within_criterion(rectification) -> None:
     max_score = rectification.item.stage_criterion.max_score
     if rectification.new_points > max_score:
         raise ValidationError({"new_points": f"Máximo do critério: {max_score}."})
+
+
+def ensure_evaluation_finalized(evaluation) -> None:
+    """Só se retifica avaliação finalizada; o rascunho ainda é do professor (RF14)."""
+    if evaluation.status != EvaluationStatus.FINALIZED:
+        # Chave "item": é o campo do formulário do admin que mostra o erro.
+        raise ValidationError({"item": "Só avaliação finalizada pode ser retificada."})
+
+
+def ensure_edition_not_closed(edition) -> None:
+    """Edição encerrada não aceita ajuste, nem do administrador (RN33, UC14 E2)."""
+    if edition.status == EditionStatus.CLOSED:
+        raise ValidationError({"item": "A edição está encerrada."})
 
 
 def ensure_within_evaluation_deadline(evaluation) -> None:
@@ -65,4 +89,107 @@ def ensure_answer_matches_question(answer) -> None:
     elif answer.value is not None or not answer.text:
         raise ValidationError(
             {"text": "Pergunta de texto ou conceito exige só o texto."}
+        )
+
+
+def ensure_teacher_in_challenge_course(teacher, project) -> None:
+    """Só avalia o professor com vínculo ativo no curso do desafio (RF38, RN04)."""
+    course_id = project.challenge.course_id if project.challenge_id else None
+    if not teacher.course_links.filter(course_id=course_id, active=True).exists():
+        raise TeacherNotInCourse()
+
+
+def ensure_stage_is_evaluable(stage) -> None:
+    """Só etapas pontuadas de entrega têm avaliação do professor (RF38)."""
+    if stage.kind != StageKind.SUBMISSION or not stage.scored:
+        raise ValidationError({"stage": "A etapa não tem avaliação do professor."})
+
+
+def ensure_has_valid_submission(project, stage) -> None:
+    """A avaliação incide sobre a versão válida da entrega (RF38)."""
+    # Import tardio: os models de evaluations importam este módulo.
+    from apps.projects.selectors import get_valid_version
+
+    submission = project.submissions.filter(stage=stage).first()
+    if submission is None or get_valid_version(submission) is None:
+        raise ValidationError({"submission": "O projeto não tem entrega válida."})
+
+
+def ensure_submission_period_closed(project, stage) -> None:
+    """Só finaliza depois do prazo da equipe, com a prorrogação se houver (RF38).
+
+    Antes disso a equipe ainda pode enviar uma versão que invalidaria a nota.
+    """
+    from apps.projects.selectors import get_submission_deadline
+
+    if timezone.now() <= get_submission_deadline(project, stage):
+        raise ValidationError(
+            {"stage": "O prazo de entrega da equipe ainda está aberto."}
+        )
+
+
+def ensure_evaluation_is_draft(evaluation) -> None:
+    """Avaliação finalizada é imutável; só a retificação do admin muda (RF14)."""
+    if evaluation.status == EvaluationStatus.FINALIZED:
+        raise ValidationError({"status": "A avaliação já foi finalizada."})
+
+
+def ensure_all_criteria_scored(evaluation) -> None:
+    """Finalizar exige pontos em todos os critérios da etapa (RF38)."""
+    scored = evaluation.items.values_list("stage_criterion_id", flat=True)
+    criteria = evaluation.stage.criterion_links
+    if not criteria.exists() or criteria.exclude(pk__in=scored).exists():
+        raise ValidationError({"items": "Pontue todos os critérios da etapa."})
+
+
+def ensure_final_form_editable(form) -> None:
+    """Formulário publicado não muda se já houver resposta (RF12)."""
+    if form.published and form.evaluations.filter(answers__isnull=False).exists():
+        raise FinalFormHasAnswers
+
+
+def ensure_final_form_publishable(form) -> None:
+    """Publica só formulário ainda não publicado e com perguntas (RF12)."""
+    if form.published:
+        raise FinalFormAlreadyPublished
+    if not form.questions.exists():
+        raise FinalFormEmpty
+
+
+def ensure_reviewer_covers_finalist(reviewer, project) -> None:
+    """Só avalia finalista da edição para a qual o avaliador foi vinculado (RF42).
+
+    O vínculo sem curso vale para todos os cursos; com curso, só para os projetos
+    de desafios daquele curso. Fora disso o projeto "não existe" para ele.
+    """
+    result = getattr(project, "result", None)
+    links = apps.get_model("editions", "EditionReviewer").objects.filter(
+        edition_id=project.edition_id, reviewer=reviewer
+    )
+    covered = any(
+        link.course_id in (None, project.challenge.course_id) for link in links
+    )
+    if result is None or not result.finalist or not covered:
+        raise FinalistNotFound
+
+
+def ensure_final_form_published(form) -> None:
+    """A etapa final só abre com o formulário publicado (RF12)."""
+    if form is None or not form.published:
+        raise FinalFormNotPublished
+
+
+def ensure_final_evaluation_is_draft(evaluation) -> None:
+    """Avaliação finalizada é imutável (RF43)."""
+    if evaluation.status == FinalEvaluationStatus.EVALUATED:
+        raise FinalEvaluationAlreadyFinalized
+
+
+def ensure_all_questions_answered(evaluation) -> None:
+    """Finalizar exige resposta para todas as perguntas do formulário (RF43)."""
+    answered = set(evaluation.answers.values_list("question_id", flat=True))
+    missing = set(evaluation.form.questions.values_list("pk", flat=True)) - answered
+    if missing:
+        raise ValidationError(
+            {"answers": "Responda todas as perguntas para finalizar."}
         )
