@@ -1,4 +1,36 @@
+from datetime import timedelta
+
 from django.core.exceptions import ValidationError
+from django.utils import timezone
+
+from apps.editions.enums import StageKind
+from apps.editions.models import Stage
+
+# Saída que deixa a equipe abaixo do mínimo nas últimas horas do prazo dá tempo extra
+# para repor a vaga (RF22, RF26). shortcut: valores fixos; mover para a edição se o
+# regulamento variar por ano.
+FORMATION_LAST_HOURS = timedelta(hours=24)
+FORMATION_EXTENSION = timedelta(hours=48)
+
+
+def get_open_formation_stage(edition, now=None):
+    """Etapa de formação em andamento na edição, ou None (RF22)."""
+    now = now or timezone.now()
+    return Stage.objects.filter(
+        edition=edition,
+        kind=StageKind.FORMATION,
+        starts_at__lte=now,
+        ends_at__gte=now,
+    ).first()
+
+
+def is_formation_open_for_team(team, now=None) -> bool:
+    """Prazo de formação aberto para a equipe: a etapa ou a janela extra dela."""
+    now = now or timezone.now()
+    extended = team.formation_extended_until
+    return get_open_formation_stage(team.edition, now) is not None or (
+        extended is not None and now <= extended
+    )
 
 
 def ensure_member_edition_matches_team(team, edition_id: int) -> None:
