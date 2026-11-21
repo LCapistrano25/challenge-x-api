@@ -184,7 +184,9 @@
 - O RF14 exige um histórico **imutável** de cada ajuste (responsável, data/hora, valor anterior, valor novo, justificativa), mas não existe tabela para isso. A arquitetura também proíbe criar auditoria sem decisão.
 - A prorrogação de prazo **para uma equipe específica** não tem onde ser gravada, porque `stage` só tem prazo global.
 - Não está definido se uma `evaluation` em `FINALIZED` pode ser alterada. A retificação de nota do RF14 pressupõe que sim, mas apenas pelo Admin.
-- **Parcial (26/10/2026):** uma tabela por tipo de ajuste, cada uma sendo o próprio histórico imutável. A prorrogação por equipe é `DeadlineExtension` (projeto, etapa, novo prazo, justificativa, admin), e `get_valid_version` usa esse prazo. A retificação de nota é `ScoreRectification` (item, pontos anteriores e novos, justificativa, admin), gravada pelo caso de uso `rectify_score`, que troca os pontos do item mesmo com a avaliação finalizada. O prazo do professor (`ensure_within_evaluation_deadline`) não vale para a retificação.
+- **Resolvida (20/11/2026):** uma tabela por tipo de ajuste, cada uma sendo o próprio histórico imutável. A prorrogação por equipe é `DeadlineExtension` (projeto, etapa, novo prazo, justificativa, admin), e `get_valid_version` usa esse prazo. A retificação de nota é `ScoreRectification` (item, pontos anteriores e novos, justificativa, admin), gravada pelo caso de uso `rectify_score`, que troca os pontos do item mesmo com a avaliação finalizada. O prazo do professor (`ensure_within_evaluation_deadline`) não vale para a retificação.
+- **Decisões da #67:** (1) o prazo de avaliação é um campo próprio da etapa, `evaluation_ends_at` (P-19); (2) os ajustes ficam em uma tabela por tipo, não em uma tabela genérica de auditoria; (3) a avaliação finalizada só muda pelo admin, por retificação de um item, e cada retificação fica registrada; o professor não altera depois de finalizar. A imutabilidade é garantida no admin do Django, que não tem permissão de alterar nem apagar `DeadlineExtension` e `ScoreRectification`; a retificação só é gravada por `rectify_score`.
+- **Fora desta decisão:** a rota para o admin conceder a prorrogação (hoje só pelo admin do Django, que grava `granted_by`) e a consulta do histórico de ajustes (RF16). Seguem em tasks próprias.
 
 ---
 
@@ -376,14 +378,15 @@ Dois desvios do contrato de auth, ambos pela regra "DBML como referência":
 | Requisito | Situação | Endpoints principais |
 |---|---|---|
 | RF01 | Coberto | `POST /api/auth/sessions/password` |
-| RF02, RF10, RF15, RF16 | Removidos no documento de requisitos | — |
+| RF02 | Coberto | `/api/admin/email-domains` |
+| RF10, RF15, RF16 | Removidos no documento de requisitos | — |
 | RF03, RF04 | Coberto | `/api/admin/courses`, `/api/admin/sdgs`, `/api/admin/editions/{id}/sdgs` |
 | RF05, RF06, RF07, RF08, RF49 | Coberto | `/api/admin/editions/{id}/challenges`, `/criteria`, `/stages`, `/categories`, `/api/admin/stages/{id}/criteria` |
 | RF09 | Coberto | `POST /api/admin/editions/{id}/publish` |
 | RF11 | Coberto | `POST /api/auth/external-evaluators` + `/api/admin/editions/{id}/evaluators` |
 | RF12 | Coberto | `/api/admin/editions/{id}/final-form` |
 | RF13 | Coberto (data e responsável não persistidos, P-22) | `POST /api/admin/teams/{id}/disqualify` |
-| **RF14** | **Sem cobertura** | Sem tabela de histórico nem de prazo por equipe (P-21, P-46) |
+| **RF14** | **Parcial** | Histórico por tipo de ajuste (`retificacao_nota`, `prorrogacao_prazo`, P-21); falta a rota de prorrogação |
 | **RF17** | **Parcial** | Modelos e consulta dos próprios certificados; a emissão depende de P-29, P-30, P-34 e P-46 |
 | RF18, RF36 | Coberto | `POST /api/auth/sessions/microsoft` |
 | RF19 | Coberto | `POST /api/auth/students` |

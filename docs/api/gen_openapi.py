@@ -248,6 +248,21 @@ SC["ExternalEvaluatorCreate"] = obj({
     "institution": nul(STR(ex="Instituto Tecnológico do Tocantins", maxLength=150)),
 }, ["name", "email", "password"], strict=True)
 SC["ExternalEvaluatorCreated"] = obj({"external_evaluator": obj({"user_id": USER_ID(), "email": EMAIL(ex="avaliador@instituicao.com")}, ["user_id", "email"])}, ["external_evaluator"])
+SC["EmailDomain"] = obj({
+    "id": INT(ex=1), "name": STR(ex="a.catolica-to.edu.br"),
+    "role": {"type": "string", "enum": ["STUDENT", "TEACHER"], "example": "STUDENT"},
+    "active": BOOL(ex=True),
+}, ["id", "name", "role", "active"])
+SC["EmailDomainCreate"] = obj({
+    "name": STR(ex="a.catolica-to.edu.br", maxLength=100),
+    "role": {"type": "string", "enum": ["STUDENT", "TEACHER"], "example": "STUDENT"},
+    "active": BOOL(ex=True, default=True),
+}, ["name", "role"], strict=True)
+SC["EmailDomainUpdate"] = obj({
+    "name": STR(ex="a.catolica-to.edu.br", maxLength=100),
+    "role": {"type": "string", "enum": ["STUDENT", "TEACHER"], "example": "TEACHER"},
+    "active": BOOL(ex=False),
+}, desc="Ao menos um campo deve ser informado.", strict=True, minProperties=1)
 
 # ---------------------------------------------------------------- core
 SC["Course"] = obj({
@@ -666,6 +681,7 @@ def qp(name, schema, desc):
     return {"name": name, "in": "query", "required": False, "description": desc, "schema": schema}
 PARAMS = {
     "UserId": pp("user_id", {"type": "integer", "minimum": 1}, "Identificador do usuário."),
+    "DomainId": pp("domain_id", {"type": "integer", "minimum": 1}, "Identificador do domínio de e-mail."),
     "CourseId": pp("course_id", {"type": "integer"}, "Identificador do curso."),
     "SdgId": pp("sdg_id", {"type": "integer"}, "Identificador da ODS."),
     "EditionId": pp("edition_id", {"type": "integer"}, "Identificador da edição."),
@@ -689,6 +705,7 @@ PARAMS = {
     "PageSize": qp("page_size", {"type": "integer", "minimum": 1, "maximum": 100, "default": 20}, "Itens por página (P-38)."),
     "Search": qp("search", {"type": "string"}, "Busca textual."),
     "ActiveFilter": qp("active", {"type": "boolean"}, "Filtra pelo status de ativação."),
+    "InstitutionalRoleFilter": qp("role", {"type": "string", "enum": ["STUDENT", "TEACHER"]}, "Filtra pelo perfil institucional."),
     "CourseFilter": qp("course_id", {"type": "integer"}, "Filtra por curso."),
     "SdgFilter": qp("sdg_id", {"type": "integer"}, "Filtra por ODS."),
     "EditionFilter": qp("edition_id", {"type": "integer"}, "Filtra por edição."),
@@ -753,6 +770,21 @@ op("post", "/api/auth/teachers", "authCompleteTeacherProfile", "auth", "Configur
    conflicts=[("teacher_profile_exists", "O perfil de professor já foi configurado.")], pend=["P-02"])
 
 # ---------- accounts
+op("get", "/api/admin/email-domains", "accountsListEmailDomains", "accounts", "Listar domínios institucionais",
+   ["RF02"], ["ADMIN"], "Lista os domínios de e-mail institucionais cadastrados.",
+   params=["ActiveFilter", "InstitutionalRoleFilter"], ok=arr(ref("EmailDomain")))
+op("post", "/api/admin/email-domains", "accountsCreateEmailDomain", "accounts", "Cadastrar domínio institucional",
+   ["RF02"], ["ADMIN"], "Cadastra um domínio de e-mail institucional associado a um perfil (STUDENT ou TEACHER).",
+   body=ref("EmailDomainCreate"), ok=ref("EmailDomain"), ok_code="201", ok_desc="Domínio criado.",
+   rules=["O nome é normalizado para minúsculas e sem espaços; formato de domínio válido é obrigatório.",
+          "Unicidade case-insensitive (409 email_domain_taken).",
+          "Apenas STUDENT e TEACHER são aceitos."],
+   conflicts=[("email_domain_taken", "Já existe um domínio de e-mail cadastrado com este nome.")])
+op("patch", "/api/admin/email-domains/{domain_id}", "accountsUpdateEmailDomain", "accounts", "Atualizar domínio institucional",
+   ["RF02"], ["ADMIN"], "Edita nome, perfil ou status de ativação de um domínio institucional.",
+   params=["DomainId"], body=ref("EmailDomainUpdate"), ok=ref("EmailDomain"), errs=["404"],
+   rules=["Aplica as mesmas regras de normalização, formato e unicidade case-insensitive do cadastro."],
+   conflicts=[("email_domain_taken", "Já existe um domínio de e-mail cadastrado com este nome.")])
 op("post", "/api/auth/external-evaluators", "accountsCreateExternalEvaluator", "accounts", "Cadastrar avaliador externo",
    ["RF11"], ["ADMIN"], "Cria o usuário (role EXTERNAL_REVIEWER, senha com hash) e o perfil external_reviewer.",
    body=ref("ExternalEvaluatorCreate"), ok=ref("ExternalEvaluatorCreated"), ok_code="201", ok_desc="Avaliador criado.",
