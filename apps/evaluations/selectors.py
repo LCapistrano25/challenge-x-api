@@ -105,7 +105,7 @@ def list_teacher_rows(
                     "stage": stage,
                     "deliverable_status": deliverable,
                     "evaluation_count": finalized[key],
-                    "min_evaluators": stage.min_evaluations,
+                    "min_evaluations": stage.min_evaluations,
                     "my_evaluation_status": my_status,
                 }
             )
