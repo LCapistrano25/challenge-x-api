@@ -18,7 +18,12 @@ from apps.editions.factories import (
     StageFactory,
     StageSubmissionFieldFactory,
 )
-from apps.projects.factories import ProjectFactory
+from apps.projects.factories import (
+    ProjectFactory,
+    SubmissionFactory,
+    SubmissionReceiptFactory,
+    SubmissionVersionFactory,
+)
 from apps.teams.enums import MemberRole
 from apps.teams.factories import TeamFactory, TeamMemberFactory
 
@@ -759,3 +764,115 @@ def test_consulta_de_entregas_de_projeto_inexistente_da_404(dleader):
     assert (
         client_for(dleader).get("/api/projects/999999/deliverables").status_code == 404
     )
+
+
+# Comprovante da versão (RF31)
+
+
+def receipt_url(version):
+    return f"/api/deliverable-versions/{version.pk}/receipt"
+
+
+@pytest.fixture
+def receipt(dproject, dstage):
+    submission = SubmissionFactory(project=dproject, stage=dstage)
+    version = SubmissionVersionFactory(submission=submission)
+    return SubmissionReceiptFactory(version=version)
+
+
+def test_lider_consulta_o_comprovante(receipt, dproject, dstage, dleader):
+    response = client_for(dleader).get(receipt_url(receipt.version))
+
+    assert response.status_code == 200
+    assert response.data["id"] == receipt.pk
+    assert response.data["version_id"] == receipt.version_id
+    assert response.data["version_number"] == receipt.version.number
+    assert response.data["verification_code"] == receipt.verification_code
+    assert response.data["file_url"] is None
+    assert response.data["generated_at"] is not None
+    assert response.data["team"] == {
+        "id": dproject.team.pk,
+        "name": dproject.team.name,
+        "code": dproject.team.code,
+    }
+    assert response.data["project"] == {"id": dproject.pk, "title": dproject.title}
+    assert response.data["stage"] == {
+        "id": dstage.pk,
+        "name": dstage.name,
+        "position": dstage.order,
+    }
+    assert response.data["submitted_at"] is not None
+
+
+def test_integrante_e_admin_consultam_o_comprovante(receipt, dproject):
+    member = TeamMemberFactory(team=dproject.team).student.user
+    for user in (member, UserFactory(role=UserRole.ADMIN)):
+        assert client_for(user).get(receipt_url(receipt.version)).status_code == 200
+
+
+def test_comprovante_traz_o_mesmo_codigo_do_envio(dproject, dleader, dstage, dfield):
+    created = post_version(dleader, dproject, dstage, payload(dfield))
+
+    response = client_for(dleader).get(
+        f"/api/deliverable-versions/{created.data['id']}/receipt"
+    )
+
+    assert response.status_code == 200
+    assert (
+        response.data["verification_code"]
+        == created.data["receipt"]["verification_code"]
+    )
+
+
+def test_consulta_do_comprovante_exige_login(receipt):
+    assert APIClient().get(receipt_url(receipt.version)).status_code == 403
+
+
+def test_aluno_de_fora_nao_consulta_o_comprovante(receipt):
+    response = client_for(StudentFactory().user).get(receipt_url(receipt.version))
+
+    assert response.status_code == 403
+    assert error_code(response) == "project_access_denied"
+
+
+def test_professor_nao_consulta_o_comprovante(receipt):
+    response = client_for(TeacherFactory().user).get(receipt_url(receipt.version))
+    assert response.status_code == 403
+
+
+def test_comprovante_inexistente_da_404(dleader):
+    response = client_for(dleader).get("/api/deliverable-versions/999999/receipt")
+    assert response.status_code == 404
+
+
+def test_versao_sem_comprovante_da_404(dleader, dproject, dstage):
+    version = SubmissionVersionFactory(
+        submission=SubmissionFactory(project=dproject, stage=dstage)
+    )
+    assert client_for(dleader).get(receipt_url(version)).status_code == 404
+
+
+def test_comprovante_continua_visivel_com_equipe_desclassificada():
+    project = ProjectFactory(team=TeamFactory(disqualified=True))
+    leader = project.team.members.get(role=MemberRole.LEADER).student.user
+    stage = make_stage(project)
+    version = SubmissionVersionFactory(
+        submission=SubmissionFactory(project=project, stage=stage)
+    )
+    SubmissionReceiptFactory(version=version)
+    assert client_for(leader).get(receipt_url(version)).status_code == 200
+
+
+def test_comprovante_continua_visivel_depois_do_prazo(dproject, dleader):
+    stage = make_stage(dproject, start=-3, end=-1)
+    version = SubmissionVersionFactory(
+        submission=SubmissionFactory(project=dproject, stage=stage)
+    )
+    SubmissionReceiptFactory(version=version)
+    assert client_for(dleader).get(receipt_url(version)).status_code == 200
+
+
+@pytest.mark.parametrize("method", ["post", "put", "patch", "delete"])
+def test_comprovante_nao_aceita_escrita(receipt, dleader, method):
+    response = getattr(client_for(dleader), method)(receipt_url(receipt.version))
+    assert response.status_code == 405

@@ -13,6 +13,7 @@ from apps.projects.selectors import (
     get_active_categories,
     get_eligible_challenges,
     get_project_deliverables,
+    get_receipt_by_version,
 )
 from apps.projects.serializers import (
     CategorySelectionSerializer,
@@ -22,6 +23,7 @@ from apps.projects.serializers import (
     ProjectDetailsSerializer,
     ProjectOptionsSerializer,
     ProjectSerializer,
+    ReceiptDetailSerializer,
     StageDeliverableSerializer,
 )
 from apps.projects.use_cases.save_project_details import save_project_details
@@ -160,3 +162,16 @@ class ProjectStageVersionsView(APIView):
             notes=serializer.validated_data["notes"],
         )
         return Response(DeliverableVersionSerializer(version).data, status=201)
+
+
+class VersionReceiptView(APIView):
+    permission_classes = [IsStudent | IsAdmin]
+
+    def get(self, request, version_id):
+        receipt = get_receipt_by_version(version_id)
+        if receipt is None:
+            raise NotFound("Comprovante não encontrado.")
+        ensure_actor_can_view_project(
+            receipt.version.submission.project.team, request.user
+        )
+        return Response(ReceiptDetailSerializer(receipt).data)
