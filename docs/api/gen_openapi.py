@@ -1299,8 +1299,9 @@ spec = {
                                            "description": "JWT da aplicação emitido pelas rotas de sessão."}},
         "parameters": PARAMS,
         "responses": {
-            "BadRequest": {"description": "Requisição inválida.", "content": {"application/json": {"schema": ref("Error"),
-                           "example": err_example("validation_error", "Dados inválidos.", {"title": ["Este campo é obrigatório."]})}}},
+            "BadRequest": {"description": "Requisição inválida: dados inválidos (`validation_error`) ou corpo acima de 2,5 MB, o `DATA_UPLOAD_MAX_MEMORY_SIZE` (`request_too_large`).", "content": {"application/json": {"schema": ref("Error"),
+                           "examples": {"validation_error": {"value": err_example("validation_error", "Dados inválidos.", {"title": ["Este campo é obrigatório."]})},
+                                        "request_too_large": {"value": err_example("request_too_large", "A requisição excede o tamanho permitido.")}}}}},
             "Unauthorized": {"description": "Autenticação ausente, inválida ou expirada.", "content": {"application/json": {"schema": ref("Error"),
                              "example": err_example("not_authenticated", "Credenciais de autenticação inválidas ou ausentes.")}}},
             "Forbidden": {"description": "Usuário autenticado sem permissão para a operação.", "content": {"application/json": {"schema": ref("Error"),
