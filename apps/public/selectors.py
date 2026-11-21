@@ -1,6 +1,8 @@
 from django.db.models import QuerySet
 
 from apps.editions.models import Edition
+from apps.projects.enums import ProjectStatus
+from apps.projects.models import Project
 from apps.results.models import ProjectResult
 
 
@@ -37,4 +39,28 @@ def list_edition_winners(edition_id: int) -> QuerySet[ProjectResult]:
         )
         .select_related("project")
         .order_by("award")
+    )
+
+
+def list_public_projects() -> QuerySet[Project]:
+    """
+    Lista todos os projetos públicos para a vitrine.
+    Regra (P-28): Apenas projetos com status COMPLETED.
+    """
+    return (
+        Project.objects.filter(status=ProjectStatus.COMPLETED)
+        .select_related("edition", "category", "challenge")
+        .order_by("-created_at")
+    )
+
+
+def get_public_project(project_id: int) -> Project | None:
+    """
+    Retorna o detalhe de um projeto público específico.
+    Regra (P-28): O projeto deve ter o status COMPLETED.
+    """
+    return (
+        Project.objects.filter(id=project_id, status=ProjectStatus.COMPLETED)
+        .select_related("edition", "category", "challenge", "team")
+        .first()
     )

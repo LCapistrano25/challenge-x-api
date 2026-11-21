@@ -5,8 +5,10 @@ from rest_framework.views import APIView
 
 from apps.public.selectors import (
     get_current_edition,
+    get_public_project,
     list_closed_editions,
     list_edition_winners,
+    list_public_projects,
 )
 
 
@@ -60,4 +62,44 @@ class EditionWinnersListView(APIView):
     def get(self, request, edition_id):
         winners = list_edition_winners(edition_id)
         serializer = WinnerPublicSerializer(winners, many=True)
+        return Response(serializer.data)
+
+
+class ProjectPublicSerializer(serializers.Serializer):
+    """Serializer para a vitrine de projetos."""
+
+    id = serializers.IntegerField()
+    title = serializers.CharField()
+    summary = serializers.CharField()
+    status = serializers.CharField()
+
+
+class ProjectDetailPublicSerializer(ProjectPublicSerializer):
+    """Serializer para a página de detalhe do projeto."""
+
+    objective = serializers.CharField()
+    # Podemos adicionar mais campos futuramente (equipa, links, etc.)
+
+
+class PublicProjectListView(APIView):
+    """GET /api/public/projects : Vitrine e acervo de projetos (público)"""
+
+    permission_classes = []
+
+    def get(self, request):
+        projects = list_public_projects()
+        serializer = ProjectPublicSerializer(projects, many=True)
+        return Response(serializer.data)
+
+
+class PublicProjectDetailView(APIView):
+    """GET /api/public/projects/{project_id} : Detalhe público do projeto (público)"""
+
+    permission_classes = []
+
+    def get(self, request, project_id):
+        project = get_public_project(project_id)
+        if not project:
+            raise Http404("Projeto não encontrado ou não disponível para o público.")
+        serializer = ProjectDetailPublicSerializer(project)
         return Response(serializer.data)

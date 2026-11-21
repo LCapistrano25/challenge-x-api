@@ -4,6 +4,7 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from apps.editions.factories import EditionFactory
+from apps.projects.enums import ProjectStatus
 from apps.projects.factories import ProjectFactory
 from apps.results.factories import ProjectResultFactory
 
@@ -60,3 +61,36 @@ def test_api_edition_winners_list(api_client):
     assert len(response.data) == 1
     assert response.data[0]["award"] == 1
     assert response.data[0]["project_id"] == proj.id
+
+
+@pytest.mark.django_db
+def test_api_public_projects_list(api_client):
+    """Testa se a vitrine retorna 200 OK apenas com projetos COMPLETED."""
+    ProjectFactory(status=ProjectStatus.COMPLETED)
+    ProjectFactory(status=ProjectStatus.IN_PROGRESS)
+
+    response = api_client.get("/api/public/projects")
+
+    assert response.status_code == status.HTTP_200_OK
+    assert len(response.data) == 1
+
+
+@pytest.mark.django_db
+def test_api_public_project_detail_success(api_client):
+    """Testa se o detalhe de um projeto COMPLETED retorna 200 OK."""
+    proj = ProjectFactory(status=ProjectStatus.COMPLETED)
+
+    response = api_client.get(f"/api/public/projects/{proj.id}")
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.data["id"] == proj.id
+
+
+@pytest.mark.django_db
+def test_api_public_project_detail_not_found(api_client):
+    """Testa se o detalhe de um projeto não concluído retorna 404."""
+    proj = ProjectFactory(status=ProjectStatus.IN_PROGRESS)
+
+    response = api_client.get(f"/api/public/projects/{proj.id}")
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
