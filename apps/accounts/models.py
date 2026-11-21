@@ -1,9 +1,16 @@
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
 from django.db.models import Q
+from django.db.models.functions import Lower
 
 from apps.accounts.enums import UserRole
-from apps.accounts.rules import ensure_role_change_allowed, ensure_term_within_course
+from apps.accounts.rules import (
+    ensure_email_domain_role_allowed,
+    ensure_role_change_allowed,
+    ensure_term_within_course,
+    ensure_valid_email_domain_name,
+    normalize_email_domain,
+)
 from apps.core.models import TimeStampedModel
 
 
@@ -90,6 +97,20 @@ class EmailDomain(TimeStampedModel):
     class Meta:
         verbose_name = "domínio de e-mail"
         verbose_name_plural = "domínios de e-mail"
+        constraints = [
+            models.UniqueConstraint(Lower("name"), name="unique_email_domain_name_ci"),
+        ]
+
+    def save(self, *args, **kwargs):
+        self.name = normalize_email_domain(self.name)
+        super().save(*args, **kwargs)
+
+    def clean(self):
+        super().clean()
+        if self.name is not None:
+            self.name = ensure_valid_email_domain_name(self.name)
+        if self.role:
+            ensure_email_domain_role_allowed(self.role)
 
     def __str__(self):
         return f"{self.name} - {self.role}"

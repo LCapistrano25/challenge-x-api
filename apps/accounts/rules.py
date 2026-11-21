@@ -1,3 +1,5 @@
+import re
+
 from django.apps import apps
 from django.core.exceptions import ValidationError
 
@@ -114,3 +116,34 @@ def ensure_actor_is_admin(actor) -> None:
     """Exige que quem age seja administrador (RF11, RF47, RF48)."""
     if actor is None or actor.role != UserRole.ADMIN:
         raise NotAdminActor()
+
+
+DOMAIN_NAME_PATTERN = re.compile(
+    r"^(?=.{1,100}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$"
+)
+
+
+def normalize_email_domain(name: str) -> str:
+    """Normaliza o domínio de e-mail para minúsculas sem espaços."""
+    return name.strip().lower()
+
+
+def ensure_valid_email_domain_name(name: str) -> str:
+    """Valida e normaliza o formato do domínio institucional (RF02, RN02)."""
+    normalized = normalize_email_domain(name)
+    if not DOMAIN_NAME_PATTERN.match(normalized):
+        raise ValidationError({"name": "Domínio de e-mail inválido."})
+    return normalized
+
+
+def ensure_email_domain_role_allowed(role: str) -> None:
+    """Restringe domínios institucionais aos perfis que entram via Microsoft (RN02)."""
+    if role not in MICROSOFT_ROLES:
+        raise ValidationError(
+            {
+                "role": (
+                    "Apenas os perfis de acadêmico e professor podem ser "
+                    "associados a domínios institucionais."
+                )
+            }
+        )
