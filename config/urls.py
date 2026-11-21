@@ -30,3 +30,5 @@ urlpatterns = [
     path("api/deliverable-items/", include("apps.projects.file_urls")),
     path("api/admin/editions/", include("apps.editions.urls")),
 ]
+
+handler404 = "config.exception.api_not_found"
