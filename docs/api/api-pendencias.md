@@ -62,6 +62,7 @@
 | P-44 | Anonimato do professor nos feedbacks | Média | `evaluations` |
 | P-45 | Confirmação explícita no encerramento da edição | Baixa | `editions` |
 | P-46 | Emissão de certificados e endpoints de resultados ausentes | Alta | `results` |
+| P-47 | Campos de entrega Canvas e SWOT: modelos fixos e escopo | Média | `editions`, `projects` |
 
 ---
 
@@ -332,6 +333,12 @@ Estas são convenções que a especificação adota para ficar completa. Cada um
   - Ajustes pontuais (RF14), sem persistência no modelo (P-21).
 - **Rotas candidatas, ainda não especificadas:** `POST /api/admin/editions/{id}/results/calculate`, `POST /api/admin/editions/{id}/finalists`, `POST /api/admin/editions/{id}/results/homologate`, `POST /api/admin/editions/{id}/certificates/issue`, `POST /api/admin/teams/{id}/deadline-extensions`. Elas entram na especificação quando as regras forem aprovadas.
 
+### P-47 — Campos de entrega Canvas e SWOT: modelos fixos e escopo · Média
+- O professor pediu que o Business Model Canvas e a matriz SWOT sejam preenchidos no sistema. O admin escolhe por etapa, como qualquer campo de entrega (`type` `CANVAS` e `SWOT`, com `required`); não há nota própria, o professor avalia pelos critérios existentes.
+- Os modelos ficam fixos no código, sem configuração. Campo `CANVAS` ou `SWOT` não usa `formats` nem `max_size_mb`.
+- **A confirmar com o professor:** os nomes e a lista dos blocos do canvas e dos quadrantes do SWOT (formato proposto na #170) e se o canvas vale para outras etapas além da entrega.
+- O envio do conteúdo (`POST .../versions`, item com `content`) e a leitura (`GET .../deliverables`, `content` no item) são da #170. Formato fixo: canvas com os nove blocos (`customer_segments`, `value_propositions`, `channels`, `customer_relationships`, `revenue_streams`, `key_resources`, `key_activities`, `key_partnerships`, `cost_structure`), um texto por bloco; SWOT com `strengths`, `weaknesses`, `opportunities` e `threats`, uma lista de textos por quadrante. Cada texto tem até 5000 caracteres e cada quadrante até 20 itens (limites fixos no código, a confirmar). Campo opcional pode ficar sem item; item enviado precisa estar completo.
+
 ---
 
 ## 11. Endpoints confirmados e propostos
@@ -453,3 +460,5 @@ O validador oficial (`openapi-spec-validator`) **não pôde ser instalado**, por
 | 08/11/2026 | `POST /api/auth/sessions/password` devolve o usuário da sessão (`user_id`, `name`, `email`, `role`) em vez de um JWT, com 403 `reviewer_not_in_current_edition` para o avaliador fora da edição vigente; entram `POST /api/auth/logout` e `GET /api/auth/me`. | A #91 usa sessão com CSRF; a credencial vai no cookie. O esquema de segurança do contrato (`bearerAuth`) e o login Microsoft continuam como estão até a decisão da #70. |
 | 10/11/2026 | `CourseSummary` (resumo do curso dentro de outros recursos) perde o `slug`. | O `Course` não tem mais `slug` desde a P-17. Os schemas do próprio curso (`Course`, cadastro e atualização) e o conflito `course_slug_taken` ainda têm o campo e ficam para a task de cursos (UC03). |
 | 20/11/2026 | Contrato alinhado aos models. Enums: `EXTERNAL_REVIEWER`; `EditionStatus` sem `IN_PROGRESS`; `StageType` `SUBMISSION`; `TeamSituation` no lugar de `TeamQualification`; `ProjectStatus` `IN_PROGRESS/COMPLETED/DISQUALIFIED`; `ScoreStatus` `PENDING/DEFINITIVE/ZERO_NO_SUBMISSION`; `QuestionType` com `CONCEPT`; `FinalEvaluationStatus` `PENDING/EVALUATED`. Campos: `Course` sem `slug` e `term_count` ∈ {8, 10}; `Edition.regulation_url`; `Challenge` sem `title`; `Criterion.rubric`; `Stage` com `order`, `kind`, `max_score`, `min_evaluations`, `submission_fields` e `evaluation_ends_at`; `kind` nos campos e itens de entrega e no certificado; `DeliverableVersion.number`; `Team.situation`, `disqualified_at` e `disqualified_by`; convite só por `student_id` (sem `invited_email`); `MemberNote.text`; `FinalQuestion.order/kind`; `FinalAnswer.text`; `Winner.award`; `Certificate` sem `project` e `workload_hours` ∈ {20, 40}; decimais com até 3 dígitos inteiros. | Os models seguem o glossário do guia de implementação, que prevalece sobre o OpenAPI (CLAUDE.md). |
+| 20/11/2026 | `FieldType` ganha `CANVAS` e `SWOT`; `formats` e `max_size_mb` só valem para `FILE`. | Pedido do professor: Business Model Canvas e matriz SWOT preenchidos no sistema (#169, P-47). |
+| 20/11/2026 | O item de entrega ganha `content` (envio e consulta): `DeliverableSubmissionItem` aceita `link`, `file_index` ou `content`, e `DeliverableItem` devolve `content` (nulo para link e arquivo). Novos schemas `CanvasContent` e `SwotContent`, com limite de 5000 caracteres por texto e 20 itens por quadrante. | Canvas e SWOT preenchidos no sistema na entrega da etapa (#170, P-47). |

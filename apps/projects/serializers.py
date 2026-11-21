@@ -92,11 +92,13 @@ class DeliverableItemWriteSerializer(serializers.Serializer):
     link = serializers.URLField(max_length=1000, required=False)
     # Posição do arquivo em files[] (multipart, P-43).
     file_index = serializers.IntegerField(min_value=0, required=False)
+    # Canvas ou SWOT preenchido no sistema; o formato é checado em rules.py.
+    content = serializers.JSONField(required=False)
 
     def validate(self, attrs):
-        if ("link" in attrs) == ("file_index" in attrs):
+        if sum(key in attrs for key in ("link", "file_index", "content")) != 1:
             raise serializers.ValidationError(
-                "Informe o link ou o file_index do item, apenas um dos dois."
+                "Informe o link, o file_index ou o content do item, apenas um deles."
             )
         return attrs
 
@@ -132,6 +134,9 @@ class DeliverableSubmissionSerializer(serializers.Serializer):
         used = set()
         items = []
         for raw in attrs["items"]:
+            if "content" in raw:
+                items.append({"field": raw["field"], "content": raw["content"]})
+                continue
             if "file_index" not in raw:
                 items.append({"field": raw["field"], "link": raw["link"]})
                 continue
@@ -167,6 +172,7 @@ class DeliverableItemSerializer(serializers.Serializer):
     file_url = serializers.SerializerMethodField()
     file_name = serializers.SerializerMethodField()
     size_bytes = serializers.IntegerField(allow_null=True)
+    content = serializers.JSONField(allow_null=True)
 
     # Campo vazio no banco vira nulo no contrato.
     def get_link(self, item):

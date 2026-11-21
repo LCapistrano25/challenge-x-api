@@ -9,8 +9,12 @@ from django.utils import timezone
 from apps.accounts.enums import UserRole
 from apps.accounts.models import ExternalReviewer, User
 from apps.core.models import Course, Sdg
-from apps.editions.enums import StageKind
-from apps.editions.factories import EditionFactory, StageFactory
+from apps.editions.enums import FieldKind, StageKind
+from apps.editions.factories import (
+    EditionFactory,
+    StageFactory,
+    StageSubmissionFieldFactory,
+)
 from apps.editions.models import (
     Category,
     Challenge,
@@ -20,6 +24,7 @@ from apps.editions.models import (
     EditionSdg,
     Stage,
     StageCriterion,
+    StageSubmissionField,
 )
 
 pytestmark = pytest.mark.django_db
@@ -268,3 +273,29 @@ def test_admin_mostra_erro_ao_tirar_ods_usada(edition, client):
     assert response.status_code == 200  # formulário volta com erro, sem salvar
     assert "Há desafios desta edição usando esta ODS." in response.text
     assert EditionSdg.objects.filter(pk=habilitada.pk).exists()
+
+
+@pytest.mark.parametrize("kind", [FieldKind.CANVAS, FieldKind.SWOT])
+def test_canvas_and_swot_fields_are_accepted_without_file_options(kind):
+    field = StageSubmissionFieldFactory(kind=kind, label="Modelo")
+
+    field.full_clean()
+    assert StageSubmissionField.objects.get(pk=field.pk).kind == kind
+
+
+@pytest.mark.parametrize("kind", [FieldKind.CANVAS, FieldKind.SWOT])
+@pytest.mark.parametrize("options", [{"formats": "pdf"}, {"max_size_mb": 10}])
+def test_canvas_and_swot_fields_reject_file_options(kind, options):
+    with pytest.raises(IntegrityError):
+        StageSubmissionFieldFactory(kind=kind, **options)
+
+
+def test_link_and_file_fields_keep_file_options():
+    StageSubmissionFieldFactory(kind=FieldKind.FILE, formats="pdf", max_size_mb=10)
+
+
+def test_canvas_field_with_file_options_fails_validation():
+    field = StageSubmissionFieldFactory.build(kind=FieldKind.CANVAS, formats="pdf")
+
+    with pytest.raises(ValidationError):
+        field.full_clean(exclude=["stage"])

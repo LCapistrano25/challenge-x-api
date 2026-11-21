@@ -528,6 +528,8 @@ Esta é a tabela que evita sinônimo. Termo que não estiver aqui não é traduz
 | Período do aluno | `term` | 1 a 8 ou 1 a 10 |
 | Semestre da edição | `semester` | 1 ou 2 |
 | Congelar | `freeze` | fim do prazo de formação |
+| Business Model Canvas | `canvas` | `FieldKind.CANVAS`, campo de entrega preenchido no sistema |
+| Matriz SWOT | `swot` | `FieldKind.SWOT`; quadrantes `strengths`, `weaknesses`, `opportunities`, `threats` |
 
 Dois pares que confundem e precisam de atenção: **`term` é o período do aluno**, `semester` é o semestre da edição; **`score` é nota de 0 a 10**, `points` é o que vira ponto na disciplina.
 
