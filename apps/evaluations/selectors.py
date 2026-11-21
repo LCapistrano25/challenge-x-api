@@ -1,14 +1,18 @@
 from collections import Counter, defaultdict
+from decimal import Decimal
 
+from django.db.models import Q
 from django.utils import timezone
 
-from apps.accounts.models import Teacher
+from apps.accounts.models import ExternalReviewer, Teacher
 from apps.editions.enums import EditionStatus, StageKind
-from apps.editions.models import Stage
-from apps.evaluations.enums import EvaluationStatus
-from apps.evaluations.models import Evaluation
+from apps.editions.models import EditionReviewer, Stage
+from apps.evaluations.enums import EvaluationStatus, FinalEvaluationStatus, ScoreStatus
+from apps.evaluations.exceptions import FinalFormNotPublished
+from apps.evaluations.models import Evaluation, FinalEvaluation, FinalForm, StageScore
 from apps.projects.enums import DeliveryStatus
 from apps.projects.models import DeadlineExtension, Project, SubmissionVersion
+from apps.projects.selectors import get_delivery_status
 
 
 def list_teacher_rows(
@@ -106,3 +110,130 @@ def list_teacher_rows(
                 }
             )
     return rows
+
+
+def get_project_scores(project: Project) -> list[dict]:
+    """Nota, média por critério e feedbacks de cada etapa pontuada do projeto (RF32).
+
+    Enquanto a nota está pendente (menos avaliações que o mínimo), valor, médias
+    e feedbacks ficam ocultos: eles revelariam a nota de um único professor.
+    """
+    stages = Stage.objects.filter(
+        edition_id=project.edition_id, kind=StageKind.SUBMISSION, scored=True
+    ).order_by("order")
+    scores = {s.stage_id: s for s in StageScore.objects.filter(project=project)}
+    finalized = defaultdict(list)
+    evaluations = Evaluation.objects.filter(
+        project=project, status=EvaluationStatus.FINALIZED
+    ).prefetch_related("items__stage_criterion__criterion")
+    for evaluation in evaluations:
+        finalized[evaluation.stage_id].append(evaluation)
+
+    result = []
+    for stage in stages:
+        score = scores.get(stage.pk)
+        status = score.status if score else ScoreStatus.PENDING
+        visible = status != ScoreStatus.PENDING
+        evaluations = finalized[stage.pk]
+        criteria = []
+        for link in stage.criterion_links.select_related("criterion"):
+            points = [
+                item.points
+                for evaluation in evaluations
+                for item in evaluation.items.all()
+                if item.stage_criterion_id == link.pk
+            ]
+            average = None
+            if visible and points:
+                average = (sum(points) / len(points)).quantize(Decimal("0.01"))
+            criteria.append(
+                {
+                    "criterion": link.criterion,
+                    "max_score": link.max_score,
+                    "average": average,
+                }
+            )
+        feedback = [
+            {
+                "comment": evaluation.comment,
+                "items": [
+                    {
+                        "criterion_name": item.stage_criterion.criterion.name,
+                        "points": item.points,
+                        "comment": item.comment,
+                    }
+                    for item in evaluation.items.all()
+                ],
+            }
+            for evaluation in evaluations
+            if visible
+        ]
+        result.append(
+            {
+                "stage": stage,
+                "status": status,
+                "value": score.value if score and visible else None,
+                "evaluation_count": score.evaluation_count if score else 0,
+                "deliverable_status": get_delivery_status(project, stage),
+                "criteria": criteria,
+                "feedback": feedback,
+            }
+        )
+    return result
+
+
+def list_finalists(
+    *,
+    reviewer: ExternalReviewer,
+    course_id: int | None = None,
+    category_id: int | None = None,
+) -> list[dict]:
+    """Finalistas da edição vigente dentro da abrangência do avaliador (RF42).
+
+    Vínculo sem curso cobre todos os cursos; com curso, só os desafios dele.
+    Levanta FinalFormNotPublished se a edição ainda não publicou o formulário.
+    """
+    links = list(
+        EditionReviewer.objects.filter(
+            reviewer=reviewer, edition__status=EditionStatus.PUBLISHED
+        )
+    )
+    published = set(
+        FinalForm.objects.filter(
+            published=True, edition_id__in=[link.edition_id for link in links]
+        ).values_list("edition_id", flat=True)
+    )
+    if links and not published:
+        raise FinalFormNotPublished
+    scope = Q(pk__in=[])
+    for link in links:
+        if link.edition_id in published:
+            scope |= Q(edition_id=link.edition_id) & (
+                Q(challenge__course_id=link.course_id) if link.course_id else Q()
+            )
+    projects = (
+        Project.objects.filter(scope, result__finalist=True)
+        .select_related(
+            "team", "edition", "challenge__course", "challenge__sdg", "category"
+        )
+        .order_by("pk")
+    )
+    if course_id is not None:
+        projects = projects.filter(challenge__course_id=course_id)
+    if category_id is not None:
+        projects = projects.filter(category_id=category_id)
+    statuses = dict(
+        FinalEvaluation.objects.filter(reviewer=reviewer).values_list(
+            "project_id", "status"
+        )
+    )
+    return [
+        {
+            "project": project,
+            "team": project.team,
+            "my_evaluation_status": statuses.get(
+                project.pk, FinalEvaluationStatus.PENDING
+            ),
+        }
+        for project in projects
+    ]

@@ -187,8 +187,10 @@
 - O RF14 exige um histórico **imutável** de cada ajuste (responsável, data/hora, valor anterior, valor novo, justificativa), mas não existe tabela para isso. A arquitetura também proíbe criar auditoria sem decisão.
 - A prorrogação de prazo **para uma equipe específica** não tem onde ser gravada, porque `stage` só tem prazo global.
 - Não está definido se uma `evaluation` em `FINALIZED` pode ser alterada. A retificação de nota do RF14 pressupõe que sim, mas apenas pelo Admin.
-- **Parcial (26/10/2026):** uma tabela por tipo de ajuste, cada uma sendo o próprio histórico imutável. A prorrogação por equipe é `DeadlineExtension` (projeto, etapa, novo prazo, justificativa, admin), e `get_valid_version` usa esse prazo. A retificação de nota é `ScoreRectification` (item, pontos anteriores e novos, justificativa, admin), gravada pelo caso de uso `rectify_score`, que troca os pontos do item mesmo com a avaliação finalizada. O prazo do professor (`ensure_within_evaluation_deadline`) não vale para a retificação.
-- **Atualização (21/11/2026):** a retificação tem endpoint (`POST /api/admin/evaluations/{id}/rectifications`, #98), exige admin antes de travar o item (BUG-05) e entra na `developer` com a #172. A prorrogação por equipe ainda não tem endpoint (#109).
+- **Resolvida (20/11/2026):** uma tabela por tipo de ajuste, cada uma sendo o próprio histórico imutável. A prorrogação por equipe é `DeadlineExtension` (projeto, etapa, novo prazo, justificativa, admin), e `get_valid_version` usa esse prazo. A retificação de nota é `ScoreRectification` (item, pontos anteriores e novos, justificativa, admin), gravada pelo caso de uso `rectify_score`, que troca os pontos do item mesmo com a avaliação finalizada. O prazo do professor (`ensure_within_evaluation_deadline`) não vale para a retificação.
+- **Decisões da #67:** (1) o prazo de avaliação é um campo próprio da etapa, `evaluation_ends_at` (P-19); (2) os ajustes ficam em uma tabela por tipo, não em uma tabela genérica de auditoria; (3) a avaliação finalizada só muda pelo admin, por retificação de um item, e cada retificação fica registrada; o professor não altera depois de finalizar. A imutabilidade é garantida no admin do Django, que não tem permissão de alterar nem apagar `DeadlineExtension` e `ScoreRectification`; a retificação só é gravada por `rectify_score`.
+- **Fora desta decisão:** a rota para o admin conceder a prorrogação (hoje só pelo admin do Django, que grava `granted_by`) e a consulta do histórico de ajustes (RF16). Seguem em tasks próprias.
+- **Atualização (21/11/2026):** a retificação tem endpoint (`POST /api/admin/evaluations/{id}/rectifications`, #98), exige admin antes de travar o item (BUG-05). A prorrogação por equipe ainda não tem endpoint (#109).
 
 ---
 
@@ -228,7 +230,7 @@
 - **Suposição:** são derivados (sem versão + prazo aberto = Não enviada; com versão = Enviada; sem versão + prazo encerrado = Não entregue).
 - **Implementado (#106):** o status é derivado em `get_delivery_status` (selectors de `projects`), sem gravar nada; `official_version_id` só aparece depois do prazo da equipe.
 - **Decidir:** como aplicar a nota zero (RF31/RF32). O `stage_score` com `value = 0` é gravado por um job ao fim do prazo ou calculado na consulta? Com que `status`?
-- **Resolvida (21/11/2026, #97):** a nota zero é gravada por `apply_zero_for_missing_submission` (comando `apply_zero_scores`) ao fim do prazo, sem regravar e sem sobreviver à prorrogação (RN24). Entra na `developer` com a #172.
+- **Resolvida (21/11/2026, #97):** a nota zero é gravada por `apply_zero_for_missing_submission` (comando `apply_zero_scores`) ao fim do prazo, sem regravar e sem sobreviver à prorrogação (RN24).
 
 ### P-28 — Visibilidade pública do acervo · Baixa
 - O RF35 e o RF46 falam em projetos "homologados para exibição pública". Não há flag de publicação, só `project_result.homologated_at` e o `edition.status`.
@@ -254,7 +256,7 @@
 ### P-32 — Banca do avaliador externo · Média
 - O RF43 exige avaliar todos os finalistas "alocados para a sua banca", mas não existe tabela de alocação. Só existe a abrangência por curso em `edition_evaluator.course_id`.
 - **Suposição:** a banca é todo finalista dentro da abrangência do avaliador. Confirmar.
-- **Resolvida (21/11/2026, #101):** a banca é todo finalista dentro da abrangência do avaliador (`EditionReviewer.course` nulo = todos os cursos). Entra na `developer` com a #172.
+- **Resolvida (21/11/2026, #101):** a banca é todo finalista dentro da abrangência do avaliador (`EditionReviewer.course` nulo = todos os cursos).
 
 ### P-33 — Significado de `PARTIAL` em `stage_score` · Baixa
 - O RF32 só prevê os status "Definitiva" e "Pendente". O DBML tem também `PARTIAL`.
@@ -339,7 +341,7 @@ Estas são convenções que a especificação adota para ficar completa. Cada um
   - Emissão de certificados pelo Admin (RF17): a elegibilidade de Finalista e Premiado depende de P-29/P-30, e não existem tipos para professor e avaliador (P-34).
   - Seleção e homologação de finalistas, cálculo da nota final, ranking, premiação e pontuação individual (P-29, P-30, P-31).
   - Ajustes pontuais (RF14), sem persistência no modelo (P-21).
-- **Rotas candidatas, ainda não especificadas:** `POST /api/admin/editions/{id}/results/calculate`, `POST /api/admin/editions/{id}/finalists`, `POST /api/admin/editions/{id}/results/homologate`, `POST /api/admin/editions/{id}/certificates/issue`, `POST /api/admin/teams/{id}/deadline-extensions` e `POST /api/admin/evaluations/{id}/rectifications`. Elas entram na especificação quando as regras forem aprovadas.
+- **Rotas candidatas, ainda não especificadas:** `POST /api/admin/editions/{id}/results/calculate`, `POST /api/admin/editions/{id}/finalists`, `POST /api/admin/editions/{id}/results/homologate`, `POST /api/admin/editions/{id}/certificates/issue`, `POST /api/admin/teams/{id}/deadline-extensions`. Elas entram na especificação quando as regras forem aprovadas.
 
 ---
 
@@ -380,14 +382,15 @@ Dois desvios do contrato de auth, ambos pela regra "DBML como referência":
 | Requisito | Situação | Endpoints principais |
 |---|---|---|
 | RF01 | Coberto | `POST /api/auth/sessions/password` |
-| RF02, RF10, RF15, RF16 | Removidos no documento de requisitos | — |
+| RF02 | Coberto | `/api/admin/email-domains` |
+| RF10, RF15, RF16 | Removidos no documento de requisitos | — |
 | RF03, RF04 | Coberto | `/api/admin/courses`, `/api/admin/sdgs`, `/api/admin/editions/{id}/sdgs` |
 | RF05, RF06, RF07, RF08, RF49 | Coberto | `/api/admin/editions/{id}/challenges`, `/criteria`, `/stages`, `/categories`, `/api/admin/stages/{id}/criteria` |
 | RF09 | Coberto | `POST /api/admin/editions/{id}/publish` |
 | RF11 | Coberto | `POST /api/auth/external-evaluators` + `/api/admin/editions/{id}/evaluators` |
 | RF12 | Coberto | `/api/admin/editions/{id}/final-form` |
 | RF13 | Coberto (data e responsável não persistidos, P-22) | `POST /api/admin/teams/{id}/disqualify` |
-| **RF14** | **Sem cobertura** | Sem tabela de histórico nem de prazo por equipe (P-21, P-46) |
+| **RF14** | **Parcial** | Histórico por tipo de ajuste (`retificacao_nota`, `prorrogacao_prazo`, P-21); falta a rota de prorrogação |
 | **RF17** | **Parcial** | Modelos e consulta dos próprios certificados; a emissão depende de P-29, P-30, P-34 e P-46 |
 | RF18, RF36 | Coberto | `POST /api/auth/sessions/microsoft` |
 | RF19 | Coberto | `POST /api/auth/students` |
@@ -460,4 +463,5 @@ O validador oficial (`openapi-spec-validator`) **não pôde ser instalado**, por
 | 08/11/2026 | Ids de usuário (`user_id`, `evaluator_id`, `student_id`, `assigned_to` e os parâmetros `UserId`, `EvaluatorId` e `assigned_to`) passam de UUID para inteiro; `registration_number` com no máximo 30 caracteres. | `User.id` é inteiro no código e no DBML (`usuario.id integer`), e a matrícula é `varchar(30)`. Ids de chamado e notificação continuam UUID. |
 | 08/11/2026 | `POST /api/auth/sessions/password` devolve o usuário da sessão (`user_id`, `name`, `email`, `role`) em vez de um JWT, com 403 `reviewer_not_in_current_edition` para o avaliador fora da edição vigente; entram `POST /api/auth/logout` e `GET /api/auth/me`. | A #91 usa sessão com CSRF; a credencial vai no cookie. O esquema de segurança do contrato (`bearerAuth`) e o login Microsoft continuam como estão até a decisão da #70. |
 | 10/11/2026 | `CourseSummary` (resumo do curso dentro de outros recursos) perde o `slug`. | O `Course` não tem mais `slug` desde a P-17. Os schemas do próprio curso (`Course`, cadastro e atualização) e o conflito `course_slug_taken` ainda têm o campo e ficam para a task de cursos (UC03). |
+| 20/11/2026 | Contrato alinhado aos models. Enums: `EXTERNAL_REVIEWER`; `EditionStatus` sem `IN_PROGRESS`; `StageType` `SUBMISSION`; `TeamSituation` no lugar de `TeamQualification`; `ProjectStatus` `IN_PROGRESS/COMPLETED/DISQUALIFIED`; `ScoreStatus` `PENDING/DEFINITIVE/ZERO_NO_SUBMISSION`; `QuestionType` com `CONCEPT`; `FinalEvaluationStatus` `PENDING/EVALUATED`. Campos: `Course` sem `slug` e `term_count` ∈ {8, 10}; `Edition.regulation_url`; `Challenge` sem `title`; `Criterion.rubric`; `Stage` com `order`, `kind`, `max_score`, `min_evaluations`, `submission_fields` e `evaluation_ends_at`; `kind` nos campos e itens de entrega e no certificado; `DeliverableVersion.number`; `Team.situation`, `disqualified_at` e `disqualified_by`; convite só por `student_id` (sem `invited_email`); `MemberNote.text`; `FinalQuestion.order/kind`; `FinalAnswer.text`; `Winner.award`; `Certificate` sem `project` e `workload_hours` ∈ {20, 40}; decimais com até 3 dígitos inteiros. | Os models seguem o glossário do guia de implementação, que prevalece sobre o OpenAPI (CLAUDE.md). |
 | 21/11/2026 | Pendências P-01, P-02, P-03, P-05, P-27, P-32, P-39, P-40 e P-42 marcadas como resolvidas; P-21 e P-43 atualizadas. | Levantamento do código da `developer` e das PRs abertas (#172) feito na #179. |
