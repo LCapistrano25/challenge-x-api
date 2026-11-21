@@ -7,6 +7,7 @@ from django.db import IntegrityError
 from django.utils import timezone
 
 from apps.accounts.enums import UserRole
+from apps.accounts.exceptions import NotAdminActor
 from apps.accounts.factories import UserFactory
 from apps.editions.factories import StageCriterionFactory
 from apps.evaluations.enums import EvaluationStatus
@@ -75,10 +76,13 @@ def test_retificacao_invalida_nao_muda_nada(admin, item, new_points, reason, men
 
 def test_so_admin_retifica(item):
     professor = UserFactory(role=UserRole.TEACHER)
-    with pytest.raises(ValidationError, match="rectified_by"):
+    with pytest.raises(NotAdminActor):
         rectify_score(
             actor=professor, item=item, new_points=Decimal("1.50"), reason="Recurso."
         )
+    item.refresh_from_db()
+    assert item.points == Decimal("1.00")
+    assert not ScoreRectification.objects.exists()
 
 
 def test_retificacao_precisa_mudar_os_pontos(admin, item):

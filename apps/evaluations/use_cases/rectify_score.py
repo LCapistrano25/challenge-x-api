@@ -5,6 +5,7 @@ from decimal import Decimal
 from django.db import transaction
 
 from apps.accounts.models import User
+from apps.accounts.rules import ensure_actor_is_admin
 from apps.evaluations.enums import EvaluationStatus
 from apps.evaluations.models import EvaluationItem, ScoreRectification
 from apps.evaluations.use_cases.recalculate_stage_score import recalculate_stage_score
@@ -17,9 +18,10 @@ def rectify_score(
     """Troca os pontos do item e grava o valor anterior, o novo e a justificativa.
 
     Vale também para avaliação finalizada e fora do prazo: é o ajuste do admin.
-    Levanta ValidationError se o actor não for admin, sem justificativa, com os
-    mesmos pontos ou acima do máximo do critério.
+    Levanta NotAdminActor se o actor não for admin e ValidationError sem
+    justificativa, com os mesmos pontos ou acima do máximo do critério.
     """
+    ensure_actor_is_admin(actor)
     item = EvaluationItem.objects.select_for_update().get(pk=item.pk)
     rectification = ScoreRectification(
         item=item,
