@@ -5,7 +5,7 @@ info:
   description: |-
     API REST da plataforma do Projeto X (Desafio X) da UniCatólica.
 
-    Fonte de dados: DBML aprovado (nomes e enums em inglês). Os perfis são STUDENT, TEACHER, EXTERNAL_EVALUATOR e ADMIN (enum user_role).
+    Fonte de dados: models do código (nomes e enums em inglês do guia de implementação). Os perfis são STUDENT, TEACHER, EXTERNAL_REVIEWER e ADMIN (enum UserRole).
 
     **Autenticação:** alunos e professores entram com a Microsoft; administradores e avaliadores externos, com e-mail e senha. Rotas protegidas usam Bearer JWT.
 
@@ -201,7 +201,6 @@ paths:
             example:
               course_id: 1
               sdg_id: 9
-              title: Uso eficiente de recursos hídricos
               description: Texto revisado do desafio.
               active: false
       responses:
@@ -221,7 +220,6 @@ paths:
                   id: 9
                   number: 9
                   title: Indústria, Inovação e Infraestrutura
-                title: Uso eficiente de recursos hídricos no campus
                 description: Propor uma solução para reduzir o desperdício de água nas instalações da universidade.
                 active: true
                 created_at: '2026-10-22T16:00:00Z'
@@ -282,7 +280,6 @@ paths:
               example:
               - id: 1
                 name: Engenharia de Software
-                slug: ES
                 term_count: 8
                 active: true
                 created_at: '2026-10-22T16:00:00Z'
@@ -306,17 +303,13 @@ paths:
         **Perfis permitidos:** ADMIN
 
         **Regras de negócio:**
-        - term_count > 0.
-        - Nome e slug (código/sigla) únicos.
-
-        **Pendências relacionadas (api-pendencias.md):** P-17
+        - term_count ∈ {8, 10}.
+        - Nome único.
       x-status: confirmed
       x-requirements:
       - RF03
       x-roles:
       - ADMIN
-      x-pendencias:
-      - P-17
       requestBody:
         required: true
         content:
@@ -325,7 +318,6 @@ paths:
               $ref: '#/components/schemas/CourseCreate'
             example:
               name: Engenharia de Software
-              slug: ES
               term_count: 8
               active: true
       responses:
@@ -338,7 +330,6 @@ paths:
               example:
                 id: 1
                 name: Engenharia de Software
-                slug: ES
                 term_count: 8
                 active: true
                 created_at: '2026-10-22T16:00:00Z'
@@ -363,13 +354,6 @@ paths:
                       code: course_name_taken
                       message: Já existe curso com este nome.
                       details: null
-                course_slug_taken:
-                  summary: Já existe curso com esta sigla.
-                  value:
-                    error:
-                      code: course_slug_taken
-                      message: Já existe curso com esta sigla.
-                      details: null
   /api/admin/courses/{course_id}:
     patch:
       tags:
@@ -386,7 +370,7 @@ paths:
         **Perfis permitidos:** ADMIN
 
         **Regras de negócio:**
-        - Reduzir term_count abaixo do período de alunos vinculados é recusado (400).
+        - term_count ∈ {8, 10}. Reduzir term_count abaixo do período de alunos vinculados é recusado (400).
       x-status: confirmed
       x-requirements:
       - RF03
@@ -402,7 +386,6 @@ paths:
               $ref: '#/components/schemas/CourseUpdate'
             example:
               name: Engenharia de Software
-              slug: ES
               term_count: 10
               active: false
       responses:
@@ -415,7 +398,6 @@ paths:
               example:
                 id: 1
                 name: Engenharia de Software
-                slug: ES
                 term_count: 8
                 active: true
                 created_at: '2026-10-22T16:00:00Z'
@@ -441,13 +423,6 @@ paths:
                     error:
                       code: course_name_taken
                       message: Já existe curso com este nome.
-                      details: null
-                course_slug_taken:
-                  summary: Já existe curso com esta sigla.
-                  value:
-                    error:
-                      code: course_slug_taken
-                      message: Já existe curso com esta sigla.
                       details: null
     delete:
       tags:
@@ -524,7 +499,7 @@ paths:
               $ref: '#/components/schemas/CriterionUpdate'
             example:
               name: Inovação
-              description: Faixas revisadas.
+              rubric: Faixas revisadas.
               tiebreak_order: null
       responses:
         '200':
@@ -537,7 +512,7 @@ paths:
                 id: 21
                 edition_id: 3
                 name: Inovação
-                description: Avalia o grau de originalidade da solução...
+                rubric: Avalia o grau de originalidade da solução...
                 tiebreak_order: 1
                 created_at: '2026-10-22T16:00:00Z'
                 updated_at: '2026-10-22T16:00:00Z'
@@ -668,7 +643,7 @@ paths:
                 semester: 1
                 name: Desafio X 2026/1
                 status: SETUP
-                notice_url: https://storage.projetox.edu.br/editais/2026-1.pdf
+                regulation_url: https://storage.projetox.edu.br/editais/2026-1.pdf
                 min_members: 3
                 max_members: 5
                 published_at: null
@@ -731,7 +706,7 @@ paths:
                 semester: 1
                 name: Desafio X 2026/1
                 status: SETUP
-                notice_url: https://storage.projetox.edu.br/editais/2026-1.pdf
+                regulation_url: https://storage.projetox.edu.br/editais/2026-1.pdf
                 min_members: 3
                 max_members: 5
                 published_at: null
@@ -792,7 +767,7 @@ paths:
                 semester: 1
                 name: Desafio X 2026/1
                 status: SETUP
-                notice_url: https://storage.projetox.edu.br/editais/2026-1.pdf
+                regulation_url: https://storage.projetox.edu.br/editais/2026-1.pdf
                 min_members: 3
                 max_members: 5
                 published_at: null
@@ -854,7 +829,7 @@ paths:
                 semester: 1
                 name: Desafio X 2026/1
                 status: SETUP
-                notice_url: https://storage.projetox.edu.br/editais/2026-1.pdf
+                regulation_url: https://storage.projetox.edu.br/editais/2026-1.pdf
                 min_members: 3
                 max_members: 5
                 published_at: null
@@ -1045,7 +1020,7 @@ paths:
               example:
               - id: 6
                 edition_id: 3
-                type: PARTICIPATION
+                kind: PARTICIPATION
                 template_url: https://storage.projetox.edu.br/certificados/modelos/participacao-2026-1.pdf
                 signatures: Reitoria; Coordenação do Desafio X
                 created_at: '2026-10-22T16:00:00Z'
@@ -1099,7 +1074,7 @@ paths:
               example:
                 id: 6
                 edition_id: 3
-                type: PARTICIPATION
+                kind: PARTICIPATION
                 template_url: https://storage.projetox.edu.br/certificados/modelos/participacao-2026-1.pdf
                 signatures: Reitoria; Coordenação do Desafio X
                 created_at: '2026-10-22T16:00:00Z'
@@ -1155,7 +1130,6 @@ paths:
                   id: 9
                   number: 9
                   title: Indústria, Inovação e Infraestrutura
-                title: Uso eficiente de recursos hídricos no campus
                 description: Propor uma solução para reduzir o desperdício de água nas instalações da universidade.
                 active: true
                 created_at: '2026-10-22T16:00:00Z'
@@ -1199,7 +1173,6 @@ paths:
             example:
               course_id: 1
               sdg_id: 9
-              title: Uso eficiente de recursos hídricos no campus
               description: Propor uma solução para reduzir o desperdício de água nas instalações da universidade.
               active: true
       responses:
@@ -1219,7 +1192,6 @@ paths:
                   id: 9
                   number: 9
                   title: Indústria, Inovação e Infraestrutura
-                title: Uso eficiente de recursos hídricos no campus
                 description: Propor uma solução para reduzir o desperdício de água nas instalações da universidade.
                 active: true
                 created_at: '2026-10-22T16:00:00Z'
@@ -1297,7 +1269,7 @@ paths:
                 semester: 1
                 name: Desafio X 2026/1
                 status: SETUP
-                notice_url: https://storage.projetox.edu.br/editais/2026-1.pdf
+                regulation_url: https://storage.projetox.edu.br/editais/2026-1.pdf
                 min_members: 3
                 max_members: 5
                 published_at: null
@@ -1367,7 +1339,7 @@ paths:
               - id: 21
                 edition_id: 3
                 name: Inovação
-                description: Avalia o grau de originalidade da solução...
+                rubric: Avalia o grau de originalidade da solução...
                 tiebreak_order: 1
                 created_at: '2026-10-22T16:00:00Z'
                 updated_at: '2026-10-22T16:00:00Z'
@@ -1409,7 +1381,7 @@ paths:
               $ref: '#/components/schemas/CriterionCreate'
             example:
               name: Inovação
-              description: Avalia o grau de originalidade da solução...
+              rubric: Avalia o grau de originalidade da solução...
               tiebreak_order: 1
       responses:
         '201':
@@ -1422,7 +1394,7 @@ paths:
                 id: 21
                 edition_id: 3
                 name: Inovação
-                description: Avalia o grau de originalidade da solução...
+                rubric: Avalia o grau de originalidade da solução...
                 tiebreak_order: 1
                 created_at: '2026-10-22T16:00:00Z'
                 updated_at: '2026-10-22T16:00:00Z'
@@ -1705,9 +1677,9 @@ paths:
                 published: false
                 questions:
                 - id: 61
-                  position: 1
+                  order: 1
                   prompt: Clareza e qualidade do pitch
-                  type: SCORE
+                  kind: SCORE
                   max_score: '10.00'
                 created_at: '2026-10-22T16:00:00Z'
                 updated_at: '2026-10-22T16:00:00Z'
@@ -1732,8 +1704,8 @@ paths:
         **Perfis permitidos:** ADMIN
 
         **Regras de negócio:**
-        - position única no formulário.
-        - SCORE exige max_score > 0; TEXT exige max_score nulo.
+        - order única no formulário.
+        - SCORE exige max_score > 0; CONCEPT e TEXT exigem max_score nulo.
         - Proibido alterar formulário publicado que já tenha respostas.
       x-status: confirmed
       x-requirements:
@@ -1751,9 +1723,9 @@ paths:
             example:
               title: Avaliação da Apresentação Final
               questions:
-              - position: 1
+              - order: 1
                 prompt: Clareza e qualidade do pitch
-                type: SCORE
+                kind: SCORE
                 max_score: '10.00'
       responses:
         '200':
@@ -1769,9 +1741,9 @@ paths:
                 published: false
                 questions:
                 - id: 61
-                  position: 1
+                  order: 1
                   prompt: Clareza e qualidade do pitch
-                  type: SCORE
+                  kind: SCORE
                   max_score: '10.00'
                 created_at: '2026-10-22T16:00:00Z'
                 updated_at: '2026-10-22T16:00:00Z'
@@ -1839,9 +1811,9 @@ paths:
                 published: false
                 questions:
                 - id: 61
-                  position: 1
+                  order: 1
                   prompt: Clareza e qualidade do pitch
-                  type: SCORE
+                  kind: SCORE
                   max_score: '10.00'
                 created_at: '2026-10-22T16:00:00Z'
                 updated_at: '2026-10-22T16:00:00Z'
@@ -1928,7 +1900,7 @@ paths:
                 semester: 1
                 name: Desafio X 2026/1
                 status: SETUP
-                notice_url: https://storage.projetox.edu.br/editais/2026-1.pdf
+                regulation_url: https://storage.projetox.edu.br/editais/2026-1.pdf
                 min_members: 3
                 max_members: 5
                 published_at: null
@@ -2124,17 +2096,18 @@ paths:
               example:
               - id: 7
                 edition_id: 3
-                position: 3
+                order: 3
                 name: Entrega Preliminar
-                type: FORMATION
+                kind: FORMATION
                 starts_at: '2026-04-01T00:00:00Z'
                 ends_at: '2026-04-20T23:59:00Z'
+                evaluation_ends_at: '2026-04-27T23:59:00Z'
                 scored: true
-                points_value: '3.00'
-                min_evaluators: 2
-                deliverable_fields:
+                max_score: '3.00'
+                min_evaluations: 2
+                submission_fields:
                 - id: 31
-                  type: LINK
+                  kind: LINK
                   label: Relatório técnico (PDF)
                   required: true
                   formats: pdf
@@ -2164,8 +2137,9 @@ paths:
         **Perfis permitidos:** ADMIN
 
         **Regras de negócio:**
-        - ends_at > starts_at; position única na edição; min_evaluators ≥ 1.
-        - points_value obrigatório e > 0 quando scored; nulo quando não pontuada.
+        - ends_at > starts_at; order única na edição; min_evaluations ≥ 1.
+        - max_score obrigatório e > 0 quando scored; nulo quando não pontuada.
+        - evaluation_ends_at obrigatório e posterior a ends_at quando scored (P-19).
         - A soma de 10,00 pontos é exigida na publicação (RF09), não a cada gravação.
         - max_size_mb > 0; formats e max_size_mb apenas para FILE (CANVAS e SWOT não usam).
         - Etapa FINAL não compõe a nota acadêmica (P-20).
@@ -2189,17 +2163,18 @@ paths:
             schema:
               $ref: '#/components/schemas/StageCreate'
             example:
-              position: 3
+              order: 3
               name: Entrega Preliminar
-              type: FORMATION
+              kind: FORMATION
               starts_at: '2026-04-01T00:00:00Z'
               ends_at: '2026-04-20T23:59:00Z'
+              evaluation_ends_at: '2026-04-27T23:59:00Z'
               scored: true
-              points_value: '3.00'
-              min_evaluators: 2
-              deliverable_fields:
+              max_score: '3.00'
+              min_evaluations: 2
+              submission_fields:
               - id: 31
-                type: LINK
+                kind: LINK
                 label: Relatório técnico (PDF)
                 required: true
                 formats: pdf
@@ -2214,17 +2189,18 @@ paths:
               example:
                 id: 7
                 edition_id: 3
-                position: 3
+                order: 3
                 name: Entrega Preliminar
-                type: FORMATION
+                kind: FORMATION
                 starts_at: '2026-04-01T00:00:00Z'
                 ends_at: '2026-04-20T23:59:00Z'
+                evaluation_ends_at: '2026-04-27T23:59:00Z'
                 scored: true
-                points_value: '3.00'
-                min_evaluators: 2
-                deliverable_fields:
+                max_score: '3.00'
+                min_evaluations: 2
+                submission_fields:
                 - id: 31
-                  type: LINK
+                  kind: LINK
                   label: Relatório técnico (PDF)
                   required: true
                   formats: pdf
@@ -2267,6 +2243,251 @@ paths:
                       code: edition_closed
                       message: A edição está encerrada e não pode ser alterada.
                       details: null
+  /api/admin/email-domains:
+    get:
+      tags:
+      - accounts
+      operationId: accountsListEmailDomains
+      summary: Listar domínios institucionais
+      description: |-
+        Lista os domínios de e-mail institucionais cadastrados.
+
+        **Requisitos:** RF02
+
+        **Autenticação:** obrigatória (Bearer JWT).
+
+        **Perfis permitidos:** ADMIN
+      x-status: confirmed
+      x-requirements:
+      - RF02
+      x-roles:
+      - ADMIN
+      parameters:
+      - $ref: '#/components/parameters/ActiveFilter'
+      - $ref: '#/components/parameters/InstitutionalRoleFilter'
+      responses:
+        '200':
+          description: Operação concluída.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EmailDomain'
+              example:
+              - id: 1
+                name: a.catolica-to.edu.br
+                role: STUDENT
+                active: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags:
+      - accounts
+      operationId: accountsCreateEmailDomain
+      summary: Cadastrar domínio institucional
+      description: |-
+        Cadastra um domínio de e-mail institucional associado a um perfil (STUDENT ou TEACHER).
+
+        **Requisitos:** RF02
+
+        **Autenticação:** obrigatória (Bearer JWT).
+
+        **Perfis permitidos:** ADMIN
+
+        **Regras de negócio:**
+        - O nome é normalizado para minúsculas e sem espaços; formato de domínio válido é obrigatório.
+        - Unicidade case-insensitive (409 email_domain_taken).
+        - Apenas STUDENT e TEACHER são aceitos.
+      x-status: confirmed
+      x-requirements:
+      - RF02
+      x-roles:
+      - ADMIN
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailDomainCreate'
+            example:
+              name: a.catolica-to.edu.br
+              role: STUDENT
+              active: true
+      responses:
+        '201':
+          description: Domínio criado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmailDomain'
+              example:
+                id: 1
+                name: a.catolica-to.edu.br
+                role: STUDENT
+                active: true
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: Conflito com uma regra de negócio.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                email_domain_taken:
+                  summary: Já existe um domínio de e-mail cadastrado com este nome.
+                  value:
+                    error:
+                      code: email_domain_taken
+                      message: Já existe um domínio de e-mail cadastrado com este nome.
+                      details: null
+  /api/admin/email-domains/{domain_id}:
+    patch:
+      tags:
+      - accounts
+      operationId: accountsUpdateEmailDomain
+      summary: Atualizar domínio institucional
+      description: |-
+        Edita nome, perfil ou status de ativação de um domínio institucional.
+
+        **Requisitos:** RF02
+
+        **Autenticação:** obrigatória (Bearer JWT).
+
+        **Perfis permitidos:** ADMIN
+
+        **Regras de negócio:**
+        - Aplica as mesmas regras de normalização, formato e unicidade case-insensitive do cadastro.
+      x-status: confirmed
+      x-requirements:
+      - RF02
+      x-roles:
+      - ADMIN
+      parameters:
+      - $ref: '#/components/parameters/DomainId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailDomainUpdate'
+            example:
+              name: a.catolica-to.edu.br
+              role: STUDENT
+              active: false
+      responses:
+        '200':
+          description: Operação concluída.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmailDomain'
+              example:
+                id: 1
+                name: a.catolica-to.edu.br
+                role: STUDENT
+                active: true
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Conflito com uma regra de negócio.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                email_domain_taken:
+                  summary: Já existe um domínio de e-mail cadastrado com este nome.
+                  value:
+                    error:
+                      code: email_domain_taken
+                      message: Já existe um domínio de e-mail cadastrado com este nome.
+                      details: null
+  /api/admin/evaluations/{evaluation_id}/rectifications:
+    post:
+      tags:
+      - evaluations
+      operationId: evaluationsCreateRectification
+      summary: Retificar a nota de um critério
+      description: |-
+        **Status: PROPOSTO** — o contrato depende da decisão de P-21 e pode mudar.
+
+        Altera os pontos de um critério de uma avaliação finalizada e grava o ajuste no histórico, que não pode ser alterado nem excluído.
+
+        **Requisitos:** RF14
+
+        **Autenticação:** obrigatória (Bearer JWT).
+
+        **Perfis permitidos:** ADMIN
+
+        **Regras de negócio:**
+        - Somente avaliação finalizada; o rascunho continua do professor.
+        - Vale mesmo com o prazo de avaliação encerrado.
+        - Justificativa obrigatória; new_points entre 0 e o máximo do critério e diferente do valor atual.
+        - O critério precisa ter sido pontuado na avaliação (400 validation_error).
+        - Edição encerrada não aceita ajuste, nem do administrador (RN33).
+        - Recalcula a nota da etapa; a resposta traz o valor novo em stage_score.
+
+        **Pendências relacionadas (api-pendencias.md):** P-21
+      x-status: proposed
+      x-requirements:
+      - RF14
+      x-roles:
+      - ADMIN
+      x-pendencias:
+      - P-21
+      parameters:
+      - $ref: '#/components/parameters/EvaluationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RectificationWrite'
+            example:
+              stage_criterion_id: 51
+              new_points: '1.50'
+              reason: Erro de digitação do professor.
+      responses:
+        '201':
+          description: Retificação registrada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Rectification'
+              example:
+                id: 9
+                evaluation_id: 201
+                stage_criterion_id: 51
+                previous_points: '1.00'
+                new_points: '1.50'
+                reason: Erro de digitação do professor.
+                rectified_by: 1
+                rectified_at: '2026-11-18T21:30:00Z'
+                stage_score:
+                  value: '2.40'
+                  evaluation_count: 2
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/admin/external-evaluators:
     get:
       tags:
@@ -2740,17 +2961,18 @@ paths:
               example:
                 id: 7
                 edition_id: 3
-                position: 3
+                order: 3
                 name: Entrega Preliminar
-                type: FORMATION
+                kind: FORMATION
                 starts_at: '2026-04-01T00:00:00Z'
                 ends_at: '2026-04-20T23:59:00Z'
+                evaluation_ends_at: '2026-04-27T23:59:00Z'
                 scored: true
-                points_value: '3.00'
-                min_evaluators: 2
-                deliverable_fields:
+                max_score: '3.00'
+                min_evaluations: 2
+                submission_fields:
                 - id: 31
-                  type: LINK
+                  kind: LINK
                   label: Relatório técnico (PDF)
                   required: true
                   formats: pdf
@@ -2800,17 +3022,18 @@ paths:
             schema:
               $ref: '#/components/schemas/StageUpdate'
             example:
-              position: 3
+              order: 3
               name: Entrega Preliminar
-              type: FORMATION
+              kind: FORMATION
               starts_at: '2026-04-01T00:00:00Z'
               ends_at: '2026-04-22T23:59:00Z'
+              evaluation_ends_at: '2026-04-29T23:59:00Z'
               scored: true
-              points_value: '3.00'
-              min_evaluators: 2
-              deliverable_fields:
+              max_score: '3.00'
+              min_evaluations: 2
+              submission_fields:
               - id: 31
-                type: LINK
+                kind: LINK
                 label: Relatório técnico (PDF)
                 required: true
                 formats: pdf
@@ -2825,17 +3048,18 @@ paths:
               example:
                 id: 7
                 edition_id: 3
-                position: 3
+                order: 3
                 name: Entrega Preliminar
-                type: FORMATION
+                kind: FORMATION
                 starts_at: '2026-04-01T00:00:00Z'
                 ends_at: '2026-04-20T23:59:00Z'
+                evaluation_ends_at: '2026-04-27T23:59:00Z'
                 scored: true
-                points_value: '3.00'
-                min_evaluators: 2
-                deliverable_fields:
+                max_score: '3.00'
+                min_evaluations: 2
+                submission_fields:
                 - id: 31
-                  type: LINK
+                  kind: LINK
                   label: Relatório técnico (PDF)
                   required: true
                   formats: pdf
@@ -2937,7 +3161,7 @@ paths:
         **Regras de negócio:**
         - Somente etapas pontuadas.
         - max_score > 0.
-        - Soma dos max_score igual a points_value da etapa (400 stage_criteria_sum_mismatch).
+        - Soma dos max_score dos critérios igual ao max_score da etapa (400 stage_criteria_sum_mismatch).
         - Critério e etapa da mesma edição.
       x-status: confirmed
       x-requirements:
@@ -3686,7 +3910,7 @@ paths:
                   name: Equipe Aurora
                   code: DXA7K2
                   status: ACTIVE
-                  qualification: QUALIFIED
+                  situation: COMPLETE
                   member_count: 4
                   project:
                     id: 40
@@ -3712,7 +3936,7 @@ paths:
 
         **Regras de negócio:**
         - A equipe deixa de enviar entregas, fica fora de finalistas, ranking e certificados e some da vitrine pública.
-        - Data e responsável não são persistidos no modelo atual (P-22).
+        - Grava motivo, data (disqualified_at) e responsável (disqualified_by) (P-22).
 
         **Pendências relacionadas (api-pendencias.md):** P-22
       x-status: confirmed
@@ -3745,8 +3969,10 @@ paths:
                 name: Equipe Aurora
                 code: DXA7K2
                 status: ACTIVE
-                qualification: QUALIFIED
+                situation: COMPLETE
                 disqualification_reason: null
+                disqualified_at: null
+                disqualified_by: null
                 formation_extended_until: null
                 members:
                 - id: 101
@@ -3796,7 +4022,7 @@ paths:
       operationId: accountsCreateExternalEvaluator
       summary: Cadastrar avaliador externo
       description: |-
-        Cria o usuário (role EXTERNAL_EVALUATOR, senha com hash) e o perfil external_evaluator.
+        Cria o usuário (role EXTERNAL_REVIEWER, senha com hash) e o perfil external_reviewer.
 
         **Requisitos:** RF11
 
@@ -3806,7 +4032,7 @@ paths:
 
         **Regras de negócio:**
         - E-mail sem restrição de domínio e único no sistema.
-        - Criação atômica de users + external_evaluator.
+        - Criação atômica de users + external_reviewer.
         - A senha nunca é retornada.
         - O vínculo com a edição é feito em POST /api/admin/editions/{edition_id}/evaluators (P-05).
 
@@ -3873,7 +4099,7 @@ paths:
 
         **Autenticação:** obrigatória (Bearer JWT).
 
-        **Perfis permitidos:** STUDENT, TEACHER, EXTERNAL_EVALUATOR, ADMIN
+        **Perfis permitidos:** STUDENT, TEACHER, EXTERNAL_REVIEWER, ADMIN
 
         **Pendências relacionadas (api-pendencias.md):** P-03
       x-status: confirmed
@@ -3885,7 +4111,7 @@ paths:
       x-roles:
       - STUDENT
       - TEACHER
-      - EXTERNAL_EVALUATOR
+      - EXTERNAL_REVIEWER
       - ADMIN
       x-pendencias:
       - P-03
@@ -3907,7 +4133,7 @@ paths:
 
         **Autenticação:** obrigatória (Bearer JWT).
 
-        **Perfis permitidos:** STUDENT, TEACHER, EXTERNAL_EVALUATOR, ADMIN
+        **Perfis permitidos:** STUDENT, TEACHER, EXTERNAL_REVIEWER, ADMIN
 
         **Pendências relacionadas (api-pendencias.md):** P-03
       x-status: confirmed
@@ -3919,7 +4145,7 @@ paths:
       x-roles:
       - STUDENT
       - TEACHER
-      - EXTERNAL_EVALUATOR
+      - EXTERNAL_REVIEWER
       - ADMIN
       x-pendencias:
       - P-03
@@ -4023,7 +4249,7 @@ paths:
       description: |-
         **Status: PROPOSTO** — o contrato depende da decisão de P-01 e pode mudar.
 
-        Autentica contas com senha local (ADMIN e EXTERNAL_EVALUATOR) e cria a sessão (cookie). Exige o cabeçalho X-CSRFToken, obtido em GET /api/auth/csrf.
+        Autentica contas com senha local (ADMIN e EXTERNAL_REVIEWER) e cria a sessão (cookie). Exige o cabeçalho X-CSRFToken, obtido em GET /api/auth/csrf.
 
         **Requisitos:** RF01, RF41
 
@@ -4033,8 +4259,8 @@ paths:
 
         **Regras de negócio:**
         - Credenciais inválidas, conta inexistente, conta inativa ou conta sem senha (somente Microsoft) retornam o mesmo erro 401 invalid_credentials, sem indicar o campo incorreto.
-        - Somente perfis ADMIN e EXTERNAL_EVALUATOR autenticam por senha.
-        - EXTERNAL_EVALUATOR só autentica se vinculado à edição vigente, a publicada (P-41); caso contrário, 403 reviewer_not_in_current_edition (RF41).
+        - Somente perfis ADMIN e EXTERNAL_REVIEWER autenticam por senha.
+        - EXTERNAL_REVIEWER só autentica se vinculado à edição vigente, a publicada (P-41); caso contrário, 403 reviewer_not_in_current_edition (RF41).
         - A sessão expira após 30 minutos de inatividade, renovados a cada requisição (P-03).
 
         **Pendências relacionadas (api-pendencias.md):** P-01, P-03, P-05
@@ -4333,7 +4559,7 @@ paths:
               example:
                 id: 55
                 version_id: 77
-                version_number: 2
+                number: 2
                 verification_code: DX-2026-1-7F3K9Q
                 file_url: https://storage.projetox.edu.br/comprovantes/DX-2026-1-7F3K9Q.pdf
                 generated_at: '2026-10-22T16:00:00Z'
@@ -4347,7 +4573,7 @@ paths:
                 stage:
                   id: 7
                   name: Entrega Preliminar
-                  position: 3
+                  order: 3
                 submitted_at: '2026-10-22T16:00:00Z'
         '401':
           $ref: '#/components/responses/Unauthorized'
@@ -4370,7 +4596,7 @@ paths:
 
         **Autenticação:** obrigatória (Bearer JWT).
 
-        **Perfis permitidos:** EXTERNAL_EVALUATOR
+        **Perfis permitidos:** EXTERNAL_REVIEWER
 
         **Autorização adicional:** Avaliador vinculado à edição vigente (edition_evaluator) e restrito ao curso da abrangência.
 
@@ -4383,7 +4609,7 @@ paths:
       x-requirements:
       - RF42
       x-roles:
-      - EXTERNAL_EVALUATOR
+      - EXTERNAL_REVIEWER
       x-pendencias:
       - P-29
       - P-32
@@ -4462,14 +4688,14 @@ paths:
 
         **Autenticação:** obrigatória (Bearer JWT).
 
-        **Perfis permitidos:** EXTERNAL_EVALUATOR
+        **Perfis permitidos:** EXTERNAL_REVIEWER
 
         **Autorização adicional:** Projeto finalista dentro da abrangência do avaliador.
       x-status: confirmed
       x-requirements:
       - RF43
       x-roles:
-      - EXTERNAL_EVALUATOR
+      - EXTERNAL_REVIEWER
       parameters:
       - $ref: '#/components/parameters/ProjectId'
       responses:
@@ -4509,9 +4735,9 @@ paths:
                   published: false
                   questions:
                   - id: 61
-                    position: 1
+                    order: 1
                     prompt: Clareza e qualidade do pitch
-                    type: SCORE
+                    kind: SCORE
                     max_score: '10.00'
                   created_at: '2026-10-22T16:00:00Z'
                   updated_at: '2026-10-22T16:00:00Z'
@@ -4521,9 +4747,9 @@ paths:
                   comment: Apresentação objetiva.
                   answers:
                   - question_id: 61
-                    type: SCORE
+                    kind: SCORE
                     value: '8.50'
-                    answer_text: null
+                    text: null
                   finalized_at: null
                   created_at: '2026-10-22T16:00:00Z'
                   updated_at: '2026-10-22T16:00:00Z'
@@ -4533,6 +4759,20 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          description: Conflito com uma regra de negócio.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                final_form_not_published:
+                  summary: O formulário da etapa final ainda não foi publicado.
+                  value:
+                    error:
+                      code: final_form_not_published
+                      message: O formulário da etapa final ainda não foi publicado.
+                      details: null
     put:
       tags:
       - evaluations
@@ -4547,13 +4787,13 @@ paths:
 
         **Autenticação:** obrigatória (Bearer JWT).
 
-        **Perfis permitidos:** EXTERNAL_EVALUATOR
+        **Perfis permitidos:** EXTERNAL_REVIEWER
 
         **Autorização adicional:** Projeto finalista dentro da abrangência do avaliador.
 
         **Regras de negócio:**
-        - SCORE exige value entre 0 e max_score; TEXT exige answer_text.
-        - FINALIZED exige resposta para todas as perguntas e torna a avaliação imutável.
+        - SCORE exige value entre 0 e max_score; CONCEPT e TEXT exigem text.
+        - EVALUATED exige resposta para todas as perguntas e torna a avaliação imutável.
         - Notas alimentam apenas a premiação; não alteram a nota acadêmica.
 
         **Pendências relacionadas (api-pendencias.md):** P-30
@@ -4561,7 +4801,7 @@ paths:
       x-requirements:
       - RF43
       x-roles:
-      - EXTERNAL_EVALUATOR
+      - EXTERNAL_REVIEWER
       x-pendencias:
       - P-30
       parameters:
@@ -4573,12 +4813,12 @@ paths:
             schema:
               $ref: '#/components/schemas/FinalEvaluationWrite'
             example:
-              status: FINALIZED
+              status: EVALUATED
               comment: Apresentação objetiva.
               answers:
               - question_id: 61
                 value: '8.50'
-                answer_text: null
+                text: null
       responses:
         '200':
           description: Operação concluída.
@@ -4592,9 +4832,9 @@ paths:
                 comment: Apresentação objetiva.
                 answers:
                 - question_id: 61
-                  type: SCORE
+                  kind: SCORE
                   value: '8.50'
-                  answer_text: null
+                  text: null
                 finalized_at: null
                 created_at: '2026-10-22T16:00:00Z'
                 updated_at: '2026-10-22T16:00:00Z'
@@ -4613,6 +4853,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
               examples:
+                final_form_not_published:
+                  summary: O formulário da etapa final ainda não foi publicado.
+                  value:
+                    error:
+                      code: final_form_not_published
+                      message: O formulário da etapa final ainda não foi publicado.
+                      details: null
                 final_evaluation_already_finalized:
                   summary: A avaliação final já foi finalizada.
                   value:
@@ -4680,7 +4927,6 @@ paths:
                 student:
                   user_id: 42
                   name: João Lima
-                invited_email: null
                 status: PENDING
                 created_at: '2026-10-22T16:00:00Z'
                 responded_at: null
@@ -4936,7 +5182,7 @@ paths:
 
         **Autenticação:** obrigatória (Bearer JWT).
 
-        **Perfis permitidos:** STUDENT, TEACHER, EXTERNAL_EVALUATOR, ADMIN
+        **Perfis permitidos:** STUDENT, TEACHER, EXTERNAL_REVIEWER, ADMIN
 
         **Autorização adicional:** Somente certificados do próprio usuário; preservados mesmo com a conta desativada.
       x-status: confirmed
@@ -4945,7 +5191,7 @@ paths:
       x-roles:
       - STUDENT
       - TEACHER
-      - EXTERNAL_EVALUATOR
+      - EXTERNAL_REVIEWER
       - ADMIN
       responses:
         '200':
@@ -4958,16 +5204,13 @@ paths:
                   $ref: '#/components/schemas/Certificate'
               example:
               - id: 901
-                type: PARTICIPATION
+                kind: PARTICIPATION
                 edition:
                   id: 3
                   year: 2026
                   semester: 1
                   name: Desafio X 2026/1
                   status: SETUP
-                project:
-                  id: 40
-                  title: Monitoramento inteligente do consumo de água
                 workload_hours: 40
                 verification_code: CERT-2026-1-Q8W2E4
                 file_url: https://storage.projetox.edu.br/certificados/CERT-2026-1-Q8W2E4.pdf
@@ -4994,7 +5237,7 @@ paths:
         **Autorização adicional:** Somente os dados do próprio aluno.
 
         **Regras de negócio:**
-        - A edição vigente é a edição com status PUBLISHED ou IN_PROGRESS (P-41).
+        - A edição vigente é a edição com status PUBLISHED (P-41).
         - incomplete_requirements reflete a verificação de fim de formação (RF51).
         - Notas seguem as regras de exibição do RF32.
 
@@ -5029,8 +5272,10 @@ paths:
                   name: Equipe Aurora
                   code: DXA7K2
                   status: ACTIVE
-                  qualification: QUALIFIED
+                  situation: COMPLETE
                   disqualification_reason: null
+                  disqualified_at: null
+                  disqualified_by: null
                   formation_extended_until: null
                   members:
                   - id: 101
@@ -5076,13 +5321,14 @@ paths:
                 stages:
                 - stage:
                     id: 7
-                    position: 3
+                    order: 3
                     name: Entrega Preliminar
-                    type: FORMATION
+                    kind: FORMATION
                     starts_at: '2026-04-01T00:00:00Z'
                     ends_at: '2026-04-20T23:59:00Z'
+                    evaluation_ends_at: '2026-04-27T23:59:00Z'
                     scored: true
-                    points_value: '3.00'
+                    max_score: '3.00'
                     phase_status: UPCOMING
                   deliverable_status: NOT_SUBMITTED
                   score:
@@ -5137,7 +5383,6 @@ paths:
                 student:
                   user_id: 42
                   name: João Lima
-                invited_email: null
                 status: PENDING
                 created_at: '2026-10-22T16:00:00Z'
                 responded_at: null
@@ -5209,7 +5454,7 @@ paths:
 
         **Autenticação:** obrigatória (Bearer JWT).
 
-        **Perfis permitidos:** STUDENT, TEACHER, EXTERNAL_EVALUATOR, ADMIN
+        **Perfis permitidos:** STUDENT, TEACHER, EXTERNAL_REVIEWER, ADMIN
 
         **Autorização adicional:** Somente as próprias notificações.
 
@@ -5225,7 +5470,7 @@ paths:
       x-roles:
       - STUDENT
       - TEACHER
-      - EXTERNAL_EVALUATOR
+      - EXTERNAL_REVIEWER
       - ADMIN
       x-pendencias:
       - P-14
@@ -5267,7 +5512,7 @@ paths:
 
         **Autenticação:** obrigatória (Bearer JWT).
 
-        **Perfis permitidos:** STUDENT, TEACHER, EXTERNAL_EVALUATOR, ADMIN
+        **Perfis permitidos:** STUDENT, TEACHER, EXTERNAL_REVIEWER, ADMIN
 
         **Autorização adicional:** Somente notificações do próprio usuário; de outro usuário retorna 404.
       x-status: confirmed
@@ -5281,7 +5526,7 @@ paths:
       x-roles:
       - STUDENT
       - TEACHER
-      - EXTERNAL_EVALUATOR
+      - EXTERNAL_REVIEWER
       - ADMIN
       parameters:
       - $ref: '#/components/parameters/NotificationId'
@@ -5346,17 +5591,18 @@ paths:
               example:
               - stage:
                   id: 7
-                  position: 3
+                  order: 3
                   name: Entrega Preliminar
-                  type: FORMATION
+                  kind: FORMATION
                   starts_at: '2026-04-01T00:00:00Z'
                   ends_at: '2026-04-20T23:59:00Z'
+                  evaluation_ends_at: '2026-04-27T23:59:00Z'
                   scored: true
-                  points_value: '3.00'
+                  max_score: '3.00'
                   phase_status: UPCOMING
                 fields:
                 - id: 31
-                  type: LINK
+                  kind: LINK
                   label: Relatório técnico (PDF)
                   required: true
                   formats: pdf
@@ -5365,7 +5611,7 @@ paths:
                 official_version_id: null
                 versions:
                 - id: 77
-                  version_number: 2
+                  number: 2
                   submitted_by:
                     user_id: 42
                     name: Maria Souza
@@ -5418,8 +5664,8 @@ paths:
 
         **Regras de negócio:**
         - Nota = média aritmética das avaliações finalizadas.
-        - Abaixo de min_evaluators, status PENDING e valor oculto.
-        - Sem entrega no prazo, nota zero.
+        - Abaixo de min_evaluations, status PENDING; valor, média por critério e feedbacks ficam ocultos.
+        - Sem entrega no prazo da equipe (com a prorrogação), nota zero: status ZERO_NO_SUBMISSION, value 0.00 e deliverable_status NOT_DELIVERED. Um job (apply_zero_scores) grava o zero (RN24, P-27).
         - Avaliações finais de avaliadores externos não aparecem.
 
         **Pendências relacionadas (api-pendencias.md):** P-27, P-33, P-44
@@ -5451,12 +5697,12 @@ paths:
                 - stage:
                     id: 7
                     name: Entrega Preliminar
-                    position: 3
-                  points_value: '3.00'
+                    order: 3
+                  max_score: '3.00'
                   status: PENDING
                   value: '2.40'
                   evaluation_count: 2
-                  min_evaluators: 2
+                  min_evaluations: 2
                   deliverable_status: NOT_SUBMITTED
                   criteria:
                   - criterion:
@@ -5514,13 +5760,13 @@ paths:
                 stage:
                   id: 7
                   name: Entrega Preliminar
-                  points_value: '3.00'
+                  max_score: '3.00'
                 criteria:
                 - stage_criterion_id: 51
                   criterion:
                     id: 21
                     name: Inovação
-                    description: Avalia o grau de originalidade...
+                    rubric: Avalia o grau de originalidade...
                   max_score: '1.50'
                 evaluation:
                   id: 201
@@ -5560,13 +5806,13 @@ paths:
         **Autorização adicional:** Vínculo ativo com o curso do desafio do projeto.
 
         **Regras de negócio:**
-        - Somente etapas pontuadas do tipo EVALUATION.
+        - Somente etapas pontuadas do tipo SUBMISSION.
         - 0 ≤ points ≤ max_score do critério (400 points_out_of_range).
         - Só avalia projeto com entrega válida: versão enviada até o prazo da equipe, com a prorrogação se houver.
         - Um item por critério da etapa, sem repetição; critério de outra etapa é recusado.
         - FINALIZED exige todos os critérios e torna a avaliação imutável; retificação é escopo do RF14 (P-21).
         - FINALIZED só depois do prazo de entrega da equipe, para não travar a nota numa versão que ela ainda pode substituir; o rascunho (DRAFT) pode ser salvo antes.
-        - Ao finalizar, recalcula stage_score (média simples; FINALIZED quando evaluation_count ≥ min_evaluators). A retificação do admin (RF14) também recalcula.
+        - Ao finalizar, recalcula stage_score (média simples; DEFINITIVE quando evaluation_count ≥ min_evaluations). A retificação do admin (RF14) também recalcula.
         - Respeita o prazo de avaliação (P-19).
         - Violações de regra (avaliação finalizada, prazo, entrega inválida, critério repetido) voltam como 400 validation_error; professor sem vínculo com o curso volta 403 teacher_not_in_course.
 
@@ -5665,7 +5911,7 @@ paths:
         - JSON aceita links, canvas e SWOT. Arquivos exigem multipart/form-data: `items` em string JSON, com `file_index` apontando para `files[]`; arquivo sobrando ou índice inexistente é 400.
         - Os arquivos ficam em armazenamento privado, sem URL pública; o download é por GET /api/deliverable-items/{item_id}/file.
         - O projeto precisa ter desafio, título e resumo (400 validation_error).
-        - Cada envio cria version_number sequencial; versões anteriores são preservadas.
+        - Cada envio cria number sequencial; versões anteriores são preservadas.
         - Equipe desclassificada ou incompleta não envia (P-23).
 
         **Pendências relacionadas (api-pendencias.md):** P-23, P-43, P-47
@@ -5704,7 +5950,7 @@ paths:
                 $ref: '#/components/schemas/DeliverableVersion'
               example:
                 id: 77
-                version_number: 2
+                number: 2
                 submitted_by:
                   user_id: 42
                   name: Maria Souza
@@ -5846,7 +6092,7 @@ paths:
         **Perfis permitidos:** qualquer visitante
 
         **Regras de negócio:**
-        - A edição vigente é a edição com status PUBLISHED ou IN_PROGRESS (P-41).
+        - A edição vigente é a edição com status PUBLISHED (P-41).
         - phase_status é derivado das datas da etapa.
         - Notícias e canal de dúvidas não estão modelados (P-35).
 
@@ -5873,16 +6119,17 @@ paths:
                   semester: 1
                   name: Desafio X 2026/1
                   status: SETUP
-                notice_url: https://storage.projetox.edu.br/editais/2026-1.pdf
+                regulation_url: https://storage.projetox.edu.br/editais/2026-1.pdf
                 stages:
                 - id: 7
-                  position: 3
+                  order: 3
                   name: Entrega Preliminar
-                  type: FORMATION
+                  kind: FORMATION
                   starts_at: '2026-04-01T00:00:00Z'
                   ends_at: '2026-04-20T23:59:00Z'
+                  evaluation_ends_at: '2026-04-27T23:59:00Z'
                   scored: true
-                  points_value: '3.00'
+                  max_score: '3.00'
                   phase_status: UPCOMING
                 sdgs:
                 - id: 9
@@ -5944,7 +6191,7 @@ paths:
                 items:
                   $ref: '#/components/schemas/Winner'
               example:
-              - award_place: 1
+              - award: 1
                 course:
                   id: 1
                   name: Engenharia de Software
@@ -6418,10 +6665,10 @@ paths:
                   stage:
                     id: 7
                     name: Entrega Preliminar
-                    position: 3
+                    order: 3
                   deliverable_status: NOT_SUBMITTED
                   evaluation_count: 1
-                  min_evaluators: 2
+                  min_evaluations: 2
                   my_evaluation_status: NOT_STARTED
         '401':
           $ref: '#/components/responses/Unauthorized'
@@ -6443,7 +6690,7 @@ paths:
         **Perfis permitidos:** STUDENT
 
         **Regras de negócio:**
-        - A edição vigente é a edição com status PUBLISHED ou IN_PROGRESS (P-41).
+        - A edição vigente é a edição com status PUBLISHED (P-41).
         - Somente durante o prazo da etapa FORMATION.
         - O aluno não pode estar em outra equipe ativa na edição.
         - Nome único na edição (equipe desfeita libera o nome).
@@ -6481,8 +6728,10 @@ paths:
                 name: Equipe Aurora
                 code: DXA7K2
                 status: ACTIVE
-                qualification: QUALIFIED
+                situation: COMPLETE
                 disqualification_reason: null
+                disqualified_at: null
+                disqualified_by: null
                 formation_extended_until: null
                 members:
                 - id: 101
@@ -6552,7 +6801,7 @@ paths:
         **Perfis permitidos:** STUDENT
 
         **Regras de negócio:**
-        - A edição vigente é a edição com status PUBLISHED ou IN_PROGRESS (P-41).
+        - A edição vigente é a edição com status PUBLISHED (P-41).
       x-status: confirmed
       x-requirements:
       - RF24
@@ -6625,8 +6874,10 @@ paths:
                 name: Equipe Aurora
                 code: DXA7K2
                 status: ACTIVE
-                qualification: QUALIFIED
+                situation: COMPLETE
                 disqualification_reason: null
+                disqualified_at: null
+                disqualified_by: null
                 formation_extended_until: null
                 members:
                 - id: 101
@@ -6704,7 +6955,6 @@ paths:
                 student:
                   user_id: 42
                   name: João Lima
-                invited_email: null
                 status: PENDING
                 created_at: '2026-10-22T16:00:00Z'
                 responded_at: null
@@ -6792,7 +7042,6 @@ paths:
                 student:
                   user_id: 42
                   name: João Lima
-                invited_email: null
                 status: PENDING
                 created_at: '2026-10-22T16:00:00Z'
                 responded_at: null
@@ -7149,8 +7398,10 @@ paths:
                 name: Equipe Aurora
                 code: DXA7K2
                 status: ACTIVE
-                qualification: QUALIFIED
+                situation: COMPLETE
                 disqualification_reason: null
+                disqualified_at: null
+                disqualified_by: null
                 formation_extended_until: null
                 members:
                 - id: 101
@@ -7311,7 +7562,7 @@ paths:
               $ref: '#/components/schemas/MemberNoteCreate'
             example:
               member_id: 103
-              content: Não participou das duas últimas reuniões.
+              text: Não participou das duas últimas reuniões.
       responses:
         '201':
           description: Observação registrada.
@@ -7370,7 +7621,7 @@ paths:
                 author:
                   user_id: 42
                   name: Maria Souza
-                content: Não participou das duas últimas reuniões.
+                text: Não participou das duas últimas reuniões.
                 created_at: '2026-10-22T16:00:00Z'
         '401':
           $ref: '#/components/responses/Unauthorized'
@@ -7809,6 +8060,14 @@ components:
       schema:
         type: integer
         minimum: 1
+    DomainId:
+      name: domain_id
+      in: path
+      required: true
+      description: Identificador do domínio de e-mail.
+      schema:
+        type: integer
+        minimum: 1
     CourseId:
       name: course_id
       in: path
@@ -7894,6 +8153,13 @@ components:
       description: Identificador da solicitação de liderança.
       schema:
         type: integer
+    EvaluationId:
+      name: evaluation_id
+      in: path
+      required: true
+      description: Identificador da avaliação.
+      schema:
+        type: integer
     ProjectId:
       name: project_id
       in: path
@@ -7971,6 +8237,16 @@ components:
       description: Filtra pelo status de ativação.
       schema:
         type: boolean
+    InstitutionalRoleFilter:
+      name: role
+      in: query
+      required: false
+      description: Filtra pelo perfil institucional.
+      schema:
+        type: string
+        enum:
+        - STUDENT
+        - TEACHER
     CourseFilter:
       name: course_id
       in: query
@@ -8118,52 +8394,50 @@ components:
       enum:
       - STUDENT
       - TEACHER
-      - EXTERNAL_EVALUATOR
+      - EXTERNAL_REVIEWER
       - ADMIN
-      description: Perfil do usuário (enum user_role).
+      description: Perfil do usuário (enum UserRole).
     EditionStatus:
       type: string
       enum:
       - SETUP
       - PUBLISHED
-      - IN_PROGRESS
       - CLOSED
-      description: Situação da edição (enum edition_status).
+      description: Situação da edição (enum EditionStatus).
     TeamStatus:
       type: string
       enum:
       - ACTIVE
       - DISQUALIFIED
       - DISBANDED
-      description: 'Situação da equipe (enum team_status). DISBANDED: o líder saiu sozinho e a equipe foi desfeita.'
-    TeamQualification:
+      description: 'Situação disciplinar da equipe (enum TeamStatus). DISBANDED: o líder saiu sozinho e a equipe foi desfeita.'
+    TeamSituation:
       type: string
       enum:
-      - QUALIFIED
-      - NOT_QUALIFIED
-      description: Resultado da verificação da equipe ao fim da formação (enum team_qualification). Semântica pendente (P-23).
+      - COMPLETE
+      - INCOMPLETE
+      - REQUIREMENTS_NOT_MET
+      description: Situação da equipe apurada no encerramento da formação (enum TeamSituation, RF51, P-23).
     MemberRole:
       type: string
       enum:
       - LEADER
       - MEMBER
-      description: Papel do integrante na equipe (enum member_role).
+      description: Papel do integrante na equipe (enum MemberRole).
     ProjectStatus:
       type: string
       enum:
       - IN_PROGRESS
-      - SUBMITTED
-      - UNDER_EVALUATION
-      - APPROVED
-      - REJECTED
-      description: Situação do projeto (enum project_status). Transições pendentes (P-26).
+      - COMPLETED
+      - DISQUALIFIED
+      description: Situação do projeto (enum ProjectStatus).
     StageType:
       type: string
       enum:
       - FORMATION
-      - EVALUATION
+      - SUBMISSION
       - FINAL
-      description: Tipo da etapa (enum stage_type).
+      description: Tipo da etapa (enum StageKind).
     FieldType:
       type: string
       enum:
@@ -8171,7 +8445,7 @@ components:
       - FILE
       - CANVAS
       - SWOT
-      description: Tipo do campo de entrega (enum field_type). CANVAS (Business Model Canvas) e SWOT (matriz SWOT) são preenchidos
+      description: Tipo do campo de entrega (enum FieldKind). CANVAS (Business Model Canvas) e SWOT (matriz SWOT) são preenchidos
         no sistema, com modelo fixo (P-47).
     InvitationStatus:
       type: string
@@ -8180,7 +8454,7 @@ components:
       - ACCEPTED
       - DECLINED
       - CANCELLED
-      description: Situação do convite (enum invitation_status).
+      description: Situação do convite (enum InvitationStatus).
     RequestStatus:
       type: string
       enum:
@@ -8188,40 +8462,40 @@ components:
       - APPROVED
       - REJECTED
       - CANCELLED
-      description: Situação de solicitação (enum request_status).
+      description: Situação de solicitação (enum RequestStatus).
     EvaluationStatus:
       type: string
       enum:
       - DRAFT
       - FINALIZED
-      description: Situação da avaliação do professor (enum evaluation_status).
+      description: Situação da avaliação do professor (enum EvaluationStatus).
     ScoreStatus:
       type: string
       enum:
       - PENDING
-      - PARTIAL
-      - FINALIZED
-      description: Situação da nota consolidada da etapa (enum score_status).
+      - DEFINITIVE
+      - ZERO_NO_SUBMISSION
+      description: Situação da nota consolidada da etapa (enum ScoreStatus).
     QuestionType:
       type: string
       enum:
       - SCORE
+      - CONCEPT
       - TEXT
-      description: Tipo de pergunta do formulário final (enum question_type).
+      description: Tipo de pergunta do formulário final (enum QuestionKind).
     FinalEvaluationStatus:
       type: string
       enum:
       - PENDING
-      - IN_PROGRESS
-      - FINALIZED
-      description: Situação da avaliação final (enum final_evaluation_status).
+      - EVALUATED
+      description: Situação da avaliação final (enum FinalEvaluationStatus).
     CertificateType:
       type: string
       enum:
       - PARTICIPATION
       - FINALIST
       - AWARD
-      description: Tipo de certificado (enum certificate_type). Incompleto em relação ao RF17 (P-34).
+      description: Tipo de certificado (enum CertificateKind). Incompleto em relação ao RF17 (P-34).
     SupportTicketStatus:
       type: string
       enum:
@@ -8446,14 +8720,14 @@ components:
           type: string
           examples:
           - Entrega Preliminar
-        position:
+        order:
           type: integer
           examples:
           - 3
       required:
       - id
       - name
-      - position
+      - order
     CriterionRef:
       type: object
       properties:
@@ -8985,6 +9259,76 @@ components:
           - email
       required:
       - external_evaluator
+    EmailDomain:
+      type: object
+      properties:
+        id:
+          type: integer
+          examples:
+          - 1
+        name:
+          type: string
+          examples:
+          - a.catolica-to.edu.br
+        role:
+          type: string
+          enum:
+          - STUDENT
+          - TEACHER
+          example: STUDENT
+        active:
+          type: boolean
+          examples:
+          - true
+      required:
+      - id
+      - name
+      - role
+      - active
+    EmailDomainCreate:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 100
+          examples:
+          - a.catolica-to.edu.br
+        role:
+          type: string
+          enum:
+          - STUDENT
+          - TEACHER
+          example: STUDENT
+        active:
+          type: boolean
+          default: true
+          examples:
+          - true
+      required:
+      - name
+      - role
+      additionalProperties: false
+    EmailDomainUpdate:
+      type: object
+      description: Ao menos um campo deve ser informado.
+      properties:
+        name:
+          type: string
+          maxLength: 100
+          examples:
+          - a.catolica-to.edu.br
+        role:
+          type: string
+          enum:
+          - STUDENT
+          - TEACHER
+          example: TEACHER
+        active:
+          type: boolean
+          examples:
+          - false
+      additionalProperties: false
+      minProperties: 1
     Course:
       type: object
       properties:
@@ -8996,14 +9340,11 @@ components:
           type: string
           examples:
           - Engenharia de Software
-        slug:
-          type: string
-          description: Código/sigla do curso (P-17).
-          examples:
-          - ES
         term_count:
           type: integer
-          minimum: 1
+          enum:
+          - 8
+          - 10
           examples:
           - 8
         active:
@@ -9023,7 +9364,6 @@ components:
       required:
       - id
       - name
-      - slug
       - term_count
       - active
       - created_at
@@ -9036,14 +9376,11 @@ components:
           maxLength: 150
           examples:
           - Engenharia de Software
-        slug:
-          type: string
-          maxLength: 255
-          examples:
-          - ES
         term_count:
           type: integer
-          minimum: 1
+          enum:
+          - 8
+          - 10
           examples:
           - 8
         active:
@@ -9053,7 +9390,6 @@ components:
           - true
       required:
       - name
-      - slug
       - term_count
       additionalProperties: false
     CourseUpdate:
@@ -9065,14 +9401,11 @@ components:
           maxLength: 150
           examples:
           - Engenharia de Software
-        slug:
-          type: string
-          maxLength: 255
-          examples:
-          - ES
         term_count:
           type: integer
-          minimum: 1
+          enum:
+          - 8
+          - 10
           examples:
           - 10
         active:
@@ -9256,7 +9589,7 @@ components:
           - Desafio X 2026/1
         status:
           $ref: '#/components/schemas/EditionStatus'
-        notice_url:
+        regulation_url:
           type:
           - string
           - 'null'
@@ -9304,7 +9637,7 @@ components:
       - semester
       - name
       - status
-      - notice_url
+      - regulation_url
       - min_members
       - max_members
       - published_at
@@ -9410,10 +9743,6 @@ components:
           $ref: '#/components/schemas/CourseSummary'
         sdg:
           $ref: '#/components/schemas/SdgSummary'
-        title:
-          type: string
-          examples:
-          - Uso eficiente de recursos hídricos no campus
         description:
           type: string
           examples:
@@ -9437,7 +9766,6 @@ components:
       - edition_id
       - course
       - sdg
-      - title
       - description
       - active
       - created_at
@@ -9453,11 +9781,6 @@ components:
           type: integer
           examples:
           - 9
-        title:
-          type: string
-          maxLength: 200
-          examples:
-          - Uso eficiente de recursos hídricos no campus
         description:
           type: string
           examples:
@@ -9470,7 +9793,6 @@ components:
       required:
       - course_id
       - sdg_id
-      - title
       - description
       additionalProperties: false
     ChallengeUpdate:
@@ -9485,11 +9807,6 @@ components:
           type: integer
           examples:
           - 9
-        title:
-          type: string
-          maxLength: 200
-          examples:
-          - Uso eficiente de recursos hídricos
         description:
           type: string
           examples:
@@ -9601,11 +9918,11 @@ components:
           type: string
           examples:
           - Inovação
-        description:
+        rubric:
           type:
           - string
           - 'null'
-          description: Descrição do critério e das faixas de desempenho.
+          description: Rubrica do critério e das faixas de desempenho.
           examples:
           - Avalia o grau de originalidade da solução...
         tiebreak_order:
@@ -9630,7 +9947,7 @@ components:
       - id
       - edition_id
       - name
-      - description
+      - rubric
       - tiebreak_order
       - created_at
       - updated_at
@@ -9642,7 +9959,7 @@ components:
           maxLength: 150
           examples:
           - Inovação
-        description:
+        rubric:
           type:
           - string
           - 'null'
@@ -9667,7 +9984,7 @@ components:
           maxLength: 150
           examples:
           - Inovação
-        description:
+        rubric:
           type:
           - string
           - 'null'
@@ -9689,7 +10006,7 @@ components:
           type: integer
           examples:
           - 31
-        type:
+        kind:
           $ref: '#/components/schemas/FieldType'
         label:
           type: string
@@ -9715,7 +10032,7 @@ components:
           - 10
       required:
       - id
-      - type
+      - kind
       - label
       - required
       - formats
@@ -9728,7 +10045,7 @@ components:
           description: Informe para atualizar um campo existente; omita para criar.
           examples:
           - 31
-        type:
+        kind:
           $ref: '#/components/schemas/FieldType'
         label:
           type: string
@@ -9755,8 +10072,7 @@ components:
           examples:
           - 10
       required:
-      - type
-      - label
+      - kind
       additionalProperties: false
     Stage:
       type: object
@@ -9769,7 +10085,7 @@ components:
           type: integer
           examples:
           - 3
-        position:
+        order:
           type: integer
           examples:
           - 3
@@ -9777,7 +10093,7 @@ components:
           type: string
           examples:
           - Entrega Preliminar
-        type:
+        kind:
           $ref: '#/components/schemas/StageType'
         starts_at:
           type: string
@@ -9789,24 +10105,32 @@ components:
           format: date-time
           examples:
           - '2026-04-20T23:59:00Z'
+        evaluation_ends_at:
+          type:
+          - string
+          - 'null'
+          description: Prazo limite para avaliação dos professores; obrigatório em etapa pontuada (P-19).
+          format: date-time
+          examples:
+          - '2026-04-27T23:59:00Z'
         scored:
           type: boolean
           examples:
           - true
-        points_value:
+        max_score:
           type:
           - string
           - 'null'
           format: decimal
-          pattern: ^\d{1,2}(\.\d{1,2})?$
+          pattern: ^\d{1,3}(\.\d{1,2})?$
           examples:
           - '3.00'
-        min_evaluators:
+        min_evaluations:
           type: integer
           minimum: 1
           examples:
           - 2
-        deliverable_fields:
+        submission_fields:
           type: array
           items:
             $ref: '#/components/schemas/DeliverableField'
@@ -9823,21 +10147,22 @@ components:
       required:
       - id
       - edition_id
-      - position
+      - order
       - name
-      - type
+      - kind
       - starts_at
       - ends_at
+      - evaluation_ends_at
       - scored
-      - points_value
-      - min_evaluators
-      - deliverable_fields
+      - max_score
+      - min_evaluations
+      - submission_fields
       - created_at
       - updated_at
     StageCreate:
       type: object
       properties:
-        position:
+        order:
           type: integer
           minimum: 1
           examples:
@@ -9847,7 +10172,7 @@ components:
           maxLength: 100
           examples:
           - Entrega Preliminar
-        type:
+        kind:
           $ref: '#/components/schemas/StageType'
         starts_at:
           type: string
@@ -9859,33 +10184,41 @@ components:
           format: date-time
           examples:
           - '2026-04-20T23:59:00Z'
+        evaluation_ends_at:
+          type:
+          - string
+          - 'null'
+          description: Prazo limite para avaliação dos professores; obrigatório e posterior a ends_at quando scored=true.
+          format: date-time
+          examples:
+          - '2026-04-27T23:59:00Z'
         scored:
           type: boolean
           default: true
           examples:
           - true
-        points_value:
+        max_score:
           type:
           - string
           - 'null'
           format: decimal
-          pattern: ^\d{1,2}(\.\d{1,2})?$
+          pattern: ^\d{1,3}(\.\d{1,2})?$
           examples:
           - '3.00'
-        min_evaluators:
+        min_evaluations:
           type: integer
           minimum: 1
           default: 1
           examples:
           - 2
-        deliverable_fields:
+        submission_fields:
           type: array
           items:
             $ref: '#/components/schemas/DeliverableFieldWrite'
       required:
-      - position
+      - order
       - name
-      - type
+      - kind
       - starts_at
       - ends_at
       additionalProperties: false
@@ -9893,7 +10226,7 @@ components:
       type: object
       description: Ao menos um campo deve ser informado.
       properties:
-        position:
+        order:
           type: integer
           minimum: 1
           examples:
@@ -9903,7 +10236,7 @@ components:
           maxLength: 100
           examples:
           - Entrega Preliminar
-        type:
+        kind:
           $ref: '#/components/schemas/StageType'
         starts_at:
           type: string
@@ -9915,24 +10248,31 @@ components:
           format: date-time
           examples:
           - '2026-04-22T23:59:00Z'
+        evaluation_ends_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+          examples:
+          - '2026-04-29T23:59:00Z'
         scored:
           type: boolean
           examples:
           - true
-        points_value:
+        max_score:
           type:
           - string
           - 'null'
           format: decimal
-          pattern: ^\d{1,2}(\.\d{1,2})?$
+          pattern: ^\d{1,3}(\.\d{1,2})?$
           examples:
           - '3.00'
-        min_evaluators:
+        min_evaluations:
           type: integer
           minimum: 1
           examples:
           - 2
-        deliverable_fields:
+        submission_fields:
           type: array
           items:
             $ref: '#/components/schemas/DeliverableFieldWrite'
@@ -9963,7 +10303,7 @@ components:
         max_score:
           type: string
           format: decimal
-          pattern: ^\d{1,2}(\.\d{1,2})?$
+          pattern: ^\d{1,3}(\.\d{1,2})?$
           examples:
           - '1.50'
       required:
@@ -9985,7 +10325,7 @@ components:
               max_score:
                 type: string
                 format: decimal
-                pattern: ^\d{1,2}(\.\d{1,2})?$
+                pattern: ^\d{1,3}(\.\d{1,2})?$
                 examples:
                 - '1.50'
             required:
@@ -10003,7 +10343,7 @@ components:
           type: integer
           examples:
           - 61
-        position:
+        order:
           type: integer
           examples:
           - 1
@@ -10011,21 +10351,21 @@ components:
           type: string
           examples:
           - Clareza e qualidade do pitch
-        type:
+        kind:
           $ref: '#/components/schemas/QuestionType'
         max_score:
           type:
           - string
           - 'null'
           format: decimal
-          pattern: ^\d{1,2}(\.\d{1,2})?$
+          pattern: ^\d{1,3}(\.\d{1,2})?$
           examples:
           - '10.00'
       required:
       - id
-      - position
+      - order
       - prompt
-      - type
+      - kind
       - max_score
     FinalForm:
       type: object
@@ -10073,7 +10413,7 @@ components:
     FinalQuestionWrite:
       type: object
       properties:
-        position:
+        order:
           type: integer
           minimum: 1
           examples:
@@ -10082,21 +10422,21 @@ components:
           type: string
           examples:
           - Clareza e qualidade do pitch
-        type:
+        kind:
           $ref: '#/components/schemas/QuestionType'
         max_score:
           type:
           - string
           - 'null'
-          description: Obrigatória e positiva para SCORE; nula para TEXT.
+          description: Obrigatória e positiva para SCORE; nula para CONCEPT e TEXT.
           format: decimal
-          pattern: ^\d{1,2}(\.\d{1,2})?$
+          pattern: ^\d{1,3}(\.\d{1,2})?$
           examples:
           - '10.00'
       required:
-      - position
+      - order
       - prompt
-      - type
+      - kind
       additionalProperties: false
     FinalFormWrite:
       type: object
@@ -10218,7 +10558,7 @@ components:
           type: integer
           examples:
           - 7
-        position:
+        order:
           type: integer
           examples:
           - 3
@@ -10226,7 +10566,7 @@ components:
           type: string
           examples:
           - Entrega Preliminar
-        type:
+        kind:
           $ref: '#/components/schemas/StageType'
         starts_at:
           type: string
@@ -10238,29 +10578,37 @@ components:
           format: date-time
           examples:
           - '2026-04-20T23:59:00Z'
+        evaluation_ends_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+          examples:
+          - '2026-04-27T23:59:00Z'
         scored:
           type: boolean
           examples:
           - true
-        points_value:
+        max_score:
           type:
           - string
           - 'null'
           format: decimal
-          pattern: ^\d{1,2}(\.\d{1,2})?$
+          pattern: ^\d{1,3}(\.\d{1,2})?$
           examples:
           - '3.00'
         phase_status:
           $ref: '#/components/schemas/PhaseStatus'
       required:
       - id
-      - position
+      - order
       - name
-      - type
+      - kind
       - starts_at
       - ends_at
+      - evaluation_ends_at
       - scored
-      - points_value
+      - max_score
       - phase_status
     PublicChallenge:
       type: object
@@ -10287,7 +10635,7 @@ components:
       properties:
         edition:
           $ref: '#/components/schemas/EditionSummary'
-        notice_url:
+        regulation_url:
           type:
           - string
           - 'null'
@@ -10308,7 +10656,7 @@ components:
             $ref: '#/components/schemas/PublicChallenge'
       required:
       - edition
-      - notice_url
+      - regulation_url
       - stages
       - sdgs
       - challenges
@@ -10377,7 +10725,7 @@ components:
     Winner:
       type: object
       properties:
-        award_place:
+        award:
           type: integer
           enum:
           - 1
@@ -10392,7 +10740,7 @@ components:
         project:
           $ref: '#/components/schemas/PublicProject'
       required:
-      - award_place
+      - award
       - course
       - category
       - project
@@ -10458,14 +10806,29 @@ components:
           - DXA7K2
         status:
           $ref: '#/components/schemas/TeamStatus'
-        qualification:
+        situation:
           oneOf:
-          - $ref: '#/components/schemas/TeamQualification'
+          - $ref: '#/components/schemas/TeamSituation'
           - type: 'null'
         disqualification_reason:
           type:
           - string
           - 'null'
+          examples:
+          - null
+        disqualified_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+          examples:
+          - null
+        disqualified_by:
+          type:
+          - integer
+          - 'null'
+          description: Administrador responsável pela desclassificação (P-22).
+          minimum: 1
           examples:
           - null
         formation_extended_until:
@@ -10496,8 +10859,10 @@ components:
       - name
       - code
       - status
-      - qualification
+      - situation
       - disqualification_reason
+      - disqualified_at
+      - disqualified_by
       - formation_extended_until
       - members
       - created_at
@@ -10586,9 +10951,9 @@ components:
           - DXA7K2
         status:
           $ref: '#/components/schemas/TeamStatus'
-        qualification:
+        situation:
           oneOf:
-          - $ref: '#/components/schemas/TeamQualification'
+          - $ref: '#/components/schemas/TeamSituation'
           - type: 'null'
         member_count:
           type: integer
@@ -10604,7 +10969,7 @@ components:
       - name
       - code
       - status
-      - qualification
+      - situation
       - member_count
       - project
     TeamDisqualify:
@@ -10620,29 +10985,17 @@ components:
       - reason
       additionalProperties: false
     InvitationCreate:
-      oneOf:
-      - type: object
-        properties:
-          student_id:
-            type: integer
-            minimum: 1
-            examples:
-            - 42
-        required:
-        - student_id
-        additionalProperties: false
-      - type: object
-        properties:
-          email:
-            type: string
-            format: email
-            maxLength: 254
-            examples:
-            - joao.lima@a.catolica-to.edu.br
-        required:
-        - email
-        additionalProperties: false
-      description: Informe exatamente um entre student_id e email institucional.
+      type: object
+      properties:
+        student_id:
+          type: integer
+          description: Aluno cadastrado a ser convidado.
+          minimum: 1
+          examples:
+          - 42
+      required:
+      - student_id
+      additionalProperties: false
     Invitation:
       type: object
       properties:
@@ -10667,14 +11020,6 @@ components:
           required:
           - user_id
           - name
-        invited_email:
-          type:
-          - string
-          - 'null'
-          format: email
-          maxLength: 254
-          examples:
-          - null
         status:
           $ref: '#/components/schemas/InvitationStatus'
         created_at:
@@ -10693,7 +11038,6 @@ components:
       - id
       - team
       - student
-      - invited_email
       - status
       - created_at
       - responded_at
@@ -10869,14 +11213,14 @@ components:
           description: Vínculo (team_member) observado.
           examples:
           - 103
-        content:
+        text:
           type: string
           minLength: 1
           examples:
           - Não participou das duas últimas reuniões.
       required:
       - member_id
-      - content
+      - text
       additionalProperties: false
     MemberNoteCreated:
       type: object
@@ -10905,7 +11249,7 @@ components:
           $ref: '#/components/schemas/UserSummary'
         author:
           $ref: '#/components/schemas/UserSummary'
-        content:
+        text:
           type: string
           examples:
           - Não participou das duas últimas reuniões.
@@ -10918,7 +11262,7 @@ components:
       - id
       - member
       - author
-      - content
+      - text
       - created_at
     Project:
       type: object
@@ -11072,7 +11416,9 @@ components:
           examples:
           - 301
         field_id:
-          type: integer
+          type:
+          - integer
+          - 'null'
           examples:
           - 31
         type:
@@ -11153,7 +11499,7 @@ components:
           type: integer
           examples:
           - 77
-        version_number:
+        number:
           type: integer
           minimum: 1
           examples:
@@ -11181,7 +11527,7 @@ components:
           - type: 'null'
       required:
       - id
-      - version_number
+      - number
       - submitted_by
       - submitted_at
       - notes
@@ -11415,7 +11761,7 @@ components:
           type: integer
           examples:
           - 77
-        version_number:
+        number:
           type: integer
           examples:
           - 2
@@ -11449,7 +11795,7 @@ components:
       required:
       - id
       - version_id
-      - version_number
+      - number
       - verification_code
       - file_url
       - generated_at
@@ -11467,7 +11813,7 @@ components:
           - string
           - 'null'
           format: decimal
-          pattern: ^\d{1,2}(\.\d{1,2})?$
+          pattern: ^\d{1,3}(\.\d{1,2})?$
           examples:
           - '2.40'
       required:
@@ -11568,7 +11914,7 @@ components:
           description: Avaliações finalizadas na etapa.
           examples:
           - 1
-        min_evaluators:
+        min_evaluations:
           type: integer
           examples:
           - 2
@@ -11581,7 +11927,7 @@ components:
       - stage
       - deliverable_status
       - evaluation_count
-      - min_evaluators
+      - min_evaluations
       - my_evaluation_status
     EvaluationItem:
       type: object
@@ -11593,7 +11939,7 @@ components:
         points:
           type: string
           format: decimal
-          pattern: ^\d{1,2}(\.\d{1,2})?$
+          pattern: ^\d{1,3}(\.\d{1,2})?$
           examples:
           - '1.25'
         comment:
@@ -11637,7 +11983,7 @@ components:
           type: string
           description: Soma dos pontos dos itens.
           format: decimal
-          pattern: ^\d{1,2}(\.\d{1,2})?$
+          pattern: ^\d{1,3}(\.\d{1,2})?$
           examples:
           - '2.40'
         created_at:
@@ -11678,16 +12024,16 @@ components:
               type: string
               examples:
               - Entrega Preliminar
-            points_value:
+            max_score:
               type: string
               format: decimal
-              pattern: ^\d{1,2}(\.\d{1,2})?$
+              pattern: ^\d{1,3}(\.\d{1,2})?$
               examples:
               - '3.00'
           required:
           - id
           - name
-          - points_value
+          - max_score
         criteria:
           type: array
           items:
@@ -11708,7 +12054,7 @@ components:
                     type: string
                     examples:
                     - Inovação
-                  description:
+                  rubric:
                     type:
                     - string
                     - 'null'
@@ -11717,11 +12063,11 @@ components:
                 required:
                 - id
                 - name
-                - description
+                - rubric
               max_score:
                 type: string
                 format: decimal
-                pattern: ^\d{1,2}(\.\d{1,2})?$
+                pattern: ^\d{1,3}(\.\d{1,2})?$
                 examples:
                 - '1.50'
             required:
@@ -11747,7 +12093,7 @@ components:
         points:
           type: string
           format: decimal
-          pattern: ^\d{1,2}(\.\d{1,2})?$
+          pattern: ^\d{1,3}(\.\d{1,2})?$
           examples:
           - '1.25'
         comment:
@@ -11786,15 +12132,109 @@ components:
       - status
       - items
       additionalProperties: false
+    RectificationWrite:
+      type: object
+      properties:
+        stage_criterion_id:
+          type: integer
+          examples:
+          - 51
+        new_points:
+          type: string
+          description: Novo valor; de 0 até o máximo do critério e diferente do atual.
+          format: decimal
+          pattern: ^\d{1,3}(\.\d{1,2})?$
+          examples:
+          - '1.50'
+        reason:
+          type: string
+          description: Justificativa técnica ou operacional (obrigatória).
+          examples:
+          - Erro de digitação do professor.
+      required:
+      - stage_criterion_id
+      - new_points
+      - reason
+      additionalProperties: false
+    Rectification:
+      type: object
+      properties:
+        id:
+          type: integer
+          examples:
+          - 9
+        evaluation_id:
+          type: integer
+          examples:
+          - 201
+        stage_criterion_id:
+          type: integer
+          examples:
+          - 51
+        previous_points:
+          type: string
+          format: decimal
+          pattern: ^\d{1,3}(\.\d{1,2})?$
+          examples:
+          - '1.00'
+        new_points:
+          type: string
+          format: decimal
+          pattern: ^\d{1,3}(\.\d{1,2})?$
+          examples:
+          - '1.50'
+        reason:
+          type: string
+          examples:
+          - Erro de digitação do professor.
+        rectified_by:
+          type: integer
+          description: Id do administrador.
+          examples:
+          - 1
+        rectified_at:
+          type: string
+          format: date-time
+          examples:
+          - '2026-11-18T21:30:00Z'
+        stage_score:
+          type: object
+          description: Nota da etapa já recalculada.
+          properties:
+            value:
+              type:
+              - string
+              - 'null'
+              format: decimal
+              pattern: ^\d{1,3}(\.\d{1,2})?$
+              examples:
+              - '2.40'
+            evaluation_count:
+              type: integer
+              examples:
+              - 2
+          required:
+          - value
+          - evaluation_count
+      required:
+      - id
+      - evaluation_id
+      - stage_criterion_id
+      - previous_points
+      - new_points
+      - reason
+      - rectified_by
+      - rectified_at
+      - stage_score
     StageScoreDetail:
       type: object
       properties:
         stage:
           $ref: '#/components/schemas/StageRef'
-        points_value:
+        max_score:
           type: string
           format: decimal
-          pattern: ^\d{1,2}(\.\d{1,2})?$
+          pattern: ^\d{1,3}(\.\d{1,2})?$
           examples:
           - '3.00'
         status:
@@ -11803,17 +12243,16 @@ components:
           type:
           - string
           - 'null'
-          description: Média aritmética das avaliações finalizadas; exibida quando FINALIZED. Zero quando a entrega não foi
-            realizada.
+          description: Média aritmética das avaliações finalizadas; exibida quando DEFINITIVE. Zero quando ZERO_NO_SUBMISSION.
           format: decimal
-          pattern: ^\d{1,2}(\.\d{1,2})?$
+          pattern: ^\d{1,3}(\.\d{1,2})?$
           examples:
           - '2.40'
         evaluation_count:
           type: integer
           examples:
           - 2
-        min_evaluators:
+        min_evaluations:
           type: integer
           examples:
           - 2
@@ -11829,7 +12268,7 @@ components:
               max_score:
                 type: string
                 format: decimal
-                pattern: ^\d{1,2}(\.\d{1,2})?$
+                pattern: ^\d{1,3}(\.\d{1,2})?$
                 examples:
                 - '1.50'
               average:
@@ -11837,7 +12276,7 @@ components:
                 - string
                 - 'null'
                 format: decimal
-                pattern: ^\d{1,2}(\.\d{1,2})?$
+                pattern: ^\d{1,3}(\.\d{1,2})?$
                 examples:
                 - '1.20'
             required:
@@ -11868,7 +12307,7 @@ components:
                     points:
                       type: string
                       format: decimal
-                      pattern: ^\d{1,2}(\.\d{1,2})?$
+                      pattern: ^\d{1,3}(\.\d{1,2})?$
                       examples:
                       - '1.25'
                     comment:
@@ -11887,11 +12326,11 @@ components:
           description: Feedbacks das avaliações finalizadas, sem identificar o professor (P-44).
       required:
       - stage
-      - points_value
+      - max_score
       - status
       - value
       - evaluation_count
-      - min_evaluators
+      - min_evaluations
       - deliverable_status
       - criteria
       - feedback
@@ -11927,17 +12366,17 @@ components:
           type: integer
           examples:
           - 61
-        type:
+        kind:
           $ref: '#/components/schemas/QuestionType'
         value:
           type:
           - string
           - 'null'
           format: decimal
-          pattern: ^\d{1,2}(\.\d{1,2})?$
+          pattern: ^\d{1,3}(\.\d{1,2})?$
           examples:
           - '8.50'
-        answer_text:
+        text:
           type:
           - string
           - 'null'
@@ -11945,9 +12384,9 @@ components:
           - null
       required:
       - question_id
-      - type
+      - kind
       - value
-      - answer_text
+      - text
     FinalEvaluation:
       type: object
       properties:
@@ -12020,14 +12459,14 @@ components:
           - 'null'
           description: Obrigatório para SCORE (0..max_score).
           format: decimal
-          pattern: ^\d{1,2}(\.\d{1,2})?$
+          pattern: ^\d{1,3}(\.\d{1,2})?$
           examples:
           - '8.50'
-        answer_text:
+        text:
           type:
           - string
           - 'null'
-          description: Obrigatório para TEXT.
+          description: Obrigatório para CONCEPT e TEXT.
           examples:
           - null
       required:
@@ -12039,10 +12478,10 @@ components:
         status:
           type: string
           enum:
-          - IN_PROGRESS
-          - FINALIZED
+          - PENDING
+          - EVALUATED
           examples:
-          - FINALIZED
+          - EVALUATED
         comment:
           type:
           - string
@@ -12068,7 +12507,7 @@ components:
           type: integer
           examples:
           - 3
-        type:
+        kind:
           $ref: '#/components/schemas/CertificateType'
         template_url:
           type:
@@ -12096,7 +12535,7 @@ components:
       required:
       - id
       - edition_id
-      - type
+      - kind
       - template_url
       - signatures
       - created_at
@@ -12122,19 +12561,17 @@ components:
           type: integer
           examples:
           - 901
-        type:
+        kind:
           $ref: '#/components/schemas/CertificateType'
         edition:
           $ref: '#/components/schemas/EditionSummary'
-        project:
-          oneOf:
-          - $ref: '#/components/schemas/ProjectRef'
-          - type: 'null'
         workload_hours:
           type:
           - integer
           - 'null'
-          minimum: 1
+          enum:
+          - 20
+          - 40
           examples:
           - 40
         verification_code:
@@ -12155,9 +12592,8 @@ components:
           - '2026-10-22T16:00:00Z'
       required:
       - id
-      - type
+      - kind
       - edition
-      - project
       - workload_hours
       - verification_code
       - file_url

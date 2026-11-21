@@ -68,6 +68,12 @@ class ConstraintTests(TestCase):
         with self.assertRaises(IntegrityError):
             EmailDomain.objects.create(name="teste.edu.br", role=UserRole.TEACHER)
 
+    def test_dominio_unico_ignora_maiusculas_e_espacos(self):
+        EmailDomain.objects.create(name="teste.edu.br", role=UserRole.STUDENT)
+
+        with self.assertRaises(IntegrityError):
+            EmailDomain.objects.create(name=" Teste.EDU.BR ", role=UserRole.TEACHER)
+
     def student(self, email, registration_number, term=1):
         user = User.objects.create_user(email, "x", role=UserRole.STUDENT)
         course = Course.objects.get(name="Direito")
@@ -167,3 +173,32 @@ class UserAdminPagesTests(TestCase):
                 self.assertEqual(response.status_code, 200)
 
         self.assertEqual(admin.get_full_name(), "Admin")
+
+
+class EmailDomainValidationTests(TestCase):
+    def test_dominio_valido_normaliza_nome(self):
+        domain = EmailDomain(name=" A.Catolica-TO.edu.br ", role=UserRole.STUDENT)
+        domain.full_clean()
+
+        self.assertEqual(domain.name, "a.catolica-to.edu.br")
+
+    def test_dominio_invalido_e_recusado(self):
+        for invalid in (
+            "",
+            "   ",
+            "@aluno.edu.br",
+            "localhost",
+            "-a.edu.br",
+            "a b.edu.br",
+        ):
+            with self.subTest(name=invalid):
+                domain = EmailDomain(name=invalid, role=UserRole.STUDENT)
+                with self.assertRaises(ValidationError):
+                    domain.full_clean()
+
+    def test_perfil_nao_institucional_e_recusado(self):
+        for role in (UserRole.ADMIN, UserRole.EXTERNAL_REVIEWER):
+            with self.subTest(role=role):
+                domain = EmailDomain(name="teste.edu.br", role=role)
+                with self.assertRaises(ValidationError):
+                    domain.full_clean()
