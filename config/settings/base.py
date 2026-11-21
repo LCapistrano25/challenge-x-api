@@ -130,7 +130,7 @@ SESSION_SAVE_EVERY_REQUEST = True
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework.authentication.SessionAuthentication",
+        "apps.core.authentication.SessionAuthentication",
     ],
     # Esquecer permission_classes exige login em vez de deixar a rota aberta.
     # Cada view declara o papel (IsAdmin, IsStudent...) ou AllowAny se pública.

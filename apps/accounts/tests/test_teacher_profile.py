@@ -149,4 +149,4 @@ def test_aluno_nao_configura_perfil_de_professor():
 def test_exige_login():
     resposta = APIClient().post(URL, {"course_ids": [1]}, format="json")
 
-    assert resposta.status_code in (401, 403)
+    assert resposta.status_code == 401

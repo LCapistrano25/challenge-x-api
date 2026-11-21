@@ -290,4 +290,4 @@ def test_api_so_avaliador_externo_acessa(project, form):
         assert client.get("/api/evaluator/finalists").status_code == 403
         assert client.get(url(project)).status_code == 403
         assert client.put(url(project), corpo(form), format="json").status_code == 403
-    assert APIClient().get("/api/evaluator/finalists").status_code in (401, 403)
+    assert APIClient().get("/api/evaluator/finalists").status_code == 401
