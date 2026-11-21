@@ -145,3 +145,18 @@ def test_erro_inesperado_nao_e_engolido():
     # O handler devolve None e o DRF relança: vira 500 e aparece no log.
     with pytest.raises(RuntimeError):
         respond(RuntimeError("bug"))
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("fmt", ["json", "multipart"])
+def test_corpo_acima_do_limite_sai_em_json(fmt, settings):
+    from rest_framework.test import APIClient
+
+    settings.DATA_UPLOAD_MAX_MEMORY_SIZE = 1024
+    response = APIClient().post(
+        "/api/auth/sessions/password",
+        {"email": "x" * 2048, "password": "a"},
+        format=fmt,
+    )
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "request_too_large"
