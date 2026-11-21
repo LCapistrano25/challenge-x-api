@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Gera openapi.yaml do Projeto X (scratch: o entregável é o YAML)."""
+"""Gera docs/api/openapi.yaml do Projeto X. Edite este script, nunca o YAML."""
+from pathlib import Path
+
 import yaml
 
 SC = {}
@@ -1318,6 +1320,7 @@ def str_presenter(dumper, data):
     return dumper.represent_scalar("tag:yaml.org,2002:str", data)
 Dumper.add_representer(str, str_presenter)
 
-with open("openapi.yaml", "w", encoding="utf-8") as f:
+# Grava ao lado deste script, de qualquer diretório em que for chamado.
+with open(Path(__file__).with_name("openapi.yaml"), "w", encoding="utf-8") as f:
     yaml.dump(spec, f, Dumper=Dumper, sort_keys=False, allow_unicode=True, width=120)
 print("operations:", len(OPIDS), "paths:", len(PATHS), "schemas:", len(SC))
