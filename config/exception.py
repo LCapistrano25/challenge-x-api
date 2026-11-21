@@ -1,4 +1,9 @@
 from django.core.exceptions import PermissionDenied as DjangoPermissionDenied
+from django.core.exceptions import (
+    RequestDataTooBig,
+    TooManyFieldsSent,
+    TooManyFilesSent,
+)
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.http import Http404
 from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
@@ -27,6 +32,14 @@ def custom_exception_handler(exc, context):
         exc = NotFound()
     elif isinstance(exc, DjangoPermissionDenied):
         exc = PermissionDenied()
+
+    # Corpo acima de DATA_UPLOAD_MAX_MEMORY_SIZE ou campos demais: sem isto o
+    # Django responde a página HTML de 400.
+    if isinstance(exc, (RequestDataTooBig, TooManyFieldsSent, TooManyFilesSent)):
+        return Response(
+            body("request_too_large", "A requisição excede o tamanho permitido."),
+            status=400,
+        )
 
     if isinstance(exc, AppError):
         return Response(body(exc.code, str(exc)), status=exc.http_status)
