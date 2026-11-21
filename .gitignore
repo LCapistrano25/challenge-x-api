@@ -444,3 +444,6 @@ cookies.txt
 graphify-out/
 # Arquivos privados das entregas
 private_media/
+
+# Arquivos de outras ferramentas de IA
+.agents/

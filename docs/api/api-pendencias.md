@@ -16,11 +16,11 @@
 
 | ID | Tema | Severidade | Afeta |
 |---|---|---|---|
-| P-01 | `users` sem os campos nativos do Django | Alta | `accounts`, 1ª migration |
-| P-02 | Contrato de auth com valores e campos fora do DBML | Média | `accounts` |
-| P-03 | Expiração por inatividade × JWT de 7 dias | Média | `accounts` |
+| P-01 | `users` sem os campos nativos do Django — **resolvida** | Alta | `accounts`, 1ª migration |
+| P-02 | Contrato de auth com valores e campos fora do DBML — **resolvida** | Média | `accounts` |
+| P-03 | Expiração por inatividade × JWT de 7 dias — **resolvida** | Média | `accounts` |
 | P-04 | Professor define o próprio escopo de avaliação — **resolvida** | Alta | `accounts`, `evaluations` |
-| P-05 | Criação de avaliador externo sem vínculo à edição | Média | `accounts`, `evaluations` |
+| P-05 | Criação de avaliador externo sem vínculo à edição — **resolvida** | Média | `accounts`, `evaluations` |
 | P-06 | Status de chamado divergentes | Alta | `support` |
 | P-07 | Justificativa de recusa e histórico do chamado | Média | `support` |
 | P-08 | `WAITING_USER` sem canal de resposta do usuário | Média | `support` |
@@ -42,22 +42,22 @@
 | P-24 | RF28 × RF40 sobre o ex-líder | Baixa | `teams` |
 | P-25 | `project` com campos NOT NULL × fluxo RF29/RF30 — **resolvida** | Alta | `projects` |
 | P-26 | Transições de `project_status` | Média | `projects` |
-| P-27 | Status de entrega e nota zero automática | Média | `projects`, `evaluations` |
+| P-27 | Status de entrega e nota zero automática — **resolvida** | Média | `projects`, `evaluations` |
 | P-28 | Visibilidade pública do acervo | Baixa | `results` |
 | P-29 | Seleção de finalistas sem requisito | Alta | `results`, `evaluations` |
 | P-30 | Nota final, ranking e premiação | Alta | `results` |
 | P-31 | Fórmula da pontuação individual | Alta | `results` |
-| P-32 | Banca do avaliador externo | Média | `evaluations` |
+| P-32 | Banca do avaliador externo — **resolvida** | Média | `evaluations` |
 | P-33 | Significado de `PARTIAL` em `stage_score` | Baixa | `evaluations` |
 | P-34 | Tipos de certificado incompletos | Média | `results` |
 | P-35 | Notícias e canal de dúvidas sem tabela | Baixa | painel público |
 | P-36 | Referências quebradas nos requisitos | Baixa | documentação |
-| P-37 | Formato padrão de erro | Média | todos |
-| P-38 | Paginação das listagens | Baixa | listagens |
-| P-39 | Decimais serializados como string | Baixa | notas e pontuações |
-| P-40 | 400 × 422 para erros de validação | Baixa | todos |
+| P-37 | Formato padrão de erro — **resolvida** | Média | todos |
+| P-38 | Paginação das listagens — **resolvida** | Baixa | listagens |
+| P-39 | Decimais serializados como string — **resolvida** | Baixa | notas e pontuações |
+| P-40 | 400 × 422 para erros de validação — **resolvida** | Baixa | todos |
 | P-41 | Definição de "edição vigente" | Média | `public`, `teams`, `auth` |
-| P-42 | Campo `profile_completed` na sessão Microsoft | Média | `auth` |
+| P-42 | Campo `profile_completed` na sessão Microsoft — **resolvida** | Média | `auth` |
 | P-43 | Formato multipart dos uploads | Média | `editions`, `projects`, `results` |
 | P-44 | Anonimato do professor nos feedbacks | Média | `evaluations` |
 | P-45 | Confirmação explícita no encerramento da edição | Baixa | `editions` |
@@ -73,16 +73,19 @@
 - **DBML:** `users` não tem `last_login`, `is_superuser` e `is_staff`. As tabelas M2M `users_groups` e `users_user_permissions` também não aparecem.
 - **Impacto:** a primeira migration de `accounts` vai gerar colunas e tabelas ausentes do DBML, e o `AUTH_USER_MODEL` não pode ser trocado depois.
 - **Decidir:** incluir esses campos e tabelas no DBML ou abrir mão dos campos nativos (`last_login = None`, sem `PermissionsMixin`). Também é preciso confirmar o mapeamento `password_hash` ↔ `password` e `active` ↔ `is_active` (via `db_column`/property).
+- **Resolvida (21/11/2026):** `User` herda de `AbstractUser` e mantém os campos nativos do Django (`is_staff`, `is_superuser`, `last_login`, permissões). O DBML ainda precisa refletir esses campos.
 
 ### P-02 — Contrato de autenticação fora do DBML · Média
 - O contrato retorna `"profile": "ALUNO"`/`"PROFESSOR"`, mas o enum `user_role` usa `STUDENT`/`TEACHER`.
 - `POST /api/auth/students` recebe `enrollment` e `semester`, enquanto o DBML usa `registration_number` e `period`.
 - `POST /api/auth/professors` usa `professor`/`course_ids`, mas a tabela é `teacher`/`teacher_course`.
 - **Suposição para os endpoints:** a API expõe os nomes e valores do DBML (`role`, `STUDENT`, `registration_number`, `period`, `/teachers`). Confirmar e atualizar o contrato.
+- **Resolvida (21/11/2026):** a API segue o DBML e o glossário: `role` com `STUDENT`/`TEACHER`, `registration_number`, `term` e `/api/auth/teachers`.
 
 ### P-03 — Expiração por inatividade × JWT de 7 dias · Média
 - O RF01 exige que a sessão expire **por inatividade**, mas o contrato sugere um JWT com validade fixa de 7 dias. Um JWT sem estado não tem como detectar inatividade.
 - **Opções:** access token curto com refresh token deslizante, ou revisar o RF01.
+- **Resolvida (21/11/2026, #70, #157):** sessão por cookie com CSRF, sem JWT. Expira após 30 minutos sem uso (`SESSION_COOKIE_AGE = 1800` com `SESSION_SAVE_EVERY_REQUEST`).
 
 ### P-04 — Professor define o próprio escopo de avaliação · Alta
 - O RF36.1 deixa o professor selecionar os próprios cursos no primeiro acesso, e `teacher_course.active` tem default `true`.
@@ -96,6 +99,7 @@
 - `POST /api/auth/external-evaluators` só cria `users` + `external_evaluator`.
 - O RF41 nega login a avaliador sem vínculo com a edição vigente, então um avaliador criado só por essa rota não consegue entrar.
 - **Decidir:** uma única rota que cria o avaliador e o vínculo, ou duas rotas (criação e `POST /api/admin/editions/{id}/evaluators`).
+- **Resolvida (21/11/2026, #95):** duas rotas. `POST /api/auth/external-evaluators` cria o avaliador e `POST /api/admin/editions/{id}/evaluators` faz o vínculo com a abrangência (`link_reviewer_to_edition`).
 
 ---
 
@@ -187,6 +191,7 @@
 - **Resolvida (20/11/2026):** uma tabela por tipo de ajuste, cada uma sendo o próprio histórico imutável. A prorrogação por equipe é `DeadlineExtension` (projeto, etapa, novo prazo, justificativa, admin), e `get_valid_version` usa esse prazo. A retificação de nota é `ScoreRectification` (item, pontos anteriores e novos, justificativa, admin), gravada pelo caso de uso `rectify_score`, que troca os pontos do item mesmo com a avaliação finalizada. O prazo do professor (`ensure_within_evaluation_deadline`) não vale para a retificação.
 - **Decisões da #67:** (1) o prazo de avaliação é um campo próprio da etapa, `evaluation_ends_at` (P-19); (2) os ajustes ficam em uma tabela por tipo, não em uma tabela genérica de auditoria; (3) a avaliação finalizada só muda pelo admin, por retificação de um item, e cada retificação fica registrada; o professor não altera depois de finalizar. A imutabilidade é garantida no admin do Django, que não tem permissão de alterar nem apagar `DeadlineExtension` e `ScoreRectification`; a retificação só é gravada por `rectify_score`.
 - **Fora desta decisão:** a rota para o admin conceder a prorrogação (hoje só pelo admin do Django, que grava `granted_by`) e a consulta do histórico de ajustes (RF16). Seguem em tasks próprias.
+- **Atualização (21/11/2026):** a retificação tem endpoint (`POST /api/admin/evaluations/{id}/rectifications`, #98), exige admin antes de travar o item (BUG-05). A prorrogação por equipe ainda não tem endpoint (#109).
 
 ---
 
@@ -226,6 +231,7 @@
 - **Suposição:** são derivados (sem versão + prazo aberto = Não enviada; com versão = Enviada; sem versão + prazo encerrado = Não entregue).
 - **Implementado (#106):** o status é derivado em `get_delivery_status` (selectors de `projects`), sem gravar nada; `official_version_id` só aparece depois do prazo da equipe.
 - **Decidir:** como aplicar a nota zero (RF31/RF32). O `stage_score` com `value = 0` é gravado por um job ao fim do prazo ou calculado na consulta? Com que `status`?
+- **Resolvida (21/11/2026, #97):** a nota zero é gravada por `apply_zero_for_missing_submission` (comando `apply_zero_scores`) ao fim do prazo, sem regravar e sem sobreviver à prorrogação (RN24).
 
 ### P-28 — Visibilidade pública do acervo · Baixa
 - O RF35 e o RF46 falam em projetos "homologados para exibição pública". Não há flag de publicação, só `project_result.homologated_at` e o `edition.status`.
@@ -251,6 +257,7 @@
 ### P-32 — Banca do avaliador externo · Média
 - O RF43 exige avaliar todos os finalistas "alocados para a sua banca", mas não existe tabela de alocação. Só existe a abrangência por curso em `edition_evaluator.course_id`.
 - **Suposição:** a banca é todo finalista dentro da abrangência do avaliador. Confirmar.
+- **Resolvida (21/11/2026, #101):** a banca é todo finalista dentro da abrangência do avaliador (`EditionReviewer.course` nulo = todos os cursos).
 
 ### P-33 — Significado de `PARTIAL` em `stage_score` · Baixa
 - O RF32 só prevê os status "Definitiva" e "Pendente". O DBML tem também `PARTIAL`.
@@ -299,9 +306,11 @@ Estas são convenções que a especificação adota para ficar completa. Cada um
 
 ### P-39 — Decimais como string · Baixa
 - Campos `decimal(4,2)` (notas, pontos, `points_value`, `max_score`) são serializados como string (`"2.50"`), que é o padrão do `DecimalField` do DRF e evita erro de ponto flutuante. Confirmar com o frontend.
+- **Adotada (21/11/2026):** é o padrão do `DecimalField` do DRF e está no contrato.
 
 ### P-40 — 400 × 422 · Baixa
 - A especificação usa **400** para validação de dados e **409** para conflito com regra de negócio. O código 422 não é usado. Se o time preferir 422 para validação semântica, a mudança é mecânica.
+- **Adotada (21/11/2026):** 400 para validação e 409 para regra de negócio (`BusinessRuleViolation`); 403 para permissão.
 
 ### P-41 — Definição de "edição vigente" · Média
 - RF20, RF21, RF24, RF41 e RF44 dependem da "edição vigente", mas nenhum requisito a define.
@@ -311,6 +320,7 @@ Estas são convenções que a especificação adota para ficar completa. Cada um
 - O contrato de auth exige que o aluno conclua o autocadastro (RF19) e que o professor configure seus cursos (RF36.1) no primeiro acesso, mas não diz como o frontend descobre que isso ainda falta.
 - **Proposta:** a resposta de `POST /api/auth/sessions/microsoft` inclui `role` e `profile_completed` (se o registro `student`/`teacher` já existe). O campo não é persistido, porque é derivado.
 - O contrato também não define **expiração, refresh token, logout nem endpoint de callback**. A especificação não presume nada disso (ver P-03).
+- **Implementada (21/11/2026):** `POST /api/auth/sessions/microsoft` devolve `profile_completed` (`apps/accounts/views/login.py`). Logout e expiração estão em P-03.
 
 ### P-43 — Uploads em multipart · Média
 - **Entrega de etapa:** `items` vai como string JSON com `field_id` e `link` ou `file_index`, e os arquivos vão em `files[]`. Isso é necessário porque a etapa tem um número variável de campos LINK e FILE.
@@ -318,6 +328,7 @@ Estas são convenções que a especificação adota para ficar completa. Cada um
 - **Atualização (#106):** nesta sprint a entrega aceita só links, em JSON (`{"items": [{"field_id", "link"}], "notes"}`). O `multipart` volta com os arquivos (FILE) na V5.
 - **Atualização (#107):** a entrega de etapa aceita links em JSON ou links e arquivos em `multipart/form-data` (`items` em string JSON com `file_index`, `files[]` ou `files`). Os arquivos ficam em armazenamento privado (alias `deliveries`, disco local por padrão), sem URL pública: `file_url` é o caminho autenticado `GET /api/deliverable-items/{item_id}/file`. A escolha do armazenamento definitivo (L10) segue em aberto; trocar é configuração. Edital (RF09) e modelo de certificado (RF17) continuam pendentes.
 - Também é preciso definir onde os arquivos são armazenados (ex.: Azure Blob) e se as URLs devolvidas (`notice_url`, `file_url`, `template_url`) são públicas ou assinadas e com validade. Entregas e certificados não devem ficar com URL pública permanente.
+- **Pendente (21/11/2026):** a entrega de etapa está pronta. Faltam o upload do edital (RF09, #123) e do modelo de certificado (RF17, #112), e a escolha do armazenamento definitivo (#99, #102).
 
 ### P-44 — Anonimato do professor nos feedbacks · Média
 - O RF32 exibe ao aluno os feedbacks dos professores, mas não diz se o professor é identificado.
@@ -462,3 +473,4 @@ O validador oficial (`openapi-spec-validator`) **não pôde ser instalado**, por
 | 20/11/2026 | Contrato alinhado aos models. Enums: `EXTERNAL_REVIEWER`; `EditionStatus` sem `IN_PROGRESS`; `StageType` `SUBMISSION`; `TeamSituation` no lugar de `TeamQualification`; `ProjectStatus` `IN_PROGRESS/COMPLETED/DISQUALIFIED`; `ScoreStatus` `PENDING/DEFINITIVE/ZERO_NO_SUBMISSION`; `QuestionType` com `CONCEPT`; `FinalEvaluationStatus` `PENDING/EVALUATED`. Campos: `Course` sem `slug` e `term_count` ∈ {8, 10}; `Edition.regulation_url`; `Challenge` sem `title`; `Criterion.rubric`; `Stage` com `order`, `kind`, `max_score`, `min_evaluations`, `submission_fields` e `evaluation_ends_at`; `kind` nos campos e itens de entrega e no certificado; `DeliverableVersion.number`; `Team.situation`, `disqualified_at` e `disqualified_by`; convite só por `student_id` (sem `invited_email`); `MemberNote.text`; `FinalQuestion.order/kind`; `FinalAnswer.text`; `Winner.award`; `Certificate` sem `project` e `workload_hours` ∈ {20, 40}; decimais com até 3 dígitos inteiros. | Os models seguem o glossário do guia de implementação, que prevalece sobre o OpenAPI (CLAUDE.md). |
 | 20/11/2026 | `FieldType` ganha `CANVAS` e `SWOT`; `formats` e `max_size_mb` só valem para `FILE`. | Pedido do professor: Business Model Canvas e matriz SWOT preenchidos no sistema (#169, P-47). |
 | 20/11/2026 | O item de entrega ganha `content` (envio e consulta): `DeliverableSubmissionItem` aceita `link`, `file_index` ou `content`, e `DeliverableItem` devolve `content` (nulo para link e arquivo). Novos schemas `CanvasContent` e `SwotContent`, com limite de 5000 caracteres por texto e 20 itens por quadrante. | Canvas e SWOT preenchidos no sistema na entrega da etapa (#170, P-47). |
+| 21/11/2026 | Pendências P-01, P-02, P-03, P-05, P-27, P-32, P-39, P-40 e P-42 marcadas como resolvidas; P-21 e P-43 atualizadas. | Levantamento do código da `developer` e das PRs abertas (#172) feito na #179. |
