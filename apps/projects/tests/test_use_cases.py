@@ -504,6 +504,40 @@ def test_envio_cria_entrega_versao_item_e_comprovante(
     assert version.receipt.verification_code
 
 
+def test_envio_cria_um_comprovante_com_codigo_hexadecimal(
+    delivery_project, delivery_leader, delivery_stage, link_field
+):
+    version = send(delivery_leader, delivery_project, delivery_stage, link_field)
+
+    assert SubmissionReceipt.objects.filter(version=version).count() == 1
+    code = version.receipt.verification_code
+    assert len(code) == 32
+    assert int(code, 16) >= 0
+    assert version.receipt.file_url == ""
+
+
+def test_dois_envios_geram_codigos_diferentes_e_preservam_o_primeiro(
+    delivery_project, delivery_leader, delivery_stage, link_field
+):
+    first = send(delivery_leader, delivery_project, delivery_stage, link_field)
+    original = (
+        first.receipt.pk,
+        first.receipt.verification_code,
+        first.receipt.generated_at,
+    )
+
+    second = send(delivery_leader, delivery_project, delivery_stage, link_field)
+
+    assert SubmissionReceipt.objects.count() == 2
+    assert second.receipt.verification_code != original[1]
+    first.receipt.refresh_from_db()
+    assert (
+        first.receipt.pk,
+        first.receipt.verification_code,
+        first.receipt.generated_at,
+    ) == original
+
+
 def test_segundo_envio_cria_versao_2_e_preserva_a_1(
     delivery_project, delivery_leader, delivery_stage, link_field
 ):
@@ -534,6 +568,7 @@ def test_envio_recusa_membro_comum(delivery_project, delivery_stage, link_field)
     member = TeamMemberFactory(team=delivery_project.team).student.user
     with pytest.raises(NotTeamLeader):
         send(member, delivery_project, delivery_stage, link_field)
+    assert SubmissionReceipt.objects.count() == 0
 
 
 def test_envio_recusa_admin(delivery_project, delivery_stage, link_field):
@@ -568,6 +603,7 @@ def test_envio_recusa_equipe_desclassificada(delivery_stage, link_field):
     leader = team.members.get(role=MemberRole.LEADER).student.user
     with pytest.raises(TeamDisqualified):
         send(leader, project, delivery_stage, link_field)
+    assert SubmissionReceipt.objects.count() == 0
 
 
 @pytest.mark.parametrize(

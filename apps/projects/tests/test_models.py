@@ -3,6 +3,7 @@ from datetime import timedelta
 import pytest
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError
+from django.db.models import ProtectedError
 
 from apps.accounts.enums import UserRole
 from apps.accounts.factories import UserFactory
@@ -70,6 +71,12 @@ def test_um_comprovante_por_versao():
     comprovante = SubmissionReceiptFactory()
     with pytest.raises(IntegrityError):
         SubmissionReceiptFactory(version=comprovante.version)
+
+
+def test_comprovante_protege_a_versao_contra_exclusao():
+    comprovante = SubmissionReceiptFactory()
+    with pytest.raises(ProtectedError):
+        comprovante.version.delete()
 
 
 def test_comprovante_gera_codigo_de_verificacao_unico():
