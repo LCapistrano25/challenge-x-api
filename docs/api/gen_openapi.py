@@ -88,7 +88,8 @@ ALL = ["STUDENT", "TEACHER", "EXTERNAL_REVIEWER", "ADMIN"]
 
 def op(method, path, opid, tag, summary, rf, roles, desc, *, authz=None, rules=(), params=(),
        body=None, ct="application/json", req_ex=None, ok=None, ok_code="200",
-       ok_desc="Operação concluída.", errs=(), conflicts=(), pend=(), public=False, more=None):
+       ok_desc="Operação concluída.", errs=(), conflicts=(), pend=(), public=False, more=None,
+       body_alt=None):
     assert opid not in OPIDS, opid
     OPIDS.add(opid)
     lines = [desc, "", "**Requisitos:** " + ", ".join(rf), ""]
@@ -111,7 +112,11 @@ def op(method, path, opid, tag, summary, rf, roles, desc, *, authz=None, rules=(
         media = {"schema": body}
         if ct == "application/json":
             media["example"] = req_ex if req_ex is not None else example(body)
-        o["requestBody"] = {"required": True, "content": {ct: media}}
+        content = {ct: media}
+        # body_alt: outros content-types da mesma operação ({content-type: schema}).
+        for alt_ct, alt_schema in (body_alt or {}).items():
+            content[alt_ct] = {"schema": alt_schema}
+        o["requestBody"] = {"required": True, "content": content}
     resp = {}
     if ok is None:
         resp[ok_code] = {"description": ok_desc}
@@ -493,10 +498,11 @@ SC["ProjectOptions"] = obj({"challenges": arr(ref("PublicChallenge"), descriptio
                             "categories": arr(obj({"id": INT(ex=2), "name": STR(ex="Protótipos e Artefatos"), "description": nul(TXT(ex="Categoria A do Art. 2."))},
                                                   ["id", "name", "description"]), description="Categorias ativas da edição.")},
                            ["challenges", "categories"])
-SC["DeliverableItem"] = obj({"id": INT(ex=301), "field_id": nul(INT(ex=31)), "kind": ref("FieldType"), "link": nul(URL(ex=None)),
-                             "file_url": nul(URL(ex="https://storage.projetox.edu.br/entregas/40/7/relatorio.pdf")),
+SC["DeliverableItem"] = obj({"id": INT(ex=301), "field_id": nul(INT(ex=31)), "type": ref("FieldType"), "link": nul(URL(ex=None)),
+                             "file_url": nul(P("string", "Caminho autenticado de download (GET projectsDownloadDeliverableFile), nunca uma URL pública do armazenamento. Nulo para link.",
+                                               "/api/deliverable-items/301/file", format="uri-reference")),
                              "file_name": nul(STR(ex="relatorio.pdf")), "size_bytes": nul(INT(ex=1048576, minimum=1, format="int64"))},
-                            ["id", "field_id", "kind", "link", "file_url", "file_name", "size_bytes"])
+                            ["id", "field_id", "type", "link", "file_url", "file_name", "size_bytes"])
 SC["ReceiptSummary"] = obj({"verification_code": STR(ex="DX-2026-1-7F3K9Q"), "file_url": nul(URL(ex="https://storage.projetox.edu.br/comprovantes/DX-2026-1-7F3K9Q.pdf")),
                             "generated_at": DT()}, ["verification_code", "file_url", "generated_at"])
 SC["DeliverableVersion"] = obj({"id": INT(ex=77), "number": INT(ex=2, minimum=1), "submitted_by": ref("UserSummary"), "submitted_at": DT(),
@@ -507,12 +513,20 @@ SC["StageDeliverable"] = obj({
     "official_version_id": nul(INT("Versão vigente no encerramento do prazo (nula enquanto aberto ou sem envio).", None)),
     "versions": arr(ref("DeliverableVersion"), description="Histórico completo, da mais recente para a mais antiga."),
 }, ["stage", "fields", "status", "official_version_id", "versions"])
-SC["DeliverableSubmissionItem"] = obj({"field_id": INT(ex=31), "link": URL(ex="https://github.com/equipe/projeto")},
-                                      ["field_id", "link"], strict=True)
+SC["DeliverableSubmissionItem"] = obj({"field_id": INT(ex=31), "link": URL(ex="https://github.com/equipe/projeto"),
+                                       "file_index": INT("Posição do arquivo em `files[]`. Só vale em multipart.", 0, minimum=0)},
+                                      ["field_id"], strict=True,
+                                      desc="Informe `link` (campo LINK) ou `file_index` (campo FILE), apenas um dos dois.")
 SC["DeliverableSubmission"] = obj({
-    "items": arr(ref("DeliverableSubmissionItem"), minItems=1, description="Um link por campo LINK da etapa; campos obrigatórios devem constar."),
+    "items": arr(ref("DeliverableSubmissionItem"), minItems=1, description="Um item por campo da etapa; campos obrigatórios devem constar. Em JSON só há links."),
     "notes": TXT(ex="Correção do relatório."),
-}, ["items"], strict=True, desc="Nesta versão só links, em JSON. Arquivos (FILE) voltam em multipart na V5 (P-43).")
+}, ["items"], strict=True, desc="Envio só com links, em JSON. Com arquivos (FILE), use multipart/form-data (DeliverableSubmissionMultipart, P-43).")
+SC["DeliverableSubmissionMultipart"] = obj({
+    "items": STR("Lista de itens em JSON, como em `DeliverableSubmission.items`. Item de arquivo usa `file_index`.",
+                 '[{"field_id": 31, "link": "https://github.com/equipe/projeto"}, {"field_id": 32, "file_index": 0}]'),
+    "notes": TXT(ex="Correção do relatório."),
+    "files[]": arr(P("string", format="binary"), description="Arquivos da entrega; cada item de arquivo aponta para um deles por `file_index`. Sem arquivo sobrando."),
+}, ["items"], strict=True, desc="Envio com arquivos (P-43). Aceita também o nome de campo `files`.")
 SC["Receipt"] = obj({
     "id": INT(ex=55), "version_id": INT(ex=77), "number": INT(ex=2), "verification_code": STR(ex="DX-2026-1-7F3K9Q"),
     "file_url": nul(URL(ex="https://storage.projetox.edu.br/comprovantes/DX-2026-1-7F3K9Q.pdf")), "generated_at": DT(),
@@ -659,6 +673,7 @@ PARAMS = {
     "LeadershipRequestId": pp("leadership_request_id", {"type": "integer"}, "Identificador da solicitação de liderança."),
     "EvaluationId": pp("evaluation_id", {"type": "integer"}, "Identificador da avaliação."),
     "ProjectId": pp("project_id", {"type": "integer"}, "Identificador do projeto."),
+    "ItemId": pp("item_id", {"type": "integer"}, "Identificador do item da entrega."),
     "VersionId": pp("version_id", {"type": "integer"}, "Identificador da versão da entrega."),
     "TicketId": pp("ticket_id", {"type": "string", "format": "uuid"}, "Identificador do chamado."),
     "NotificationId": pp("notification_id", {"type": "string", "format": "uuid"}, "Identificador da notificação."),
@@ -1057,14 +1072,28 @@ op("get", "/api/projects/{project_id}/deliverables", "projectsListDeliverables",
    authz="STUDENT: integrante ativo da equipe. TEACHER: vínculo ativo com o curso do desafio. ADMIN: qualquer.", pend=["P-27"])
 op("post", "/api/projects/{project_id}/stages/{stage_id}/versions", "projectsSubmitDeliverableVersion", "projects", "Enviar ou atualizar entrega da etapa",
    ["RF31"], ["STUDENT"], "Registra nova versão imutável da entrega e gera o comprovante. A confirmação prévia é responsabilidade do frontend.",
-   params=["ProjectId", "StageId"], body=ref("DeliverableSubmission"), ok=ref("DeliverableVersion"), ok_code="201",
+   params=["ProjectId", "StageId"], body=ref("DeliverableSubmission"), body_alt={"multipart/form-data": ref("DeliverableSubmissionMultipart")},
+   req_ex={"items": [{"field_id": 31, "link": "https://github.com/equipe/projeto"}], "notes": "Correção do relatório."},
+   ok=ref("DeliverableVersion"), ok_code="201",
    ok_desc="Versão registrada.", errs=["404"], authz=LEADER,
+   more={"503": {"description": "Armazenamento de arquivos indisponível.", "content": {"application/json": {"schema": ref("Error"),
+         "example": {"error": {"code": "storage_unavailable", "message": "Armazenamento indisponível.", "details": None}}}}}},
    rules=["Somente dentro do prazo da etapa, incluindo a prorrogação da equipe (409 stage_deadline_closed); antes do início, 409 stage_not_open.",
-          "Nesta versão só links: todos os campos LINK obrigatórios preenchidos e cada item de um campo da etapa (400 validation_error). Arquivos ficam para a V5.",
+          "Todos os campos obrigatórios (LINK e FILE) respondidos, sem repetir, cada item com o tipo do seu campo (400 validation_error).",
+          "Arquivo: extensão permitida pelos formatos do campo (400 file_format_not_allowed), até o tamanho máximo do campo e do servidor (400 file_too_large), não vazio e com conteúdo que combine com a extensão. Executáveis e scripts nunca entram.",
+          "JSON aceita só links. Arquivos exigem multipart/form-data: `items` em string JSON, com `file_index` apontando para `files[]`; arquivo sobrando ou índice inexistente é 400.",
+          "Os arquivos ficam em armazenamento privado, sem URL pública; o download é por GET /api/deliverable-items/{item_id}/file.",
           "O projeto precisa ter desafio, título e resumo (400 validation_error).",
           "Cada envio cria number sequencial; versões anteriores são preservadas.", "Equipe desclassificada ou incompleta não envia (P-23)."],
    conflicts=[("stage_deadline_closed", "O prazo da etapa está encerrado."), ("team_disqualified", "A equipe está desclassificada."),
               ("team_incomplete", "Equipes incompletas não podem realizar entregas."), ("stage_not_open", "A etapa ainda não está aberta."), CLOSED], pend=["P-23", "P-43"])
+op("get", "/api/deliverable-items/{item_id}/file", "projectsDownloadDeliverableFile", "projects", "Baixar arquivo de um item da entrega", ["RF31"],
+   ["STUDENT", "TEACHER", "ADMIN"], "Devolve o arquivo enviado em um item de campo FILE. O armazenamento é privado: este é o único caminho de acesso.",
+   params=["ItemId"], ok=None, ok_desc="Conteúdo do arquivo.", errs=["404"],
+   more={"200": {"description": "Conteúdo do arquivo, como anexo (`Content-Disposition: attachment`, `X-Content-Type-Options: nosniff`, `Cache-Control: private, no-store`).",
+                 "content": {"application/octet-stream": {"schema": {"type": "string", "format": "binary"}}}}},
+   authz="STUDENT: integrante ativo da equipe. TEACHER: vínculo ativo com o curso do desafio. ADMIN: qualquer (403 project_access_denied nos demais).",
+   rules=["Item inexistente, de link ou com arquivo removido do armazenamento: 404."])
 op("get", "/api/deliverable-versions/{version_id}/receipt", "projectsGetReceipt", "projects", "Consultar comprovante de envio", ["RF31"], ["STUDENT", "ADMIN"],
    "Retorna o comprovante digital da versão.", params=["VersionId"], ok=ref("Receipt"), errs=["404"],
    authz="STUDENT: integrante ativo da equipe do projeto. ADMIN: qualquer.")

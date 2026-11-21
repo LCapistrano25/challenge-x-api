@@ -4307,6 +4307,49 @@ paths:
               example:
               - id: 1
                 name: Engenharia de Software
+  /api/deliverable-items/{item_id}/file:
+    get:
+      tags:
+      - projects
+      operationId: projectsDownloadDeliverableFile
+      summary: Baixar arquivo de um item da entrega
+      description: |-
+        Devolve o arquivo enviado em um item de campo FILE. O armazenamento é privado: este é o único caminho de acesso.
+
+        **Requisitos:** RF31
+
+        **Autenticação:** obrigatória (Bearer JWT).
+
+        **Perfis permitidos:** STUDENT, TEACHER, ADMIN
+
+        **Autorização adicional:** STUDENT: integrante ativo da equipe. TEACHER: vínculo ativo com o curso do desafio. ADMIN: qualquer (403 project_access_denied nos demais).
+
+        **Regras de negócio:**
+        - Item inexistente, de link ou com arquivo removido do armazenamento: 404.
+      x-status: confirmed
+      x-requirements:
+      - RF31
+      x-roles:
+      - STUDENT
+      - TEACHER
+      - ADMIN
+      parameters:
+      - $ref: '#/components/parameters/ItemId'
+      responses:
+        '200':
+          description: 'Conteúdo do arquivo, como anexo (`Content-Disposition: attachment`, `X-Content-Type-Options: nosniff`,
+            `Cache-Control: private, no-store`).'
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/deliverable-versions/{version_id}/receipt:
     get:
       tags:
@@ -5403,7 +5446,7 @@ paths:
                     field_id: 31
                     kind: LINK
                     link: null
-                    file_url: https://storage.projetox.edu.br/entregas/40/7/relatorio.pdf
+                    file_url: /api/deliverable-items/301/file
                     file_name: relatorio.pdf
                     size_bytes: 1048576
                   receipt:
@@ -5676,7 +5719,10 @@ paths:
 
         **Regras de negócio:**
         - Somente dentro do prazo da etapa, incluindo a prorrogação da equipe (409 stage_deadline_closed); antes do início, 409 stage_not_open.
-        - Nesta versão só links: todos os campos LINK obrigatórios preenchidos e cada item de um campo da etapa (400 validation_error). Arquivos ficam para a V5.
+        - Todos os campos obrigatórios (LINK e FILE) respondidos, sem repetir, cada item com o tipo do seu campo (400 validation_error).
+        - Arquivo: extensão permitida pelos formatos do campo (400 file_format_not_allowed), até o tamanho máximo do campo e do servidor (400 file_too_large), não vazio e com conteúdo que combine com a extensão. Executáveis e scripts nunca entram.
+        - JSON aceita só links. Arquivos exigem multipart/form-data: `items` em string JSON, com `file_index` apontando para `files[]`; arquivo sobrando ou índice inexistente é 400.
+        - Os arquivos ficam em armazenamento privado, sem URL pública; o download é por GET /api/deliverable-items/{item_id}/file.
         - O projeto precisa ter desafio, título e resumo (400 validation_error).
         - Cada envio cria number sequencial; versões anteriores são preservadas.
         - Equipe desclassificada ou incompleta não envia (P-23).
@@ -5704,6 +5750,9 @@ paths:
               - field_id: 31
                 link: https://github.com/equipe/projeto
               notes: Correção do relatório.
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DeliverableSubmissionMultipart'
       responses:
         '201':
           description: Versão registrada.
@@ -5724,7 +5773,7 @@ paths:
                   field_id: 31
                   kind: LINK
                   link: null
-                  file_url: https://storage.projetox.edu.br/entregas/40/7/relatorio.pdf
+                  file_url: /api/deliverable-items/301/file
                   file_name: relatorio.pdf
                   size_bytes: 1048576
                 receipt:
@@ -5781,6 +5830,17 @@ paths:
                       code: edition_closed
                       message: A edição está encerrada e não pode ser alterada.
                       details: null
+        '503':
+          description: Armazenamento de arquivos indisponível.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  code: storage_unavailable
+                  message: Armazenamento indisponível.
+                  details: null
   /api/public/editions:
     get:
       tags:
@@ -7873,6 +7933,13 @@ components:
       in: path
       required: true
       description: Identificador do projeto.
+      schema:
+        type: integer
+    ItemId:
+      name: item_id
+      in: path
+      required: true
+      description: Identificador do item da entrega.
       schema:
         type: integer
     VersionId:
@@ -11023,9 +11090,11 @@ components:
           type:
           - string
           - 'null'
-          format: uri
+          description: Caminho autenticado de download (GET projectsDownloadDeliverableFile), nunca uma URL pública do armazenamento.
+            Nulo para link.
+          format: uri-reference
           examples:
-          - https://storage.projetox.edu.br/entregas/40/7/relatorio.pdf
+          - /api/deliverable-items/301/file
         file_name:
           type:
           - string
@@ -11143,6 +11212,7 @@ components:
       - versions
     DeliverableSubmissionItem:
       type: object
+      description: Informe `link` (campo LINK) ou `file_index` (campo FILE), apenas um dos dois.
       properties:
         field_id:
           type: integer
@@ -11153,24 +11223,52 @@ components:
           format: uri
           examples:
           - https://github.com/equipe/projeto
+        file_index:
+          type: integer
+          description: Posição do arquivo em `files[]`. Só vale em multipart.
+          minimum: 0
+          examples:
+          - 0
       required:
       - field_id
-      - link
       additionalProperties: false
     DeliverableSubmission:
       type: object
-      description: Nesta versão só links, em JSON. Arquivos (FILE) voltam em multipart na V5 (P-43).
+      description: Envio só com links, em JSON. Com arquivos (FILE), use multipart/form-data (DeliverableSubmissionMultipart,
+        P-43).
       properties:
         items:
           type: array
           items:
             $ref: '#/components/schemas/DeliverableSubmissionItem'
           minItems: 1
-          description: Um link por campo LINK da etapa; campos obrigatórios devem constar.
+          description: Um item por campo da etapa; campos obrigatórios devem constar. Em JSON só há links.
         notes:
           type: string
           examples:
           - Correção do relatório.
+      required:
+      - items
+      additionalProperties: false
+    DeliverableSubmissionMultipart:
+      type: object
+      description: Envio com arquivos (P-43). Aceita também o nome de campo `files`.
+      properties:
+        items:
+          type: string
+          description: Lista de itens em JSON, como em `DeliverableSubmission.items`. Item de arquivo usa `file_index`.
+          examples:
+          - '[{"field_id": 31, "link": "https://github.com/equipe/projeto"}, {"field_id": 32, "file_index": 0}]'
+        notes:
+          type: string
+          examples:
+          - Correção do relatório.
+        files[]:
+          type: array
+          items:
+            type: string
+            format: binary
+          description: Arquivos da entrega; cada item de arquivo aponta para um deles por `file_index`. Sem arquivo sobrando.
       required:
       - items
       additionalProperties: false

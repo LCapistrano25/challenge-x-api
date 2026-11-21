@@ -2,6 +2,7 @@ from datetime import timedelta
 
 import pytest
 from django.core.exceptions import ValidationError
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.utils import timezone
 
 from apps.accounts.enums import UserRole
@@ -19,6 +20,8 @@ from apps.projects.exceptions import (
     CategoryNotAvailable,
     ChallengeNotEligible,
     ChallengeNotSelected,
+    FileFormatNotAllowed,
+    FileTooLarge,
     FormationClosed,
     NotTeamLeader,
     ProjectNotFound,
@@ -33,6 +36,7 @@ from apps.projects.rules import (
     ensure_actor_is_team_leader,
     ensure_category_available,
     ensure_challenge_eligible,
+    ensure_file_matches_field,
     ensure_formation_period_is_open,
     ensure_items_match_stage_fields,
     ensure_project_has_challenge,
@@ -385,18 +389,140 @@ def test_campo_repetido_e_recusado(stage):
         ensure_items_match_stage_fields(stage, [link_item(field), link_item(field)])
 
 
-def test_campo_de_arquivo_e_recusado(stage):
+def file_item(field, name="relatorio.pdf", content=b"%PDF-1.7 conteudo"):
+    return {"field": field, "file": SimpleUploadedFile(name, content)}
+
+
+def test_item_de_arquivo_em_campo_de_arquivo_passa(stage):
+    field = StageSubmissionFieldFactory(stage=stage, kind=FieldKind.FILE)
+    ensure_items_match_stage_fields(stage, [file_item(field)])
+
+
+def test_link_e_arquivo_juntos_passam(stage):
+    link_field = StageSubmissionFieldFactory(stage=stage)
+    file_field = StageSubmissionFieldFactory(stage=stage, kind=FieldKind.FILE)
+    items = [link_item(link_field), file_item(file_field)]
+    ensure_items_match_stage_fields(stage, items)
+
+
+def test_campo_de_arquivo_obrigatorio_sem_resposta_e_recusado(stage):
+    link_field = StageSubmissionFieldFactory(stage=stage)
+    StageSubmissionFieldFactory(stage=stage, kind=FieldKind.FILE, required=True)
+    with pytest.raises(ValidationError):
+        ensure_items_match_stage_fields(stage, [link_item(link_field)])
+
+
+def test_campo_de_arquivo_opcional_pode_faltar(stage):
+    link_field = StageSubmissionFieldFactory(stage=stage)
+    StageSubmissionFieldFactory(stage=stage, kind=FieldKind.FILE, required=False)
+    ensure_items_match_stage_fields(stage, [link_item(link_field)])
+
+
+def test_link_em_campo_de_arquivo_e_recusado(stage):
     field = StageSubmissionFieldFactory(stage=stage, kind=FieldKind.FILE)
     with pytest.raises(ValidationError):
         ensure_items_match_stage_fields(stage, [link_item(field)])
 
 
-def test_campo_de_arquivo_obrigatorio_nao_bloqueia_o_envio(stage):
-    link_field = StageSubmissionFieldFactory(stage=stage)
-    StageSubmissionFieldFactory(stage=stage, kind=FieldKind.FILE, required=True)
-    ensure_items_match_stage_fields(stage, [link_item(link_field)])
+def test_arquivo_em_campo_de_link_e_recusado(stage):
+    field = StageSubmissionFieldFactory(stage=stage)
+    with pytest.raises(ValidationError):
+        ensure_items_match_stage_fields(stage, [file_item(field)])
 
 
 def test_lista_de_itens_vazia_e_recusada(stage):
     with pytest.raises(ValidationError):
         ensure_items_match_stage_fields(stage, [])
+
+
+# --- Arquivo da entrega (ensure_file_matches_field) ---
+
+MB = 1024 * 1024
+
+
+def file_field(**kwargs):
+    return StageSubmissionFieldFactory(kind=FieldKind.FILE, **kwargs)
+
+
+def upload(name="relatorio.pdf", content=b"%PDF-1.7 conteudo"):
+    return SimpleUploadedFile(name, content)
+
+
+@pytest.mark.parametrize("name", ["a.pdf", "a.PDF", "a.Pdf"])
+def test_extensao_permitida_passa_sem_diferenciar_caixa(name):
+    ensure_file_matches_field(file_field(formats="pdf, docx"), upload(name))
+
+
+@pytest.mark.parametrize("formats", ["pdf", ".pdf", "PDF", "docx;pdf", "docx .pdf"])
+def test_formatos_aceitam_ponto_caixa_e_separadores(formats):
+    ensure_file_matches_field(file_field(formats=formats), upload())
+
+
+def test_extensao_fora_dos_formatos_e_recusada():
+    with pytest.raises(FileFormatNotAllowed):
+        ensure_file_matches_field(file_field(formats="pdf"), upload("a.txt", b"texto"))
+
+
+def test_formatos_vazios_aceitam_qualquer_extensao():
+    ensure_file_matches_field(file_field(formats=""), upload("a.txt", b"texto"))
+
+
+@pytest.mark.parametrize("name", ["a.exe", "a.sh", "a.JS", "a.bat"])
+def test_extensao_bloqueada_e_recusada_mesmo_sem_formatos(name):
+    with pytest.raises(FileFormatNotAllowed):
+        ensure_file_matches_field(file_field(formats=""), upload(name, b"x"))
+
+
+def test_extensao_bloqueada_e_recusada_mesmo_que_o_campo_permita():
+    with pytest.raises(FileFormatNotAllowed):
+        ensure_file_matches_field(file_field(formats="exe"), upload("a.exe", b"x"))
+
+
+def test_arquivo_sem_extensao_e_recusado():
+    with pytest.raises(FileFormatNotAllowed):
+        ensure_file_matches_field(file_field(formats=""), upload("relatorio", b"x"))
+
+
+def test_arquivo_vazio_e_recusado():
+    with pytest.raises(ValidationError):
+        ensure_file_matches_field(file_field(), upload("a.pdf", b""))
+
+
+def test_arquivo_acima_do_limite_do_campo_e_recusado():
+    big = upload("a.pdf", b"%PDF" + b"0" * (MB + 1))
+    with pytest.raises(FileTooLarge):
+        ensure_file_matches_field(file_field(max_size_mb=1), big)
+
+
+def test_arquivo_no_limite_exato_passa():
+    exact = upload("a.pdf", b"%PDF" + b"0" * (MB - 4))
+    ensure_file_matches_field(file_field(max_size_mb=1), exact)
+
+
+def test_campo_sem_limite_usa_o_teto_global(settings):
+    settings.DELIVERY_MAX_FILE_MB = 1
+    big = upload("a.pdf", b"%PDF" + b"0" * (MB + 1))
+    with pytest.raises(FileTooLarge):
+        ensure_file_matches_field(file_field(max_size_mb=None), big)
+
+
+def test_campo_acima_do_teto_vale_o_teto(settings):
+    settings.DELIVERY_MAX_FILE_MB = 1
+    big = upload("a.pdf", b"%PDF" + b"0" * (MB + 1))
+    with pytest.raises(FileTooLarge):
+        ensure_file_matches_field(file_field(max_size_mb=20), big)
+
+
+def test_conteudo_que_nao_bate_com_a_extensao_e_recusado():
+    with pytest.raises(FileFormatNotAllowed):
+        ensure_file_matches_field(file_field(), upload("a.pdf", b"isto e texto"))
+
+
+def test_assinatura_do_zip_vale_para_docx():
+    ensure_file_matches_field(file_field(), upload("a.docx", b"PK\x03\x04resto"))
+
+
+def test_validar_o_arquivo_nao_consome_o_conteudo():
+    uploaded = upload()
+    ensure_file_matches_field(file_field(), uploaded)
+    assert uploaded.read() == b"%PDF-1.7 conteudo"

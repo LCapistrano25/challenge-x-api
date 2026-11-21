@@ -313,6 +313,7 @@ Estas são convenções que a especificação adota para ficar completa. Cada um
 - **Entrega de etapa:** `items` vai como string JSON com `field_id` e `link` ou `file_index`, e os arquivos vão em `files[]`. Isso é necessário porque a etapa tem um número variável de campos LINK e FILE.
 - **Edital (RF09)** e **modelo de certificado (RF17):** um campo de arquivo único.
 - **Atualização (#106):** nesta sprint a entrega aceita só links, em JSON (`{"items": [{"field_id", "link"}], "notes"}`). O `multipart` volta com os arquivos (FILE) na V5.
+- **Atualização (#107):** a entrega de etapa aceita links em JSON ou links e arquivos em `multipart/form-data` (`items` em string JSON com `file_index`, `files[]` ou `files`). Os arquivos ficam em armazenamento privado (alias `deliveries`, disco local por padrão), sem URL pública: `file_url` é o caminho autenticado `GET /api/deliverable-items/{item_id}/file`. A escolha do armazenamento definitivo (L10) segue em aberto; trocar é configuração. Edital (RF09) e modelo de certificado (RF17) continuam pendentes.
 - Também é preciso definir onde os arquivos são armazenados (ex.: Azure Blob) e se as URLs devolvidas (`notice_url`, `file_url`, `template_url`) são públicas ou assinadas e com validade. Entregas e certificados não devem ficar com URL pública permanente.
 
 ### P-44 — Anonimato do professor nos feedbacks · Média
