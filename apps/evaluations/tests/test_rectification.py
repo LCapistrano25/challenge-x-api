@@ -4,11 +4,13 @@ from decimal import Decimal
 import pytest
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError
+from django.forms import modelform_factory
 from django.utils import timezone
 
 from apps.accounts.enums import UserRole
 from apps.accounts.exceptions import NotAdminActor
 from apps.accounts.factories import UserFactory
+from apps.editions.enums import EditionStatus
 from apps.editions.factories import StageCriterionFactory
 from apps.evaluations.enums import EvaluationStatus
 from apps.evaluations.factories import EvaluationFactory, EvaluationItemFactory
@@ -122,3 +124,65 @@ def test_retificacao_recalcula_a_nota_da_etapa(admin, item):
 
     nota = StageScore.objects.get(project=avaliacao.project, stage=avaliacao.stage)
     assert nota.value == Decimal("1.50")
+
+
+def test_avaliacao_em_rascunho_nao_pode_ser_retificada(admin):
+    rascunho = EvaluationItemFactory(evaluation=EvaluationFactory())
+
+    with pytest.raises(ValidationError, match="finalizada"):
+        rectify_score(
+            actor=admin, item=rascunho, new_points=Decimal("0.10"), reason="Recurso."
+        )
+
+    assert not ScoreRectification.objects.exists()
+
+
+def test_edicao_encerrada_nao_aceita_retificacao(admin, item):
+    edicao = item.evaluation.project.edition
+    edicao.status = EditionStatus.CLOSED
+    edicao.save()
+
+    with pytest.raises(ValidationError, match="encerrada"):
+        rectify_score(
+            actor=admin, item=item, new_points=Decimal("1.50"), reason="Recurso."
+        )
+
+    item.refresh_from_db()
+    assert item.points == Decimal("1.00")
+
+
+# Formulário do admin: os erros precisam cair num campo que ele mostra
+
+
+@pytest.fixture
+def form_class():
+    return modelform_factory(
+        ScoreRectification, fields=("item", "new_points", "reason")
+    )
+
+
+def test_admin_mostra_o_erro_de_rascunho_em_vez_de_quebrar(form_class):
+    rascunho = EvaluationItemFactory(evaluation=EvaluationFactory())
+
+    form = form_class(data={"item": rascunho.pk, "new_points": "0.10", "reason": "x"})
+
+    assert not form.is_valid()
+    assert "finalizada" in str(form.errors["item"])
+
+
+def test_admin_mostra_o_erro_de_edicao_encerrada(form_class, item):
+    edicao = item.evaluation.project.edition
+    edicao.status = EditionStatus.CLOSED
+    edicao.save()
+
+    form = form_class(data={"item": item.pk, "new_points": "1.50", "reason": "x"})
+
+    assert not form.is_valid()
+    assert "encerrada" in str(form.errors["item"])
+
+
+def test_pontos_iguais_voltam_com_mensagem_clara(admin, item):
+    with pytest.raises(ValidationError, match="diferente do atual"):
+        rectify_score(
+            actor=admin, item=item, new_points=Decimal("1.00"), reason="Nada muda."
+        )

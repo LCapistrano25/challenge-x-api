@@ -1,5 +1,6 @@
 import secrets
 import string
+from http import HTTPStatus
 
 from django.db import IntegrityError, transaction
 from django.utils import timezone
@@ -7,14 +8,22 @@ from django.utils import timezone
 from apps.accounts.enums import UserRole
 from apps.accounts.models import Student, User
 from apps.core.exceptions import BusinessRuleViolation
-from apps.editions.enums import StageKind
-from apps.editions.models import Edition, Stage
-from apps.teams.enums import MemberRole
+from apps.editions.models import Edition
+from apps.teams.enums import MemberRole, TeamStatus
 from apps.teams.models import Team, TeamMember
+from apps.teams.rules import get_open_formation_stage
+from apps.teams.use_cases.invite_member import InvitationRejected, invite_member
 
 
 class TeamCreationRejected(BusinessRuleViolation):
     """A equipe não pôde ser criada por uma regra de negócio."""
+
+
+class TeamInvitationsRequired(TeamCreationRejected):
+    """A equipe não nasce só com o líder: faltam convites para os demais."""
+
+    code = "team_invitations_required"
+    http_status = HTTPStatus.BAD_REQUEST
 
 
 def _generate_team_code() -> str:
@@ -29,8 +38,15 @@ def create_team(
     actor: User,
     edition_id: int,
     name: str,
+    invitations: list[dict] | None = None,
 ) -> Team:
-    """Cria uma equipe e define o aluno solicitante como líder ativo."""
+    """Cria a equipe, faz do solicitante o líder ativo e convida os demais alunos.
+
+    Cada convite é {"student_id": int} ou {"email": str}, como em invite_member. A
+    equipe não pode nascer só com o líder: são exigidos ao menos min_members - 1
+    convites (e nunca menos de 1) e no máximo max_members - 1. Qualquer convite
+    recusado desfaz a criação inteira.
+    """
     if actor.role != UserRole.STUDENT:
         raise TeamCreationRejected("Somente alunos podem criar equipes.")
 
@@ -44,12 +60,7 @@ def create_team(
     if edition is None:
         raise TeamCreationRejected("Edição não encontrada.")
 
-    formation_open = Stage.objects.filter(
-        edition=edition,
-        kind=StageKind.FORMATION,
-        starts_at__lte=now,
-        ends_at__gte=now,
-    ).exists()
+    formation_open = get_open_formation_stage(edition, now) is not None
 
     if not formation_open:
         raise TeamCreationRejected(
@@ -69,8 +80,21 @@ def create_team(
     if not name:
         raise TeamCreationRejected("O nome da equipe é obrigatório.")
 
-    if Team.objects.filter(edition=edition, name=name).exists():
+    if (
+        Team.objects.filter(edition=edition, name=name)
+        .exclude(status=TeamStatus.DISBANDED)
+        .exists()
+    ):
         raise TeamCreationRejected("Já existe uma equipe com esse nome nesta edição.")
+
+    invitations = invitations or []
+    # O líder já é o primeiro integrante; o mínimo nunca deixa a equipe com 1 pessoa.
+    needed = min(max(edition.min_members - 1, 1), edition.max_members - 1)
+    if not needed <= len(invitations) <= edition.max_members - 1:
+        raise TeamInvitationsRequired(
+            f"Convide de {needed} a {edition.max_members - 1} alunos "
+            "para criar a equipe."
+        )
 
     for _ in range(5):
         code = _generate_team_code()
@@ -97,4 +121,10 @@ def create_team(
             "Não foi possível criar a equipe. "
             "Verifique se o nome ou o vínculo já existe."
         ) from error
+
+    for data in invitations:
+        try:
+            invite_member(actor=actor, team_id=team.pk, **data)
+        except InvitationRejected as error:
+            raise TeamCreationRejected(str(error)) from error
     return team
