@@ -43,7 +43,7 @@ from apps.projects.models import (
     SubmissionReceipt,
     SubmissionVersion,
 )
-from apps.projects.tests.conftest import stored_keys
+from apps.projects.tests.conftest import stored_keys, valid_canvas, valid_swot
 from apps.projects.use_cases import save_project_details as save_module
 from apps.projects.use_cases.invalidate_challenge import invalidate_challenge
 from apps.projects.use_cases.save_project_details import save_project_details
@@ -877,3 +877,45 @@ def test_falha_do_armazenamento_vira_storage_unavailable_sem_linhas(
     assert SubmissionVersion.objects.count() == 0
     assert SubmissionItem.objects.count() == 0
     assert stored_keys(delivery_storage_root) == []
+
+
+def test_envio_com_canvas_e_swot_grava_o_conteudo(
+    delivery_project, delivery_leader, delivery_stage
+):
+    canvas = StageSubmissionFieldFactory(stage=delivery_stage, kind=FieldKind.CANVAS)
+    swot = StageSubmissionFieldFactory(stage=delivery_stage, kind=FieldKind.SWOT)
+
+    version = submit_stage_delivery(
+        actor=delivery_leader,
+        project=delivery_project,
+        stage=delivery_stage,
+        items=[
+            {"field": canvas, "content": valid_canvas()},
+            {"field": swot, "content": valid_swot()},
+        ],
+    )
+
+    items = {item.field_id: item for item in version.items.all()}
+    assert items[canvas.pk].kind == FieldKind.CANVAS
+    assert items[canvas.pk].content == valid_canvas()
+    assert items[swot.pk].kind == FieldKind.SWOT
+    assert items[swot.pk].content == valid_swot()
+    assert version.receipt.verification_code
+
+
+def test_canvas_incompleto_nao_grava_nada(
+    delivery_project, delivery_leader, delivery_stage
+):
+    canvas = StageSubmissionFieldFactory(stage=delivery_stage, kind=FieldKind.CANVAS)
+
+    with pytest.raises(ValidationError):
+        submit_stage_delivery(
+            actor=delivery_leader,
+            project=delivery_project,
+            stage=delivery_stage,
+            items=[{"field": canvas, "content": {"channels": "só um bloco"}}],
+        )
+
+    assert not SubmissionVersion.objects.filter(
+        submission__project=delivery_project
+    ).exists()

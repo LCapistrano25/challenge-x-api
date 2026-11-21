@@ -66,7 +66,7 @@ class Stage(TimeStampedModel):
 
 
 class StageSubmissionField(TimeStampedModel):
-    """Link ou arquivo que a entrega da etapa deve conter (RF07)."""
+    """Link, arquivo, canvas ou SWOT que a entrega da etapa deve conter (RF07)."""
 
     # Campo de configuração da etapa: sem a etapa não faz sentido (CASCADE).
     stage = models.ForeignKey(
@@ -81,6 +81,14 @@ class StageSubmissionField(TimeStampedModel):
     class Meta:
         verbose_name = "campo de entrega"
         verbose_name_plural = "campos de entrega"
+        constraints = [
+            # Canvas e SWOT são preenchidos no sistema: não têm formato nem tamanho.
+            models.CheckConstraint(
+                condition=~Q(kind__in=[FieldKind.CANVAS, FieldKind.SWOT])
+                | (Q(formats="") & Q(max_size_mb__isnull=True)),
+                name="submission_field_canvas_swot_without_file_options",
+            ),
+        ]
 
     def __str__(self):
         return self.label or self.get_kind_display()

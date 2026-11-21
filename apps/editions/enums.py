@@ -17,3 +17,6 @@ class StageKind(models.TextChoices):
 class FieldKind(models.TextChoices):
     LINK = "LINK", "Link"
     FILE = "FILE", "Arquivo"
+    # Preenchidos no sistema, com modelo fixo no código (RF07, RF31).
+    CANVAS = "CANVAS", "Business Model Canvas"
+    SWOT = "SWOT", "Matriz SWOT"
