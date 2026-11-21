@@ -36,6 +36,11 @@ jobs:
       - name: Format check
         run: uv run ruff format --check .
 
+      - name: DBML matches the models
+        run: |
+          uv run python docs/modelagem/gen_dbml.py
+          git diff --exit-code -- docs/modelagem/desafio-x.dbml
+
       - name: Audit dependencies
         run: |
           uv export --frozen --format requirements-txt --no-emit-project -o requirements-audit.txt

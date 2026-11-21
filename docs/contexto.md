@@ -24,7 +24,7 @@ A branch `task3` (código original da Task 3) existe só localmente na máquina 
 
 ## Decisões tomadas
 
-- O contrato da API (OpenAPI) é a autoridade da interface: define os campos, enums e erros que vão para o frontend; o código se ajusta a ele (21/11/2026, D1 da auditoria de 18/11). O guia vale para padrões de código; a modelagem em português, para nomes do banco.
+- O contrato da API (OpenAPI) é a autoridade da interface: define os campos, enums e erros que vão para o frontend; o código se ajusta a ele (21/11/2026, D1 da auditoria de 18/11). O guia vale para padrões de código. O DBML é gerado das models (`docs/modelagem/gen_dbml.py`) e o CI barra divergência (21/11/2026); o DBML em português escrito à mão foi substituído.
 - Período do aluno = `term`; períodos do curso = `term_count` (não `period`/`period_count`).
 - Curso sem `slug`/sigla. ODS com `icon`. Nome do curso único.
 - Etapa: `kind` (FORMATION, SUBMISSION, FINAL), `order`, `max_score` (parte da nota 0–10), `min_evaluations`.
