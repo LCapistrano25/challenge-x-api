@@ -3,7 +3,11 @@ from django.db.models import F, Q
 
 from apps.core.models import TimeStampedModel
 from apps.editions.enums import FieldKind, StageKind
-from apps.editions.rules import ensure_criterion_in_stage_edition
+from apps.editions.rules import (
+    ensure_criterion_fits_stage,
+    ensure_criterion_in_stage_edition,
+    ensure_stage_max_score_fits,
+)
 
 
 class Stage(TimeStampedModel):
@@ -61,6 +65,10 @@ class Stage(TimeStampedModel):
             ),
         ]
 
+    def clean(self):
+        if self.edition_id:
+            ensure_stage_max_score_fits(self)
+
     def __str__(self):
         return f"{self.edition} - {self.order}. {self.name}"
 
@@ -115,6 +123,8 @@ class StageCriterion(TimeStampedModel):
         has_stage = self.stage_id or StageCriterion.stage.is_cached(self)
         if has_stage and self.criterion_id:
             ensure_criterion_in_stage_edition(self.stage, self.criterion)
+        if has_stage:
+            ensure_criterion_fits_stage(self)
 
     def __str__(self):
         return f"{self.stage} - {self.criterion}"
