@@ -107,7 +107,7 @@ def test_opcoes_devolvem_desafios_elegiveis_e_categorias(team, member, challenge
 
 
 def test_opcoes_exigem_login(team):
-    assert APIClient().get(url(team, "/options")).status_code == 403
+    assert APIClient().get(url(team, "/options")).status_code == 401
 
 
 def test_opcoes_recusam_quem_nao_e_aluno(team):
@@ -213,7 +213,7 @@ def test_aluno_de_fora_da_equipe_nao_consulta(team, challenge):
 
 
 def test_consulta_do_projeto_exige_login(team):
-    assert APIClient().get(url(team)).status_code == 403
+    assert APIClient().get(url(team)).status_code == 401
 
 
 def test_consulta_de_equipe_sem_projeto_da_404(team, member):
@@ -283,7 +283,7 @@ def test_escolher_exige_login(team, challenge):
     response = APIClient().put(
         url(team, "/challenge"), {"challenge_id": challenge.pk}, format="json"
     )
-    assert response.status_code == 403
+    assert response.status_code == 401
 
 
 def test_escolher_fora_do_prazo(team, leader, challenge):
@@ -370,7 +370,7 @@ def test_dados_recusam_quem_nao_e_aluno(team, project):
 def test_dados_exigem_login(team, project):
     assert (
         APIClient().put(url(team, "/details"), DETAILS, format="json").status_code
-        == 403
+        == 401
     )
 
 
@@ -445,7 +445,7 @@ def test_escolher_categoria_exige_login(team, project, category):
     response = APIClient().put(
         url(team, "/category"), {"category_id": category.pk}, format="json"
     )
-    assert response.status_code == 403
+    assert response.status_code == 401
 
 
 def test_admin_nao_escolhe_categoria(team, project, category):
@@ -581,7 +581,7 @@ def test_envio_exige_login(dproject, dstage, dfield):
     response = APIClient().post(
         versions_url(dproject, dstage), payload(dfield), format="json"
     )
-    assert response.status_code == 403
+    assert response.status_code == 401
 
 
 def test_professor_e_admin_nao_enviam(dproject, dstage, dfield):
@@ -762,7 +762,7 @@ def test_consulta_de_entregas_recusa_quem_nao_pode(dproject, dstage, dfield):
 
 
 def test_consulta_de_entregas_exige_login(dproject):
-    assert APIClient().get(deliverables_url(dproject)).status_code == 403
+    assert APIClient().get(deliverables_url(dproject)).status_code == 401
 
 
 def test_consulta_de_entregas_de_projeto_inexistente_da_404(dleader):
@@ -1113,7 +1113,7 @@ def test_download_recusa_perfil_sem_permissao(sent_file):
 
 
 def test_download_exige_login(sent_file):
-    assert APIClient().get(sent_file["file_url"]).status_code == 403
+    assert APIClient().get(sent_file["file_url"]).status_code == 401
 
 
 def test_download_de_item_inexistente_da_404(dleader):
@@ -1268,7 +1268,7 @@ def test_comprovante_traz_o_mesmo_codigo_do_envio(dproject, dleader, dstage, dfi
 
 
 def test_consulta_do_comprovante_exige_login(receipt):
-    assert APIClient().get(receipt_url(receipt.version)).status_code == 403
+    assert APIClient().get(receipt_url(receipt.version)).status_code == 401
 
 
 def test_aluno_de_fora_nao_consulta_o_comprovante(receipt):

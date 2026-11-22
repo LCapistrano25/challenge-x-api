@@ -68,7 +68,7 @@ def test_admin_retifica_e_a_nota_da_etapa_acompanha(admin, item):
 def test_exige_login(item):
     response = APIClient().post(url(item.evaluation), corpo(item), format="json")
 
-    assert response.status_code == 403
+    assert response.status_code == 401
 
 
 @pytest.mark.parametrize("fabrica", [StudentFactory, TeacherFactory])

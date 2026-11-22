@@ -148,7 +148,7 @@ def test_professor_de_outro_curso_e_recusado(ctx):
 
 
 def test_exige_login(ctx):
-    assert APIClient().get(ctx.url).status_code == 403
+    assert APIClient().get(ctx.url).status_code == 401
 
 
 def test_projeto_inexistente_da_404(ctx):
