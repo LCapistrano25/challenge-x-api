@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from apps.editions.models import StageCriterion
-from apps.evaluations.enums import EvaluationStatus, QuestionKind, ScoreStatus
+from apps.evaluations.enums import EvaluationStatus, QuestionKind
 from apps.evaluations.models import StageScore
 
 
@@ -50,7 +50,7 @@ class CriterionFormSerializer(serializers.Serializer):
         return {
             "id": criterion.pk,
             "name": criterion.name,
-            "description": criterion.rubric,
+            "rubric": criterion.rubric or None,
         }
 
 
@@ -68,7 +68,7 @@ class EvaluationFormSerializer(serializers.Serializer):
         return {
             "id": stage.pk,
             "name": stage.name,
-            "points_value": str(stage.max_score),
+            "max_score": str(stage.max_score),
         }
 
 
@@ -85,7 +85,7 @@ class TeacherProjectRowSerializer(serializers.Serializer):
     stage = serializers.SerializerMethodField()
     deliverable_status = serializers.CharField()
     evaluation_count = serializers.IntegerField()
-    min_evaluators = serializers.IntegerField()
+    min_evaluations = serializers.IntegerField()
     my_evaluation_status = serializers.CharField()
 
     def get_project(self, row):
@@ -101,34 +101,33 @@ class TeacherProjectRowSerializer(serializers.Serializer):
 
     def get_stage(self, row):
         stage = row["stage"]
-        return {"id": stage.pk, "name": stage.name, "position": stage.order}
+        return {"id": stage.pk, "name": stage.name, "order": stage.order}
 
 
 class StageScoreDetailSerializer(serializers.Serializer):
     stage = serializers.SerializerMethodField()
-    points_value = serializers.SerializerMethodField()
+    max_score = serializers.SerializerMethodField()
     status = serializers.SerializerMethodField()
     value = serializers.DecimalField(
         max_digits=5, decimal_places=2, allow_null=True, coerce_to_string=True
     )
     evaluation_count = serializers.IntegerField()
-    min_evaluators = serializers.SerializerMethodField()
+    min_evaluations = serializers.SerializerMethodField()
     deliverable_status = serializers.CharField()
     criteria = serializers.SerializerMethodField()
     feedback = serializers.SerializerMethodField()
 
     def get_stage(self, row):
         stage = row["stage"]
-        return {"id": stage.pk, "name": stage.name, "position": stage.order}
+        return {"id": stage.pk, "name": stage.name, "order": stage.order}
 
-    def get_points_value(self, row):
+    def get_max_score(self, row):
         return str(row["stage"].max_score)
 
     def get_status(self, row):
-        # O contrato tem PENDING e FINALIZED; zero sem entrega também é final.
-        return "PENDING" if row["status"] == ScoreStatus.PENDING else "FINALIZED"
+        return row["status"]
 
-    def get_min_evaluators(self, row):
+    def get_min_evaluations(self, row):
         return row["stage"].min_evaluations
 
     def get_criteria(self, row):

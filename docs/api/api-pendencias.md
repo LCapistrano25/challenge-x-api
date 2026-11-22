@@ -328,6 +328,7 @@ Estas são convenções que a especificação adota para ficar completa. Cada um
 - **Atualização (#106):** nesta sprint a entrega aceita só links, em JSON (`{"items": [{"field_id", "link"}], "notes"}`). O `multipart` volta com os arquivos (FILE) na V5.
 - **Atualização (#107):** a entrega de etapa aceita links em JSON ou links e arquivos em `multipart/form-data` (`items` em string JSON com `file_index`, `files[]` ou `files`). Os arquivos ficam em armazenamento privado (alias `deliveries`, disco local por padrão), sem URL pública: `file_url` é o caminho autenticado `GET /api/deliverable-items/{item_id}/file`. A escolha do armazenamento definitivo (L10) segue em aberto; trocar é configuração. Edital (RF09) e modelo de certificado (RF17) continuam pendentes.
 - Também é preciso definir onde os arquivos são armazenados (ex.: Azure Blob) e se as URLs devolvidas (`notice_url`, `file_url`, `template_url`) são públicas ou assinadas e com validade. Entregas e certificados não devem ficar com URL pública permanente.
+- **Atualização (#108):** o comprovante tem consulta própria (`GET /api/deliverable-versions/{version_id}/receipt`; aluno integrante e admin). O `file_url` do comprovante segue nulo até o PDF ser gerado; quando existir, usa o armazenamento privado e o download autenticado, nunca URL pública.
 - **Pendente (21/11/2026):** a entrega de etapa está pronta. Faltam o upload do edital (RF09, #123) e do modelo de certificado (RF17, #112), e a escolha do armazenamento definitivo (#99, #102).
 
 ### P-44 — Anonimato do professor nos feedbacks · Média
@@ -404,7 +405,7 @@ Dois desvios do contrato de auth, ambos pela regra "DBML como referência":
 | RF20 | Coberto (proposto) | `GET /api/me/dashboard` |
 | RF21–RF28 | Coberto | `/api/teams`, convites, solicitações, saída, liderança |
 | RF29, RF30, RF49, RF50 | Coberto (proposto) | `PUT /api/teams/{id}/project/challenge`, `PUT .../project/details`, `PUT .../project/category`, `/project/options` |
-| RF31 | Coberto | entregas, versões e comprovante |
+| RF31 | Coberto | entregas, versões e comprovante (consulta do comprovante: #108) |
 | RF32 | Coberto | `GET /api/projects/{id}/scores` |
 | RF33, RF39 | Coberto | `/api/teams/{id}/member-notes` |
 | RF34, RF35, RF45, RF46 | Coberto | `/api/public/projects`, `/api/public/editions`, `/winners` |
@@ -474,3 +475,5 @@ O validador oficial (`openapi-spec-validator`) **não pôde ser instalado**, por
 | 20/11/2026 | `FieldType` ganha `CANVAS` e `SWOT`; `formats` e `max_size_mb` só valem para `FILE`. | Pedido do professor: Business Model Canvas e matriz SWOT preenchidos no sistema (#169, P-47). |
 | 20/11/2026 | O item de entrega ganha `content` (envio e consulta): `DeliverableSubmissionItem` aceita `link`, `file_index` ou `content`, e `DeliverableItem` devolve `content` (nulo para link e arquivo). Novos schemas `CanvasContent` e `SwotContent`, com limite de 5000 caracteres por texto e 20 itens por quadrante. | Canvas e SWOT preenchidos no sistema na entrega da etapa (#170, P-47). |
 | 21/11/2026 | Pendências P-01, P-02, P-03, P-05, P-27, P-32, P-39, P-40 e P-42 marcadas como resolvidas; P-21 e P-43 atualizadas. | Levantamento do código da `developer` e das PRs abertas (#172) feito na #179. |
+| 21/11/2026 | A resposta `BadRequest` (400) documenta também `request_too_large`, para corpo acima de 2,5 MB (`DATA_UPLOAD_MAX_MEMORY_SIZE`), com exemplo próprio. | Comportamento entregue na #182 (P-37); registrado no contrato, que é a autoridade da interface. |
+| 21/11/2026 | Autenticação por sessão: o esquema `bearerAuth` (JWT) vira `sessionAuth` (cookie `sessionid`) e `csrfToken` (cabeçalho `X-CSRFToken`); a descrição de cada operação deixa de citar Bearer JWT; entra `GET /api/auth/csrf` (schema `CsrfToken`). | Decisão da #70 (sessão + CSRF), já implementada desde a #91; o contrato ainda descrevia JWT (I-08, I-10, I-36). |

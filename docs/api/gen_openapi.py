@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Gera openapi.yaml do Projeto X (scratch: o entregável é o YAML)."""
+"""Gera docs/api/openapi.yaml do Projeto X. Edite este script, nunca o YAML."""
+from pathlib import Path
+
 import yaml
 
 SC = {}
@@ -93,7 +95,7 @@ def op(method, path, opid, tag, summary, rf, roles, desc, *, authz=None, rules=(
     assert opid not in OPIDS, opid
     OPIDS.add(opid)
     lines = [desc, "", "**Requisitos:** " + ", ".join(rf), ""]
-    lines.append("**Autenticação:** " + ("pública (não exige token)." if public else "obrigatória (Bearer JWT)."))
+    lines.append("**Autenticação:** " + ("pública (não exige sessão)." if public else "obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken)."))
     lines += ["", "**Perfis permitidos:** " + (", ".join(roles) if roles else "qualquer visitante")]
     if authz: lines += ["", "**Autorização adicional:** " + authz]
     if rules: lines += ["", "**Regras de negócio:**"] + ["- " + r for r in rules]
@@ -527,7 +529,7 @@ SC["DeliverableItem"] = obj({"id": INT(ex=301), "field_id": nul(INT(ex=31)), "ty
                              "content": nul({"oneOf": [ref("CanvasContent"), ref("SwotContent")],
                                              "description": "Conteúdo preenchido no sistema (campo CANVAS ou SWOT). Nulo para link e arquivo (P-47)."})},
                             ["id", "field_id", "type", "link", "file_url", "file_name", "size_bytes", "content"])
-SC["ReceiptSummary"] = obj({"verification_code": STR(ex="DX-2026-1-7F3K9Q"), "file_url": nul(URL(ex="https://storage.projetox.edu.br/comprovantes/DX-2026-1-7F3K9Q.pdf")),
+SC["ReceiptSummary"] = obj({"verification_code": STR(ex="3f2b8c1e9a7d4f60b5c2e1d0a9f8b7c6"), "file_url": nul(P("string", "Caminho autenticado do PDF do comprovante; nulo enquanto o PDF não for gerado. Nunca é URL pública.", None, format="uri-reference")),
                             "generated_at": DT()}, ["verification_code", "file_url", "generated_at"])
 SC["DeliverableVersion"] = obj({"id": INT(ex=77), "number": INT(ex=2, minimum=1), "submitted_by": ref("UserSummary"), "submitted_at": DT(),
                                 "notes": nul(TXT(ex="Correção do relatório.")), "items": arr(ref("DeliverableItem")), "receipt": nul(ref("ReceiptSummary"))},
@@ -561,8 +563,8 @@ SC["DeliverableSubmissionMultipart"] = obj({
     "files[]": arr(P("string", format="binary"), description="Arquivos da entrega; cada item de arquivo aponta para um deles por `file_index`. Sem arquivo sobrando."),
 }, ["items"], strict=True, desc="Envio com arquivos (P-43). Aceita também o nome de campo `files`.")
 SC["Receipt"] = obj({
-    "id": INT(ex=55), "version_id": INT(ex=77), "number": INT(ex=2), "verification_code": STR(ex="DX-2026-1-7F3K9Q"),
-    "file_url": nul(URL(ex="https://storage.projetox.edu.br/comprovantes/DX-2026-1-7F3K9Q.pdf")), "generated_at": DT(),
+    "id": INT(ex=55), "version_id": INT(ex=77), "number": INT(ex=2), "verification_code": STR(ex="3f2b8c1e9a7d4f60b5c2e1d0a9f8b7c6"),
+    "file_url": nul(P("string", "Caminho autenticado do PDF do comprovante; nulo enquanto o PDF não for gerado. Nunca é URL pública.", None, format="uri-reference")), "generated_at": DT(),
     "team": ref("TeamRef"), "project": ref("ProjectRef"), "stage": ref("StageRef"), "submitted_at": DT(),
 }, ["id", "version_id", "number", "verification_code", "file_url", "generated_at", "team", "project", "stage", "submitted_at"])
 
@@ -750,6 +752,10 @@ op("post", "/api/auth/sessions/microsoft", "authCreateMicrosoftSession", "auth",
           "A sessão expira após 30 minutos de inatividade, renovados a cada requisição (P-03)."],
    errs=["401", "403"], conflicts=[("microsoft_identity_mismatch", "O e-mail já está vinculado a outra identidade Microsoft.")],
    pend=["P-02", "P-03", "P-42"])
+SC["CsrfToken"] = obj({"csrfToken": STR("Valor para o cabeçalho X-CSRFToken. A resposta também grava o cookie csrftoken.", "pZ1d3x...")}, ["csrfToken"])
+op("get", "/api/auth/csrf", "authGetCsrfToken", "auth", "Obter o token CSRF",
+   ["RF01"], [], "Devolve o token CSRF e grava o cookie csrftoken. O frontend envia o token no cabeçalho X-CSRFToken em toda escrita, inclusive no login.",
+   public=True, ok=ref("CsrfToken"))
 op("post", "/api/auth/sessions/password", "authCreatePasswordSession", "auth", "Autenticar administrador ou avaliador externo com e-mail e senha",
    ["RF01", "RF41"], [], "Autentica contas com senha local (ADMIN e EXTERNAL_REVIEWER) e cria a sessão (cookie). Exige o cabeçalho X-CSRFToken, obtido em GET /api/auth/csrf.", public=True,
    body=ref("PasswordSessionRequest"), ok=ref("SessionResponse"), ok_desc="Sessão criada.",
@@ -1152,7 +1158,11 @@ op("get", "/api/deliverable-items/{item_id}/file", "projectsDownloadDeliverableF
    rules=["Item inexistente, de link ou com arquivo removido do armazenamento: 404."])
 op("get", "/api/deliverable-versions/{version_id}/receipt", "projectsGetReceipt", "projects", "Consultar comprovante de envio", ["RF31"], ["STUDENT", "ADMIN"],
    "Retorna o comprovante digital da versão.", params=["VersionId"], ok=ref("Receipt"), errs=["404"],
-   authz="STUDENT: integrante ativo da equipe do projeto. ADMIN: qualquer.")
+   authz="STUDENT: integrante ativo da equipe do projeto. ADMIN: qualquer. TEACHER não consulta.",
+   rules=["O comprovante nasce junto com a versão, no envio (RF31); o código de verificação é único e não muda.",
+          "Somente leitura: o comprovante e a versão não se alteram depois de criados.",
+          "A consulta continua permitida com equipe desclassificada, edição encerrada ou prazo vencido.",
+          "file_url é nulo enquanto o PDF do comprovante não for gerado."], pend=["P-43"])
 
 # ---------- evaluations
 op("get", "/api/teacher/projects", "evaluationsListTeacherProjects", "evaluations", "Painel de acompanhamento do curso", ["RF37"], ["TEACHER"],
@@ -1267,7 +1277,7 @@ spec = {
             "",
             "Fonte de dados: models do código (nomes e enums em inglês do guia de implementação). Os perfis são STUDENT, TEACHER, EXTERNAL_REVIEWER e ADMIN (enum UserRole).",
             "",
-            "**Autenticação:** alunos e professores entram com a Microsoft; administradores e avaliadores externos, com e-mail e senha. Rotas protegidas usam Bearer JWT.",
+            "**Autenticação:** alunos e professores entram com a Microsoft; administradores e avaliadores externos, com e-mail e senha. Rotas protegidas usam a sessão criada no login (cookie `sessionid`); POST, PUT, PATCH e DELETE exigem o cabeçalho `X-CSRFToken` com o token de `GET /api/auth/csrf`. Sem sessão, 401 `not_authenticated`.",
             "",
             "**Convenções adotadas:** formato de erro `Error` (P-37) e paginação `page`/`page_size` (P-38). Regra de negócio violada responde 409 com `code` estável.",
             "",
@@ -1277,7 +1287,7 @@ spec = {
         ]),
     },
     "servers": [{"url": "http://localhost:8000", "description": "Ambiente local de desenvolvimento"}],
-    "security": [{"bearerAuth": []}],
+    "security": [{"sessionAuth": []}],
     "tags": [
         {"name": "auth", "description": "Autenticação, sessões e autocadastro."},
         {"name": "accounts", "description": "Gerenciamento administrativo de usuários e perfis."},
@@ -1293,12 +1303,17 @@ spec = {
     ],
     "paths": dict(sorted(PATHS.items())),
     "components": {
-        "securitySchemes": {"bearerAuth": {"type": "http", "scheme": "bearer", "bearerFormat": "JWT",
-                                           "description": "JWT da aplicação emitido pelas rotas de sessão."}},
+        "securitySchemes": {
+            "sessionAuth": {"type": "apiKey", "in": "cookie", "name": "sessionid",
+                            "description": "Cookie de sessão do Django, criado pelas rotas de login e encerrado em POST /api/auth/logout. Expira após 30 minutos sem uso (P-03)."},
+            "csrfToken": {"type": "apiKey", "in": "header", "name": "X-CSRFToken",
+                          "description": "Token de GET /api/auth/csrf, exigido em POST, PUT, PATCH e DELETE (inclusive no login)."},
+        },
         "parameters": PARAMS,
         "responses": {
-            "BadRequest": {"description": "Requisição inválida.", "content": {"application/json": {"schema": ref("Error"),
-                           "example": err_example("validation_error", "Dados inválidos.", {"title": ["Este campo é obrigatório."]})}}},
+            "BadRequest": {"description": "Requisição inválida: dados inválidos (`validation_error`) ou corpo acima de 2,5 MB, o `DATA_UPLOAD_MAX_MEMORY_SIZE` (`request_too_large`).", "content": {"application/json": {"schema": ref("Error"),
+                           "examples": {"validation_error": {"value": err_example("validation_error", "Dados inválidos.", {"title": ["Este campo é obrigatório."]})},
+                                        "request_too_large": {"value": err_example("request_too_large", "A requisição excede o tamanho permitido.")}}}}},
             "Unauthorized": {"description": "Autenticação ausente, inválida ou expirada.", "content": {"application/json": {"schema": ref("Error"),
                              "example": err_example("not_authenticated", "Credenciais de autenticação inválidas ou ausentes.")}}},
             "Forbidden": {"description": "Usuário autenticado sem permissão para a operação.", "content": {"application/json": {"schema": ref("Error"),
@@ -1318,6 +1333,7 @@ def str_presenter(dumper, data):
     return dumper.represent_scalar("tag:yaml.org,2002:str", data)
 Dumper.add_representer(str, str_presenter)
 
-with open("openapi.yaml", "w", encoding="utf-8") as f:
+# Grava ao lado deste script, de qualquer diretório em que for chamado.
+with open(Path(__file__).with_name("openapi.yaml"), "w", encoding="utf-8") as f:
     yaml.dump(spec, f, Dumper=Dumper, sort_keys=False, allow_unicode=True, width=120)
 print("operations:", len(OPIDS), "paths:", len(PATHS), "schemas:", len(SC))
