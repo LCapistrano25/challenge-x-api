@@ -232,6 +232,21 @@ def test_ods_usada_por_desafio_nao_sai_da_edicao(edition):
     assert EditionSdg.objects.filter(pk=habilitada.pk).exists()
 
 
+def test_ods_usada_por_desafio_nao_sai_da_edicao_em_lote(edition):
+    sdg = Sdg.objects.get(number=9)
+    EditionSdg.objects.create(edition=edition, sdg=sdg)
+    EditionSdg.objects.create(edition=edition, sdg=Sdg.objects.get(number=16))
+    Challenge.objects.create(
+        edition=edition,
+        course=Course.objects.get(name="Agronomia"),
+        sdg=sdg,
+        description="Desafio",
+    )
+    with pytest.raises(ValidationError, match="desafios"):
+        EditionSdg.objects.filter(edition=edition).delete()
+    assert EditionSdg.objects.filter(edition=edition).count() == 2
+
+
 def test_ods_sem_desafio_sai_da_edicao(edition):
     EditionSdg.objects.create(edition=edition, sdg=Sdg.objects.get(number=9)).delete()
     assert not EditionSdg.objects.exists()
