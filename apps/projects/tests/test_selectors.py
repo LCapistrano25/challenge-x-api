@@ -17,6 +17,7 @@ from apps.projects.factories import (
     DeadlineExtensionFactory,
     ProjectFactory,
     SubmissionFactory,
+    SubmissionReceiptFactory,
     SubmissionVersionFactory,
 )
 from apps.projects.selectors import (
@@ -26,6 +27,7 @@ from apps.projects.selectors import (
     get_official_version,
     get_phase_status,
     get_project_deliverables,
+    get_receipt_by_version,
     get_team_courses,
     get_valid_version,
 )
@@ -287,3 +289,25 @@ def test_entregas_listam_so_etapas_de_entrega_com_campos_em_ordem():
     assert no_fields.submission_fields.count() == 0
 
     assert list(get_project_deliverables(project)) == [first, second]
+
+
+def test_comprovante_da_versao_vem_com_equipe_projeto_e_etapa(
+    django_assert_num_queries,
+):
+    receipt = SubmissionReceiptFactory()
+
+    found = get_receipt_by_version(receipt.version_id)
+
+    with django_assert_num_queries(0):
+        assert found == receipt
+        assert found.version.submission.project.team.code
+        assert found.version.submission.stage.name
+
+
+def test_comprovante_nulo_para_versao_inexistente():
+    assert get_receipt_by_version(999999) is None
+
+
+def test_comprovante_nulo_para_versao_sem_comprovante():
+    version = SubmissionVersionFactory()
+    assert get_receipt_by_version(version.pk) is None

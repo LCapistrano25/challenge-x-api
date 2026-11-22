@@ -1,927 +1,878 @@
-Table usuario [headercolor: #175e7a] {
-	id integer [ pk, increment ]
-	nome varchar(150) [ not null ]
+// Gerado por docs/modelagem/gen_dbml.py a partir das models. Não edite à mão:
+// mude a model, crie a migration e rode o gerador (o CI compara).
+
+Project desafio_x {
+	database_type: 'PostgreSQL'
+	Note: 'Plataforma Desafio X (UniCatólica). Tabelas com os nomes reais do banco.'
+}
+
+Table core_course [headercolor: #175e7a] {
+	id bigint [ pk, increment, note: 'ID' ]
+	created_at timestamptz [ not null ]
+	updated_at timestamptz [ not null ]
+	name varchar(150) [ not null, unique ]
+	term_count smallint [ not null ]
+	active boolean [ not null, default: true ]
+
+	Note: '''curso (core.Course)
+CHECK course_term_count_8_or_10: term_count in [8, 10]'''
+}
+
+Table core_sdg [headercolor: #175e7a] {
+	id bigint [ pk, increment, note: 'ID' ]
+	created_at timestamptz [ not null ]
+	updated_at timestamptz [ not null ]
+	number smallint [ not null, unique ]
+	title varchar(200) [ not null ]
+	description text [ not null ]
+	icon varchar(100) [ not null ]
+	active boolean [ not null, default: true ]
+
+	Note: '''ODS (core.Sdg)
+CHECK sdg_number_between_1_and_17: (number >= 1 AND number <= 17)'''
+}
+
+Table accounts_user [headercolor: #1e6b52] {
+	id bigint [ pk, increment, note: 'ID' ]
+	password varchar(128) [ not null, note: 'senha' ]
+	last_login timestamptz [ note: 'último login' ]
+	is_superuser boolean [ not null, default: false, note: 'status de superusuário' ]
+	is_staff boolean [ not null, default: false, note: 'membro da equipe' ]
+	is_active boolean [ not null, default: true, note: 'ativo' ]
+	date_joined timestamptz [ not null, note: 'data de registro (padrão: now)' ]
+	name varchar(150) [ not null ]
 	email varchar(254) [ not null, unique ]
-	senha_hash varchar(255) [ note: 'nulo se a autenticação for delegada a um provedor externo' ]
-	perfil perfil_usuario [ not null ]
-	email_confirmado boolean [ not null, default: false ]
-	ativo boolean [ not null, default: true ]
-	criado_em timestamp [ not null ]
-	atualizado_em timestamp
+	role accounts_user_role [ not null ]
+	email_confirmed boolean [ not null, default: false ]
+	microsoft_id varchar(36) [ unique ]
+	updated_at timestamptz [ not null ]
+
+	Note: 'usuário (accounts.User)'
 }
 
-Table dominio_email [headercolor: #175e7a] {
-	id integer [ pk, increment ]
-	dominio varchar(100) [ not null, unique, note: 'ex: catolica-to.edu.br — sem o @, sempre em minúsculas' ]
-	perfil perfil_dominio [ not null, note: 'define o perfil atribuído no autocadastro (RF02)' ]
-	ativo boolean [ not null, default: true ]
-	criado_em timestamp [ not null ]
-	atualizado_em timestamp
+Table accounts_emaildomain [headercolor: #1e6b52] {
+	id bigint [ pk, increment, note: 'ID' ]
+	created_at timestamptz [ not null ]
+	updated_at timestamptz [ not null ]
+	name varchar(100) [ not null, unique ]
+	active boolean [ not null, default: true ]
+	role accounts_emaildomain_role [ not null ]
+
+	Note: 'domínio de e-mail (accounts.EmailDomain)'
 }
 
-Table curso [headercolor: #175e7a] {
-	id integer [ pk, increment ]
-	nome varchar(150) [ not null, unique ]
-	qtd_periodos integer [ not null, note: '8 ou 10 — usado para identificar o último ano' ]
-	ativo boolean [ not null, default: true ]
-	criado_em timestamp [ not null ]
-	atualizado_em timestamp
+Table accounts_student [headercolor: #1e6b52] {
+	created_at timestamptz [ not null ]
+	updated_at timestamptz [ not null ]
+	user_id bigint [ pk ]
+	registration_number varchar(30) [ not null, unique ]
+	course_id bigint [ not null ]
+	term smallint [ not null ]
+
+	Note: '''acadêmico (accounts.Student)
+CHECK student_term_gte_1: term >= 1'''
 }
 
-Table aluno [headercolor: #175e7a] {
-	usuario_id integer [ pk ]
-	matricula varchar(30) [ not null, unique ]
-	curso_id integer [ not null ]
-	periodo integer [ not null, note: 'período atual; o valor usado no cálculo fica congelado em pontuacao_aluno' ]
-	criado_em timestamp [ not null ]
-	atualizado_em timestamp
+Table accounts_teacher [headercolor: #1e6b52] {
+	created_at timestamptz [ not null ]
+	updated_at timestamptz [ not null ]
+	user_id bigint [ pk ]
+
+	Note: 'professor (accounts.Teacher)'
 }
 
-Table professor [headercolor: #175e7a] {
-	usuario_id integer [ pk ]
-	criado_em timestamp [ not null ]
-	atualizado_em timestamp
-}
-
-Table professor_curso [headercolor: #175e7a] {
-	id integer [ pk, increment ]
-	professor_id integer [ not null ]
-	curso_id integer [ not null ]
-	ativo boolean [ not null, default: true ]
-	criado_em timestamp [ not null ]
-	atualizado_em timestamp
+Table accounts_teachercourse [headercolor: #1e6b52] {
+	id bigint [ pk, increment, note: 'ID' ]
+	created_at timestamptz [ not null ]
+	updated_at timestamptz [ not null ]
+	teacher_id bigint [ not null ]
+	course_id bigint [ not null ]
+	active boolean [ not null, default: true ]
 
 	indexes {
-		(professor_id, curso_id) [ unique ]
+		(teacher_id, course_id) [ unique, name: 'unique_course_per_teacher' ]
 	}
+
+	Note: 'vínculo professor–curso (accounts.TeacherCourse)'
 }
 
-Table avaliador_externo [headercolor: #175e7a] {
-	usuario_id integer [ pk ]
-	instituicao varchar(150) [ note: 'empresa ou instituição de origem (RF11)' ]
-	criado_em timestamp [ not null ]
-	atualizado_em timestamp
+Table accounts_externalreviewer [headercolor: #1e6b52] {
+	created_at timestamptz [ not null ]
+	updated_at timestamptz [ not null ]
+	user_id bigint [ pk ]
+	institution varchar(150) [ not null ]
+
+	Note: 'avaliador externo (accounts.ExternalReviewer)'
 }
 
-Table avaliador_edicao [headercolor: #175e7a] {
-	id integer [ pk, increment ]
-	avaliador_id integer [ not null ]
-	edicao_id integer [ not null ]
-	curso_id integer [ note: 'banca do avaliador: nulo = avalia os finalistas de todos os cursos' ]
-	criado_em timestamp [ not null ]
-	atualizado_em timestamp
+Table editions_challenge [headercolor: #8a5a00] {
+	id bigint [ pk, increment, note: 'ID' ]
+	created_at timestamptz [ not null ]
+	updated_at timestamptz [ not null ]
+	edition_id bigint [ not null ]
+	course_id bigint [ not null ]
+	sdg_id bigint [ not null ]
+	description text [ not null ]
+	active boolean [ not null, default: true ]
+
+	Note: 'desafio (editions.Challenge)'
+}
+
+Table editions_criterion [headercolor: #8a5a00] {
+	id bigint [ pk, increment, note: 'ID' ]
+	created_at timestamptz [ not null ]
+	updated_at timestamptz [ not null ]
+	edition_id bigint [ not null ]
+	name varchar(150) [ not null ]
+	rubric text [ not null ]
+	tiebreak_order smallint
 
 	indexes {
-		(avaliador_id, edicao_id) [ unique ]
+		(edition_id, tiebreak_order) [ unique, name: 'unique_tiebreak_order_per_edition' ]
 	}
+
+	Note: 'critério (editions.Criterion)'
 }
 
-Table edicao [headercolor: #175e7a] {
-	id integer [ pk, increment ]
-	ano integer [ not null ]
-	semestre integer [ not null, note: '1 ou 2' ]
-	nome varchar(100)
-	status status_edicao [ not null, default: CONFIGURACAO ]
-	edital_url varchar(500)
-	min_integrantes integer [ not null, default: 3 ]
-	max_integrantes integer [ not null, default: 5 ]
-	publicado_em timestamp
-	encerrado_em timestamp
-	criado_em timestamp [ not null ]
-	atualizado_em timestamp
+Table editions_edition [headercolor: #8a5a00] {
+	id bigint [ pk, increment, note: 'ID' ]
+	created_at timestamptz [ not null ]
+	updated_at timestamptz [ not null ]
+	year smallint [ not null ]
+	semester smallint [ not null ]
+	name varchar(100) [ not null ]
+	status editions_edition_status [ not null, default: 'SETUP' ]
+	regulation_url varchar(500) [ not null ]
+	min_members smallint [ not null, default: 3 ]
+	max_members smallint [ not null, default: 5 ]
+	published_at timestamptz
+	closed_at timestamptz
 
 	indexes {
-		(ano, semestre) [ unique ]
+		(year, semester) [ unique, name: 'unique_edition_year_semester' ]
 	}
 
-	Note: 'min_integrantes <= max_integrantes deve ser garantido por CHECK'
+	Note: '''edição (editions.Edition)
+CHECK edition_semester_1_or_2: semester in [1, 2]
+CHECK edition_member_limits_valid: (max_members >= min_members AND min_members >= 1)'''
 }
 
-Table ods [headercolor: #175e7a] {
-	id integer [ pk, increment ]
-	numero integer [ not null, unique ]
-	titulo varchar(200) [ not null ]
-	descricao text
-	icone varchar(100) [ note: 'arquivo ou nome do ícone da ODS (RF04)' ]
-	ativo boolean [ not null, default: true ]
-	criado_em timestamp [ not null ]
-	atualizado_em timestamp
-
-	Note: 'catálogo global: cadastrado uma vez e reutilizado em todas as edições (RF04, RN09)'
-}
-
-Table edicao_ods [headercolor: #175e7a] {
-	id integer [ pk, increment ]
-	edicao_id integer [ not null ]
-	ods_id integer [ not null ]
-	criado_em timestamp [ not null ]
-	atualizado_em timestamp
+Table editions_editionsdg [headercolor: #8a5a00] {
+	id bigint [ pk, increment, note: 'ID' ]
+	created_at timestamptz [ not null ]
+	updated_at timestamptz [ not null ]
+	edition_id bigint [ not null ]
+	sdg_id bigint [ not null ]
 
 	indexes {
-		(edicao_id, ods_id) [ unique ]
+		(edition_id, sdg_id) [ unique, name: 'unique_sdg_per_edition' ]
 	}
 
-	Note: 'ODS aceitas na edição (2026: 1, 2, 3, 9 e 16) — RN09'
+	Note: 'ODS da edição (editions.EditionSdg)'
 }
 
-Table categoria [headercolor: #175e7a] {
-	id integer [ pk, increment ]
-	edicao_id integer [ not null ]
-	nome varchar(150) [ not null, note: 'padrão: A) Protótipos e Artefatos; B) Processos, Protocolos, Metodologias e Ferramentas' ]
-	descricao text
-	ativo boolean [ not null, default: true ]
-	criado_em timestamp [ not null ]
-	atualizado_em timestamp
+Table editions_category [headercolor: #8a5a00] {
+	id bigint [ pk, increment, note: 'ID' ]
+	created_at timestamptz [ not null ]
+	updated_at timestamptz [ not null ]
+	edition_id bigint [ not null ]
+	name varchar(150) [ not null ]
+	description text [ not null ]
+	active boolean [ not null, default: true ]
 
 	indexes {
-		(edicao_id, nome) [ unique ]
+		(edition_id, name) [ unique, name: 'unique_category_name_per_edition' ]
 	}
+
+	Note: 'categoria (editions.Category)'
 }
 
-Table desafio [headercolor: #175e7a] {
-	id integer [ pk, increment ]
-	edicao_id integer [ not null ]
-	curso_id integer [ not null, note: 'um desafio pertence a exatamente 1 curso' ]
-	ods_id integer [ not null, note: 'e a exatamente 1 ODS' ]
-	texto text [ not null ]
-	ativo boolean [ not null, default: true ]
-	criado_em timestamp [ not null ]
-	atualizado_em timestamp
-
-	Note: 'ATENÇÃO: não criar unique em (curso_id, ods_id). O mesmo curso pode ter vários desafios sob a mesma ODS (RF05 regra 2, RN11). O mesmo texto usado em dois cursos vira dois registros. A ODS escolhida precisa estar em edicao_ods.'
-}
-
-Table etapa [headercolor: #175e7a] {
-	id integer [ pk, increment ]
-	edicao_id integer [ not null ]
-	ordem integer [ not null ]
-	nome varchar(100) [ not null ]
-	tipo tipo_etapa [ not null, note: 'FORMACAO delimita o prazo de equipes; FINAL é a etapa dos avaliadores externos' ]
-	iniciado_em timestamp [ not null, note: 'início do prazo' ]
-	encerrado_em timestamp [ not null, note: 'fim do prazo' ]
-	avaliacao_encerrada_em timestamp [ note: 'prazo dos professores (RF38, P-19); obrigatório quando pontuada e depois de encerrado_em' ]
-	pontuada boolean [ not null, default: true ]
-	valor_pontos "decimal(4,2)" [ note: 'obrigatório quando pontuada; a soma das etapas pontuadas da edição deve ser 10' ]
-	min_avaliadores integer [ not null, default: 1, note: 'CHECK >= 1' ]
-	criado_em timestamp [ not null ]
-	atualizado_em timestamp
+Table editions_editionreviewer [headercolor: #8a5a00] {
+	id bigint [ pk, increment, note: 'ID' ]
+	created_at timestamptz [ not null ]
+	updated_at timestamptz [ not null ]
+	edition_id bigint [ not null ]
+	reviewer_id bigint [ not null ]
+	course_id bigint
 
 	indexes {
-		(edicao_id, ordem) [ unique ]
+		(reviewer_id, edition_id) [ unique, name: 'unique_reviewer_per_edition' ]
 	}
 
-	Note: 'CHECKs: encerrado_em > iniciado_em; pontuada exige avaliacao_encerrada_em > encerrado_em; tipo FINAL não é pontuada (RF07, P-20)'
+	Note: 'avaliador da edição (editions.EditionReviewer)'
 }
 
-Table etapa_campo_entrega [headercolor: #175e7a] {
-	id integer [ pk, increment ]
-	etapa_id integer [ not null ]
-	tipo tipo_campo [ not null ]
-	rotulo varchar(150)
-	obrigatorio boolean [ not null, default: true ]
-	formatos varchar(200) [ note: 'ex: pdf, xlsx — aplicável quando tipo = ARQUIVO' ]
-	tamanho_max_mb integer
-	criado_em timestamp [ not null ]
-	atualizado_em timestamp
-}
-
-Table criterio [headercolor: #175e7a] {
-	id integer [ pk, increment ]
-	edicao_id integer [ not null ]
-	nome varchar(150) [ not null ]
-	descricao text [ note: 'descrição das faixas: insatisfatório, regular, bom, excelente' ]
-	ordem_desempate integer [ note: 'nulo = não desempata; 1 e 2 reproduzem o Art. 24' ]
-	criado_em timestamp [ not null ]
-	atualizado_em timestamp
+Table editions_stage [headercolor: #8a5a00] {
+	id bigint [ pk, increment, note: 'ID' ]
+	created_at timestamptz [ not null ]
+	updated_at timestamptz [ not null ]
+	edition_id bigint [ not null ]
+	"order" smallint [ not null ]
+	name varchar(100) [ not null ]
+	kind editions_stage_kind [ not null ]
+	starts_at timestamptz [ not null ]
+	ends_at timestamptz [ not null ]
+	evaluation_ends_at timestamptz
+	scored boolean [ not null, default: true ]
+	max_score numeric(4,2)
+	min_evaluations smallint [ not null, default: 1 ]
 
 	indexes {
-		(edicao_id, ordem_desempate) [ unique ]
+		(edition_id, "order") [ unique, name: 'unique_stage_order_per_edition' ]
 	}
+
+	Note: '''etapa (editions.Stage)
+CHECK stage_ends_after_start: ends_at > starts_at
+CHECK stage_scored_has_max_score: (scored = False OR (max_score > 0 AND max_score is not null))
+CHECK stage_min_evaluations_gte_1: min_evaluations >= 1
+CHECK stage_scored_has_evaluation_deadline: (scored = False OR evaluation_ends_at is not null)
+CHECK stage_evaluation_after_submission: (evaluation_ends_at is null OR evaluation_ends_at > ends_at)
+CHECK stage_final_not_scored: (NOT kind = 'FINAL' OR scored = False)'''
 }
 
-Table etapa_criterio [headercolor: #175e7a] {
-	id integer [ pk, increment ]
-	etapa_id integer [ not null ]
-	criterio_id integer [ not null ]
-	pontuacao_maxima "decimal(4,2)" [ not null, note: 'a soma dos critérios da etapa deve ser igual ao valor da etapa' ]
-	criado_em timestamp [ not null ]
-	atualizado_em timestamp
+Table editions_stagesubmissionfield [headercolor: #8a5a00] {
+	id bigint [ pk, increment, note: 'ID' ]
+	created_at timestamptz [ not null ]
+	updated_at timestamptz [ not null ]
+	stage_id bigint [ not null ]
+	kind editions_stagesubmissionfield_kind [ not null ]
+	label varchar(150) [ not null ]
+	required boolean [ not null, default: true ]
+	formats varchar(200) [ not null ]
+	max_size_mb smallint
+
+	Note: '''campo de entrega (editions.StageSubmissionField)
+CHECK submission_field_canvas_swot_without_file_options: (NOT kind in ['CANVAS', 'SWOT'] OR (formats = '' AND max_size_mb is null))'''
+}
+
+Table editions_stagecriterion [headercolor: #8a5a00] {
+	id bigint [ pk, increment, note: 'ID' ]
+	created_at timestamptz [ not null ]
+	updated_at timestamptz [ not null ]
+	stage_id bigint [ not null ]
+	criterion_id bigint [ not null ]
+	max_score numeric(4,2) [ not null ]
 
 	indexes {
-		(etapa_id, criterio_id) [ unique ]
+		(stage_id, criterion_id) [ unique, name: 'unique_criterion_per_stage' ]
 	}
+
+	Note: '''critério da etapa (editions.StageCriterion)
+CHECK stage_criterion_max_score_gt_0: max_score > 0'''
 }
 
-Table formulario_final [headercolor: #175e7a] {
-	id integer [ pk, increment ]
-	edicao_id integer [ not null, unique ]
-	titulo varchar(150)
-	publicado boolean [ not null, default: false, note: 'depois de publicado não muda se já houver resposta' ]
-	criado_em timestamp [ not null ]
-	atualizado_em timestamp
+Table teams_membernote [headercolor: #6b2d7a] {
+	id bigint [ pk, increment, note: 'ID' ]
+	created_at timestamptz [ not null ]
+	updated_at timestamptz [ not null ]
+	member_id bigint [ not null ]
+	author_id bigint [ not null ]
+	text text [ not null ]
 
-	Note: '[FASE 2] formulário usado pelo Avaliador Externo na etapa final (RF12)'
+	Note: 'observação sobre integrante (teams.MemberNote)'
 }
 
-Table pergunta_final [headercolor: #175e7a] {
-	id integer [ pk, increment ]
-	formulario_id integer [ not null ]
-	ordem integer [ not null ]
-	enunciado text [ not null ]
-	tipo tipo_pergunta [ not null ]
-	pontuacao_maxima "decimal(4,2)" [ note: 'obrigatória quando tipo = NOTA, nula nos demais' ]
-	criado_em timestamp [ not null ]
-	atualizado_em timestamp
+Table teams_invitation [headercolor: #6b2d7a] {
+	id bigint [ pk, increment, note: 'ID' ]
+	created_at timestamptz [ not null ]
+	updated_at timestamptz [ not null ]
+	team_id bigint [ not null ]
+	student_id bigint [ not null ]
+	status teams_invitation_status [ not null, default: 'PENDING' ]
+	responded_at timestamptz
 
 	indexes {
-		(formulario_id, ordem) [ unique ]
+		(team_id, student_id) [ unique, name: 'unique_pending_invitation_per_student', note: 'onde status = \'PENDING\'' ]
 	}
 
-	Note: '[FASE 2]'
+	Note: 'convite (teams.Invitation)'
 }
 
-Table equipe [headercolor: #175e7a] {
-	id integer [ pk, increment ]
-	edicao_id integer [ not null ]
-	nome varchar(150) [ not null ]
-	codigo varchar(20) [ not null, unique, note: 'código/link de identificação usado nos convites (RF21)' ]
-	status status_equipe [ not null, default: ATIVA ]
-	situacao situacao_equipe [ note: 'apurada no encerramento do prazo de formação (RF51); nula antes disso. Os motivos não são coluna: saem de compute_unmet_requirements (P-23)' ]
-	motivo_desclassificacao text [ note: 'obrigatório quando status = DESCLASSIFICADA (RF13); vazio nos demais' ]
-	desclassificado_em timestamp [ note: 'obrigatório quando status = DESCLASSIFICADA (RF13, P-22)' ]
-	desclassificado_por integer [ note: 'usuário ADMIN que desclassificou; obrigatório quando status = DESCLASSIFICADA (RF13, P-22)' ]
-	criado_em timestamp [ not null ]
-	atualizado_em timestamp
+Table teams_joinrequest [headercolor: #6b2d7a] {
+	id bigint [ pk, increment, note: 'ID' ]
+	created_at timestamptz [ not null ]
+	updated_at timestamptz [ not null ]
+	team_id bigint [ not null ]
+	student_id bigint [ not null ]
+	status teams_joinrequest_status [ not null, default: 'PENDING' ]
+	responded_at timestamptz
 
 	indexes {
-		(edicao_id, nome) [ unique ]
+		(team_id, student_id) [ unique, name: 'unique_pending_join_request', note: 'onde status = \'PENDING\'' ]
 	}
 
-	Note: 'o líder não é coluna daqui: ele é a linha de equipe_membro com papel = LIDER'
+	Note: 'solicitação de entrada (teams.JoinRequest)'
 }
 
-Table equipe_membro [headercolor: #175e7a] {
-	id integer [ pk, increment ]
-	equipe_id integer [ not null ]
-	edicao_id integer [ not null, note: 'repetido da equipe só para viabilizar a unicidade abaixo; FK composta (equipe_id, edicao_id) -> equipe garante que não divergem' ]
-	aluno_id integer [ not null ]
-	papel papel_membro [ not null, default: MEMBRO ]
-	entrado_em timestamp [ not null ]
-	saido_em timestamp
-	ativo boolean [ not null, default: true ]
-	criado_em timestamp [ not null ]
-	atualizado_em timestamp
+Table teams_leadershiprequest [headercolor: #6b2d7a] {
+	id bigint [ pk, increment, note: 'ID' ]
+	created_at timestamptz [ not null ]
+	updated_at timestamptz [ not null ]
+	team_id bigint [ not null ]
+	requester_id bigint [ not null ]
+	justification text [ not null ]
+	status teams_leadershiprequest_status [ not null, default: 'PENDING' ]
+	teacher_id bigint
+	decision_justification text [ not null ]
+	decided_at timestamptz
 
 	indexes {
-		(equipe_id, aluno_id)
-		(edicao_id, aluno_id)
+		(team_id) [ unique, name: 'unique_pending_leadership_request', note: 'onde status = \'PENDING\'' ]
 	}
 
-	Note: '''O histórico de saída e retorno é preservado: as unicidades valem só para registros ativos, por índices únicos parciais (ver fim do arquivo):
-1 participação ativa por aluno na edição, 1 vínculo ativo por equipe e aluno e no máximo 1 LIDER ativo por equipe.
-CHECK: saido_em nulo <=> ativo = true.'''
+	Note: 'solicitação de liderança (teams.LeadershipRequest)'
 }
 
-Table convite [headercolor: #175e7a] {
-	id integer [ pk, increment ]
-	equipe_id integer [ not null ]
-	aluno_id integer [ not null, note: 'só aluno já cadastrado pode ser convidado' ]
-	status status_convite [ not null, default: PENDENTE ]
-	criado_em timestamp [ not null ]
-	respondido_em timestamp
-	atualizado_em timestamp
+Table teams_team [headercolor: #6b2d7a] {
+	id bigint [ pk, increment, note: 'ID' ]
+	created_at timestamptz [ not null ]
+	updated_at timestamptz [ not null ]
+	edition_id bigint [ not null ]
+	name varchar(150) [ not null ]
+	code varchar(20) [ not null, unique ]
+	status teams_team_status [ not null, default: 'ACTIVE' ]
+	situation teams_team_situation
+	disqualification_reason text [ not null ]
+	formation_extended_until timestamptz
+	disqualified_at timestamptz
+	disqualified_by_id bigint
 
 	indexes {
-		(equipe_id, aluno_id)
+		(edition_id, name) [ unique, name: 'unique_team_name_per_edition', note: 'onde NOT status = \'DISBANDED\'' ]
 	}
 
-	Note: 'Unicidade só entre convites PENDENTES (índice parcial por aluno), preservando o histórico de recusados e cancelados.'
+	Note: '''equipe (teams.Team)
+CHECK team_disqualification_matches_status: ((status = 'DISQUALIFIED' AND NOT disqualification_reason = '' AND disqualified_at is not null AND disqualified_by is not null) OR (NOT status = 'DISQUALIFIED' AND disqualification_reason = '' AND disqualified_at is null AND disqualified_by is null))'''
 }
 
-Table solicitacao_entrada [headercolor: #175e7a] {
-	id integer [ pk, increment ]
-	equipe_id integer [ not null ]
-	aluno_id integer [ not null ]
-	status status_solicitacao [ not null, default: PENDENTE ]
-	criado_em timestamp [ not null ]
-	respondido_em timestamp
-	atualizado_em timestamp
+Table teams_teammember [headercolor: #6b2d7a] {
+	id bigint [ pk, increment, note: 'ID' ]
+	created_at timestamptz [ not null ]
+	updated_at timestamptz [ not null ]
+	team_id bigint [ not null ]
+	edition_id bigint [ not null ]
+	student_id bigint [ not null ]
+	role teams_teammember_role [ not null, default: 'MEMBER' ]
+	joined_at timestamptz [ not null, note: '(padrão: now)' ]
+	left_at timestamptz
+	active boolean [ not null, default: true ]
 
 	indexes {
-		(equipe_id, aluno_id)
+		(edition_id, student_id) [ unique, name: 'unique_active_team_per_edition', note: 'onde active = True' ]
+		(team_id, student_id) [ unique, name: 'unique_active_student_per_team', note: 'onde active = True' ]
+		(team_id) [ unique, name: 'single_active_leader_per_team', note: 'onde (active = True AND role = \'LEADER\')' ]
 	}
 
-	Note: 'Unicidade só entre solicitações PENDENTES (índice parcial), preservando o histórico.'
+	Note: '''integrante da equipe (teams.TeamMember)
+CHECK team_member_left_at_iff_inactive: ((active = True AND left_at is null) OR (active = False AND left_at is not null))'''
 }
 
-Table solicitacao_lideranca [headercolor: #175e7a] {
-	id integer [ pk, increment ]
-	equipe_id integer [ not null ]
-	solicitante_id integer [ not null ]
-	justificativa text [ not null ]
-	status status_solicitacao [ not null, default: PENDENTE ]
-	professor_id integer [ note: 'quem decidiu (RF40)' ]
-	justificativa_decisao text
-	criado_em timestamp [ not null ]
-	decidido_em timestamp
-	atualizado_em timestamp
+Table projects_deadlineextension [headercolor: #7a1f2b] {
+	id bigint [ pk, increment, note: 'ID' ]
+	created_at timestamptz [ not null ]
+	updated_at timestamptz [ not null ]
+	project_id bigint [ not null ]
+	stage_id bigint [ not null ]
+	ends_at timestamptz [ not null ]
+	reason text [ not null ]
+	granted_by_id bigint [ not null ]
+	granted_at timestamptz [ not null, note: '(padrão: now)' ]
 
 	indexes {
-		(equipe_id)
+		(project_id, stage_id) [ unique, name: 'unique_extension_per_stage' ]
 	}
 
-	Note: '[FASE 2] liderança por abandono (RF28, RF40). No máximo uma solicitação PENDENTE por equipe (índice parcial); as decididas ficam no histórico.'
+	Note: '''prorrogação de prazo (projects.DeadlineExtension)
+CHECK deadline_extension_has_reason: NOT reason = '''''
 }
 
-Table projeto [headercolor: #175e7a] {
-	id integer [ pk, increment ]
-	equipe_id integer [ not null, unique ]
-	edicao_id integer [ not null, note: 'repetido da equipe para viabilizar a unicidade do título; FK composta (equipe_id, edicao_id) -> equipe garante consistência' ]
-	titulo varchar(200) [ not null, default: '', note: 'em branco até o RF30; obrigatório para enviar entrega (P-25)' ]
-	resumo text [ not null, default: '', note: 'em branco até o RF30; obrigatório para enviar entrega (P-25)' ]
-	objetivo text
-	desafio_id integer [ note: 'a ODS e o curso do projeto vêm do desafio: uma ODS por projeto (RF05, RF29). Nulo antes da escolha ou quando o RF26 invalida; obrigatório para enviar entrega (P-25)' ]
-	categoria_id integer
-	status status_projeto [ not null, default: EM_ANDAMENTO ]
-	criado_em timestamp [ not null ]
-	atualizado_em timestamp
+Table projects_project [headercolor: #7a1f2b] {
+	id bigint [ pk, increment, note: 'ID' ]
+	created_at timestamptz [ not null ]
+	updated_at timestamptz [ not null ]
+	team_id bigint [ not null, unique ]
+	edition_id bigint [ not null ]
+	title varchar(200) [ not null ]
+	summary text [ not null ]
+	objective text [ not null ]
+	challenge_id bigint
+	category_id bigint
+	status projects_project_status [ not null, default: 'IN_PROGRESS' ]
+
+	Note: 'projeto (projects.Project)'
+}
+
+Table projects_submission [headercolor: #7a1f2b] {
+	id bigint [ pk, increment, note: 'ID' ]
+	created_at timestamptz [ not null ]
+	updated_at timestamptz [ not null ]
+	project_id bigint [ not null ]
+	stage_id bigint [ not null ]
 
 	indexes {
-		(edicao_id, titulo) [ unique, note: 'sem diferenciar maiúsculas e ignorando título em branco: ver SQL no fim' ]
+		(project_id, stage_id) [ unique, name: 'unique_submission_per_stage' ]
 	}
 
-	Note: 'desafio e categoria deixam de aceitar alteração no fim da etapa FORMACAO; o momento vem de etapa.encerrado_em, não de coluna aqui'
+	Note: 'entrega (projects.Submission)'
 }
 
-Table observacao_integrante [headercolor: #175e7a] {
-	id integer [ pk, increment ]
-	integrante_id integer [ not null, note: 'o integrante observado, já dentro da equipe certa' ]
-	autor_id integer [ not null, note: 'o líder que registrou' ]
-	texto text [ not null ]
-	criado_em timestamp [ not null ]
-	atualizado_em timestamp
-
-	Note: '[FASE 2] visível apenas para professores e administradores'
-}
-
-Table prorrogacao_prazo [headercolor: #175e7a] {
-	id integer [ pk, increment ]
-	projeto_id integer [ not null ]
-	etapa_id integer [ not null ]
-	encerrado_em timestamp [ not null, note: 'novo prazo de entrega da equipe; depois de etapa.encerrado_em' ]
-	justificativa text [ not null, note: 'CHECK: não vazia' ]
-	concedido_por integer [ not null, note: 'usuário ADMIN' ]
-	concedido_em timestamp [ not null ]
-	criado_em timestamp [ not null ]
-	atualizado_em timestamp
+Table projects_submissionversion [headercolor: #7a1f2b] {
+	id bigint [ pk, increment, note: 'ID' ]
+	created_at timestamptz [ not null ]
+	updated_at timestamptz [ not null ]
+	submission_id bigint [ not null ]
+	number integer [ not null ]
+	submitted_by_id bigint [ not null ]
+	submitted_at timestamptz [ not null, note: '(padrão: now)' ]
+	notes text [ not null ]
 
 	indexes {
-		(projeto_id, etapa_id) [ unique ]
+		(submission_id, number) [ unique, name: 'unique_submission_version_number' ]
 	}
 
-	Note: 'ajuste do RF14 (P-21): é o próprio histórico, nunca alterado nem apagado. A versão válida da entrega usa este prazo quando existe'
+	Note: '''versão da entrega (projects.SubmissionVersion)
+CHECK submission_version_number_gte_1: number >= 1'''
 }
 
-Table entrega [headercolor: #175e7a] {
-	id integer [ pk, increment ]
-	projeto_id integer [ not null ]
-	etapa_id integer [ not null ]
-	criado_em timestamp [ not null ]
-	atualizado_em timestamp
+Table projects_submissionitem [headercolor: #7a1f2b] {
+	id bigint [ pk, increment, note: 'ID' ]
+	created_at timestamptz [ not null ]
+	updated_at timestamptz [ not null ]
+	version_id bigint [ not null ]
+	field_id bigint
+	kind projects_submissionitem_kind [ not null ]
+	link varchar(1000) [ not null ]
+	file_url varchar(1000) [ not null ]
+	file_name varchar(255) [ not null ]
+	size_bytes bigint
+	content jsonb
+
+	Note: '''item da entrega (projects.SubmissionItem)
+CHECK submission_item_matches_kind: ((kind = 'LINK' AND NOT link = '') OR (kind = 'FILE' AND NOT file_url = '') OR (kind in ['CANVAS', 'SWOT'] AND content is not null))'''
+}
+
+Table projects_submissionreceipt [headercolor: #7a1f2b] {
+	id bigint [ pk, increment, note: 'ID' ]
+	created_at timestamptz [ not null ]
+	updated_at timestamptz [ not null ]
+	version_id bigint [ not null, unique ]
+	verification_code varchar(50) [ not null, unique, note: '(padrão: new_verification_code)' ]
+	file_url varchar(1000) [ not null ]
+	generated_at timestamptz [ not null, note: '(padrão: now)' ]
+
+	Note: 'comprovante de entrega (projects.SubmissionReceipt)'
+}
+
+Table evaluations_evaluation [headercolor: #2b4a8a] {
+	id bigint [ pk, increment, note: 'ID' ]
+	created_at timestamptz [ not null ]
+	updated_at timestamptz [ not null ]
+	project_id bigint [ not null ]
+	stage_id bigint [ not null ]
+	teacher_id bigint [ not null ]
+	comment text [ not null ]
+	status evaluations_evaluation_status [ not null, default: 'DRAFT' ]
+	finalized_at timestamptz
 
 	indexes {
-		(projeto_id, etapa_id) [ unique ]
+		(project_id, stage_id, teacher_id) [ unique, name: 'unique_evaluation_per_teacher' ]
 	}
 
-	Note: 'agrupa as versões. Sem versão = não enviada; a versão que vale é a de maior numero com enviado_em <= etapa.encerrado_em. Nada disso é coluna: o resultado congelado fica em nota_etapa.status.'
+	Note: '''avaliação (evaluations.Evaluation)
+CHECK evaluation_finalized_at_iff_finalized: ((finalized_at is null AND status = 'DRAFT') OR (finalized_at is not null AND status = 'FINALIZED'))'''
 }
 
-Table entrega_versao [headercolor: #175e7a] {
-	id integer [ pk, increment ]
-	entrega_id integer [ not null ]
-	numero integer [ not null, note: 'sequencial dentro da entrega: 1, 2, 3...' ]
-	enviado_por integer [ not null, note: 'o líder' ]
-	enviado_em timestamp [ not null ]
-	observacao text
-	criado_em timestamp [ not null ]
-	atualizado_em timestamp
+Table evaluations_evaluationitem [headercolor: #2b4a8a] {
+	id bigint [ pk, increment, note: 'ID' ]
+	created_at timestamptz [ not null ]
+	updated_at timestamptz [ not null ]
+	evaluation_id bigint [ not null ]
+	stage_criterion_id bigint [ not null ]
+	points numeric(5,2) [ not null ]
+	comment text [ not null ]
 
 	indexes {
-		(entrega_id, numero) [ unique ]
+		(evaluation_id, stage_criterion_id) [ unique, name: 'unique_criterion_per_evaluation' ]
 	}
 
-	Note: 'cada atualização gera uma versão nova; nenhuma versão é alterada depois de criada (RF31)'
+	Note: '''item da avaliação (evaluations.EvaluationItem)
+CHECK evaluation_item_points_gte_0: points >= 0'''
 }
 
-Table entrega_item [headercolor: #175e7a] {
-	id integer [ pk, increment ]
-	versao_id integer [ not null ]
-	campo_id integer [ note: 'qual campo configurado na etapa este item responde' ]
-	tipo tipo_campo [ not null ]
-	link varchar(1000)
-	arquivo_url varchar(1000)
-	nome_arquivo varchar(255)
-	tamanho_bytes bigint
-	criado_em timestamp [ not null ]
-	atualizado_em timestamp
-
-	Note: 'CHECK: link preenchido quando tipo = LINK; arquivo_url quando tipo = ARQUIVO'
-}
-
-Table comprovante_entrega [headercolor: #175e7a] {
-	id integer [ pk, increment ]
-	versao_id integer [ not null, unique ]
-	codigo_verificacao varchar(50) [ not null, unique ]
-	arquivo_url varchar(1000) [ note: 'PDF com equipe, projeto, etapa, data/hora e versão registrada (RF31)' ]
-	gerado_em timestamp [ not null ]
-	criado_em timestamp [ not null ]
-	atualizado_em timestamp
-}
-
-Table avaliacao [headercolor: #175e7a] {
-	id integer [ pk, increment ]
-	projeto_id integer [ not null ]
-	etapa_id integer [ not null ]
-	professor_id integer [ not null ]
-	comentario text [ note: 'feedback geral da etapa' ]
-	status status_avaliacao [ not null, default: RASCUNHO ]
-	criado_em timestamp [ not null ]
-	finalizado_em timestamp
-	atualizado_em timestamp
+Table evaluations_stagescore [headercolor: #2b4a8a] {
+	id bigint [ pk, increment, note: 'ID' ]
+	created_at timestamptz [ not null ]
+	updated_at timestamptz [ not null ]
+	project_id bigint [ not null ]
+	stage_id bigint [ not null ]
+	value numeric(5,2)
+	evaluation_count smallint [ not null, default: 0 ]
+	status evaluations_stagescore_status [ not null, default: 'PENDING' ]
+	calculated_at timestamptz
 
 	indexes {
-		(projeto_id, etapa_id, professor_id) [ unique ]
+		(project_id, stage_id) [ unique, name: 'unique_score_per_stage' ]
 	}
 
-	Note: 'o professor precisa estar vinculado ao curso do desafio do projeto — regra da aplicação, não dá para expressar em FK'
+	Note: '''nota da etapa (evaluations.StageScore)
+CHECK stage_score_value_matches_status: ((status = 'PENDING' AND value is null) OR (status = 'DEFINITIVE' AND value >= 0 AND value is not null) OR (status = 'ZERO_NO_SUBMISSION' AND value = 0))'''
 }
 
-Table avaliacao_item [headercolor: #175e7a] {
-	id integer [ pk, increment ]
-	avaliacao_id integer [ not null ]
-	etapa_criterio_id integer [ not null, note: 'aponta para o critério já vinculado àquela etapa, o que traz a pontuação máxima junto' ]
-	pontos "decimal(5,2)" [ not null, note: 'de 0 até etapa_criterio.pontuacao_maxima — CHECK no limite superior fica na aplicação' ]
-	comentario text
-	criado_em timestamp [ not null ]
-	atualizado_em timestamp
+Table evaluations_finalform [headercolor: #2b4a8a] {
+	id bigint [ pk, increment, note: 'ID' ]
+	created_at timestamptz [ not null ]
+	updated_at timestamptz [ not null ]
+	edition_id bigint [ not null, unique ]
+	title varchar(150) [ not null ]
+	published boolean [ not null, default: false ]
+
+	Note: 'formulário final (evaluations.FinalForm)'
+}
+
+Table evaluations_finalquestion [headercolor: #2b4a8a] {
+	id bigint [ pk, increment, note: 'ID' ]
+	created_at timestamptz [ not null ]
+	updated_at timestamptz [ not null ]
+	form_id bigint [ not null ]
+	"order" smallint [ not null ]
+	prompt text [ not null ]
+	kind evaluations_finalquestion_kind [ not null ]
+	max_score numeric(4,2)
 
 	indexes {
-		(avaliacao_id, etapa_criterio_id) [ unique ]
+		(form_id, "order") [ unique, name: 'unique_question_order_per_form' ]
 	}
+
+	Note: '''pergunta final (evaluations.FinalQuestion)
+CHECK final_question_max_score_matches_kind: ((kind = 'SCORE' AND max_score > 0 AND max_score is not null) OR (NOT kind = 'SCORE' AND max_score is null))'''
 }
 
-Table retificacao_nota [headercolor: #175e7a] {
-	id integer [ pk, increment ]
-	avaliacao_item_id integer [ not null ]
-	pontos_anteriores "decimal(5,2)" [ not null ]
-	pontos_novos "decimal(5,2)" [ not null, note: 'CHECK: >= 0 e diferente de pontos_anteriores; até etapa_criterio.pontuacao_maxima (aplicação)' ]
-	justificativa text [ not null, note: 'CHECK: não vazia' ]
-	retificado_por integer [ not null, note: 'usuário ADMIN' ]
-	retificado_em timestamp [ not null ]
-	criado_em timestamp [ not null ]
-	atualizado_em timestamp
-
-	Note: 'ajuste do RF14 (P-21): troca os pontos do item mesmo com a avaliação finalizada e fora do prazo; é o próprio histórico, nunca alterado nem apagado'
-}
-
-Table nota_etapa [headercolor: #175e7a] {
-	id integer [ pk, increment ]
-	projeto_id integer [ not null ]
-	etapa_id integer [ not null ]
-	valor "decimal(5,2)" [ note: 'média das avaliações finalizadas; nulo enquanto PENDENTE' ]
-	qtd_avaliacoes integer [ not null, default: 0 ]
-	status status_nota [ not null, default: PENDENTE ]
-	calculado_em timestamp
-	criado_em timestamp [ not null ]
-	atualizado_em timestamp
+Table evaluations_finalevaluation [headercolor: #2b4a8a] {
+	id bigint [ pk, increment, note: 'ID' ]
+	created_at timestamptz [ not null ]
+	updated_at timestamptz [ not null ]
+	project_id bigint [ not null ]
+	reviewer_id bigint [ not null ]
+	form_id bigint [ not null ]
+	comment text [ not null ]
+	status evaluations_finalevaluation_status [ not null, default: 'PENDING' ]
+	finalized_at timestamptz
 
 	indexes {
-		(projeto_id, etapa_id) [ unique ]
+		(project_id, reviewer_id) [ unique, name: 'unique_final_evaluation_per_reviewer' ]
 	}
 
-	Note: 'valor consolidado de propósito: é o número que a equipe vê e que o resultado soma. Recalculado a cada avaliação finalizada.'
+	Note: '''avaliação final (evaluations.FinalEvaluation)
+CHECK final_evaluation_finalized_at_iff_evaluated: ((finalized_at is null AND status = 'PENDING') OR (finalized_at is not null AND status = 'EVALUATED'))'''
 }
 
-Table resultado_projeto [headercolor: #175e7a] {
-	id integer [ pk, increment ]
-	projeto_id integer [ not null, unique ]
-	nota_final "decimal(5,2)" [ note: 'soma das notas das etapas, de 0 a 10' ]
-	classificacao_curso integer [ note: 'posição dentro do curso, usada na seleção de finalistas' ]
-	classificacao_categoria integer [ note: 'posição na categoria dentro do curso, usada na premiação' ]
-	finalista boolean [ not null, default: false ]
-	premiacao integer [ note: '1, 2 ou 3 — colocação premiada; nulo quando não premiado' ]
-	homologado_em timestamp
-	criado_em timestamp [ not null ]
-	atualizado_em timestamp
-
-	Note: 'consolidado de propósito, como nota_etapa: é o resultado publicado e homologado'
-}
-
-Table pontuacao_aluno [headercolor: #175e7a] {
-	id integer [ pk, increment ]
-	projeto_id integer [ not null ]
-	aluno_id integer [ not null ]
-	periodo_considerado integer [ not null, note: 'congelado no cálculo: o aluno muda de período, a pontuação da edição não' ]
-	pontos "decimal(4,2)" [ not null, note: 'nota_final / 10 * 1,0 (1º período) ou * 2,0 (demais)' ]
-	calculado_em timestamp
-	criado_em timestamp [ not null ]
-	atualizado_em timestamp
+Table evaluations_finalanswer [headercolor: #2b4a8a] {
+	id bigint [ pk, increment, note: 'ID' ]
+	created_at timestamptz [ not null ]
+	updated_at timestamptz [ not null ]
+	evaluation_id bigint [ not null ]
+	question_id bigint [ not null ]
+	value numeric(5,2)
+	text text [ not null ]
 
 	indexes {
-		(projeto_id, aluno_id) [ unique ]
+		(evaluation_id, question_id) [ unique, name: 'unique_answer_per_question' ]
 	}
+
+	Note: 'resposta final (evaluations.FinalAnswer)'
 }
 
-Table avaliacao_final [headercolor: #175e7a] {
-	id integer [ pk, increment ]
-	projeto_id integer [ not null ]
-	avaliador_id integer [ not null ]
-	formulario_id integer [ not null ]
-	comentario text
-	status status_avaliacao_final [ not null, default: PENDENTE ]
-	finalizado_em timestamp
-	criado_em timestamp [ not null ]
-	atualizado_em timestamp
+Table evaluations_scorerectification [headercolor: #2b4a8a] {
+	id bigint [ pk, increment, note: 'ID' ]
+	created_at timestamptz [ not null ]
+	updated_at timestamptz [ not null ]
+	item_id bigint [ not null ]
+	previous_points numeric(5,2) [ not null ]
+	new_points numeric(5,2) [ not null ]
+	reason text [ not null ]
+	rectified_by_id bigint [ not null ]
+	rectified_at timestamptz [ not null, note: '(padrão: now)' ]
+
+	Note: '''retificação de nota (evaluations.ScoreRectification)
+CHECK rectification_changes_points: (new_points >= 0 AND NOT new_points = previous_points)
+CHECK rectification_has_reason: NOT reason = '''''
+}
+
+Table results_projectresult [headercolor: #4a6b1e] {
+	id bigint [ pk, increment, note: 'ID' ]
+	created_at timestamptz [ not null ]
+	updated_at timestamptz [ not null ]
+	project_id bigint [ not null, unique ]
+	final_score numeric(5,2)
+	course_rank smallint
+	category_rank smallint
+	finalist boolean [ not null, default: false ]
+	award smallint
+	approved_at timestamptz
+
+	Note: '''resultado do projeto (results.ProjectResult)
+CHECK project_result_final_score_0_to_10: (final_score is null OR (final_score >= 0 AND final_score <= 10))
+CHECK project_result_award_1_to_3: (award is null OR award in [1, 2, 3])'''
+}
+
+Table results_studentscore [headercolor: #4a6b1e] {
+	id bigint [ pk, increment, note: 'ID' ]
+	created_at timestamptz [ not null ]
+	updated_at timestamptz [ not null ]
+	project_id bigint [ not null ]
+	student_id bigint [ not null ]
+	term smallint [ not null ]
+	points numeric(4,2) [ not null ]
+	calculated_at timestamptz
 
 	indexes {
-		(projeto_id, avaliador_id) [ unique ]
+		(project_id, student_id) [ unique, name: 'unique_score_per_student' ]
 	}
 
-	Note: '[FASE 2] avaliação da etapa final; não entra na nota de 0 a 10 nem nos pontos das disciplinas (RN08 do Avaliador)'
+	Note: '''pontuação do aluno (results.StudentScore)
+CHECK student_score_term_1_to_10: (term >= 1 AND term <= 10)
+CHECK student_score_points_gte_0: points >= 0'''
 }
 
-Table resposta_final [headercolor: #175e7a] {
-	id integer [ pk, increment ]
-	avaliacao_id integer [ not null ]
-	pergunta_id integer [ not null ]
-	valor "decimal(5,2)"
-	texto text
-	criado_em timestamp [ not null ]
-	atualizado_em timestamp
+Table results_certificatetemplate [headercolor: #4a6b1e] {
+	id bigint [ pk, increment, note: 'ID' ]
+	created_at timestamptz [ not null ]
+	updated_at timestamptz [ not null ]
+	edition_id bigint [ not null ]
+	kind results_certificatetemplate_kind [ not null ]
+	template_url varchar(1000) [ not null ]
+	signatures text [ not null ]
 
 	indexes {
-		(avaliacao_id, pergunta_id) [ unique ]
+		(edition_id, kind) [ unique, name: 'unique_template_per_kind' ]
 	}
 
-	Note: '[FASE 2] CHECK: valor preenchido quando a pergunta é NOTA, texto quando é TEXTO'
+	Note: 'modelo de certificado (results.CertificateTemplate)'
 }
 
-Table certificado_modelo [headercolor: #175e7a] {
-	id integer [ pk, increment ]
-	edicao_id integer [ not null ]
-	tipo tipo_certificado [ not null ]
-	template_url varchar(1000)
-	assinaturas text [ note: 'nomes, cargos e imagens das assinaturas digitais' ]
-	criado_em timestamp [ not null ]
-	atualizado_em timestamp
+Table results_certificate [headercolor: #4a6b1e] {
+	id bigint [ pk, increment, note: 'ID' ]
+	created_at timestamptz [ not null ]
+	updated_at timestamptz [ not null ]
+	template_id bigint [ not null ]
+	user_id bigint [ not null ]
+	workload_hours smallint
+	verification_code varchar(50) [ not null, unique, note: '(padrão: new_verification_code)' ]
+	file_url varchar(1000) [ not null ]
+	issued_at timestamptz [ not null, note: '(padrão: now)' ]
 
 	indexes {
-		(edicao_id, tipo) [ unique ]
+		(template_id, user_id) [ unique, name: 'unique_certificate_per_user' ]
 	}
 
-	Note: '[FASE 2]'
+	Note: '''certificado (results.Certificate)
+CHECK certificate_workload_20_or_40: (workload_hours is null OR workload_hours in [20, 40])'''
 }
 
-Table certificado [headercolor: #175e7a] {
-	id integer [ pk, increment ]
-	modelo_id integer [ not null, note: 'traz a edição e o tipo junto, sem repetir as duas colunas aqui' ]
-	usuario_id integer [ not null ]
-	carga_horaria integer [ note: '20h ou 40h, conforme o regulamento' ]
-	codigo_verificacao varchar(50) [ not null, unique ]
-	arquivo_url varchar(1000)
-	emitido_em timestamp [ not null ]
-	criado_em timestamp [ not null ]
-	atualizado_em timestamp
+Table notifications_notification [headercolor: #555555] {
+	created_at timestamptz [ not null ]
+	updated_at timestamptz [ not null ]
+	id uuid [ pk, note: '(padrão: uuid4)' ]
+	user_id bigint [ not null ]
+	type notifications_notification_type [ not null ]
+	title varchar(200) [ not null ]
+	message text [ not null ]
+	link varchar(500)
+	read_at timestamptz
 
-	indexes {
-		(modelo_id, usuario_id) [ unique ]
-	}
-
-	Note: '[FASE 2]'
-}
-
-Table log_auditoria [headercolor: #175e7a] {
-	id integer [ pk, increment ]
-	usuario_id integer [ not null ]
-	acao varchar(100) [ not null ]
-	entidade varchar(100) [ not null ]
-	entidade_id integer
-	valor_anterior text
-	valor_novo text
-	justificativa text
-	criado_em timestamp [ not null ]
-
-	indexes {
-		(entidade, entidade_id)
-	}
-
-	Note: '[FASE 2] referência polimórfica de propósito: o log aponta para qualquer tabela e nunca é alterado nem apagado'
-}
-
-Ref fk_usuario_id_aluno {
-	usuario.id - aluno.usuario_id [ delete: no action, update: no action ]
-}
-
-Ref fk_curso_id_aluno {
-	curso.id < aluno.curso_id [ delete: no action, update: no action ]
-}
-
-Ref fk_usuario_id_professor {
-	usuario.id - professor.usuario_id [ delete: no action, update: no action ]
-}
-
-Ref fk_professor_usuario_id_professor_curso {
-	professor.usuario_id < professor_curso.professor_id [ delete: no action, update: no action ]
-}
-
-Ref fk_curso_id_professor_curso {
-	curso.id < professor_curso.curso_id [ delete: no action, update: no action ]
-}
-
-Ref fk_usuario_id_avaliador_externo {
-	usuario.id - avaliador_externo.usuario_id [ delete: no action, update: no action ]
-}
-
-Ref fk_avaliador_externo_usuario_id_avaliador_edicao {
-	avaliador_externo.usuario_id < avaliador_edicao.avaliador_id [ delete: no action, update: no action ]
-}
-
-Ref fk_edicao_id_avaliador_edicao {
-	edicao.id < avaliador_edicao.edicao_id [ delete: no action, update: no action ]
-}
-
-Ref fk_curso_id_avaliador_edicao {
-	curso.id < avaliador_edicao.curso_id [ delete: no action, update: no action ]
-}
-
-Ref fk_edicao_id_edicao_ods {
-	edicao.id < edicao_ods.edicao_id [ delete: no action, update: no action ]
-}
-
-Ref fk_ods_id_edicao_ods {
-	ods.id < edicao_ods.ods_id [ delete: no action, update: no action ]
-}
-
-Ref fk_edicao_id_categoria {
-	edicao.id < categoria.edicao_id [ delete: no action, update: no action ]
-}
-
-Ref fk_edicao_id_desafio {
-	edicao.id < desafio.edicao_id [ delete: no action, update: no action ]
-}
-
-Ref fk_curso_id_desafio {
-	curso.id < desafio.curso_id [ delete: no action, update: no action ]
-}
-
-Ref fk_ods_id_desafio {
-	ods.id < desafio.ods_id [ delete: no action, update: no action ]
-}
-
-Ref fk_edicao_id_etapa {
-	edicao.id < etapa.edicao_id [ delete: no action, update: no action ]
-}
-
-Ref fk_etapa_id_etapa_campo_entrega {
-	etapa.id < etapa_campo_entrega.etapa_id [ delete: no action, update: no action ]
-}
-
-Ref fk_edicao_id_criterio {
-	edicao.id < criterio.edicao_id [ delete: no action, update: no action ]
-}
-
-Ref fk_etapa_id_etapa_criterio {
-	etapa.id < etapa_criterio.etapa_id [ delete: no action, update: no action ]
-}
-
-Ref fk_criterio_id_etapa_criterio {
-	criterio.id < etapa_criterio.criterio_id [ delete: no action, update: no action ]
-}
-
-Ref fk_edicao_id_formulario_final {
-	edicao.id - formulario_final.edicao_id [ delete: no action, update: no action ]
-}
-
-Ref fk_formulario_final_id_pergunta_final {
-	formulario_final.id < pergunta_final.formulario_id [ delete: no action, update: no action ]
-}
-
-Ref fk_edicao_id_equipe {
-	edicao.id < equipe.edicao_id [ delete: no action, update: no action ]
-}
-
-Ref fk_equipe_id_equipe_membro {
-	equipe.id < equipe_membro.equipe_id [ delete: no action, update: no action ]
-}
-
-Ref fk_edicao_id_equipe_membro {
-	edicao.id < equipe_membro.edicao_id [ delete: no action, update: no action ]
-}
-
-Ref fk_aluno_usuario_id_equipe_membro {
-	aluno.usuario_id < equipe_membro.aluno_id [ delete: no action, update: no action ]
-}
-
-Ref fk_equipe_id_convite {
-	equipe.id < convite.equipe_id [ delete: no action, update: no action ]
-}
-
-Ref fk_aluno_usuario_id_convite {
-	aluno.usuario_id < convite.aluno_id [ delete: no action, update: no action ]
-}
-
-Ref fk_equipe_id_solicitacao_entrada {
-	equipe.id < solicitacao_entrada.equipe_id [ delete: no action, update: no action ]
-}
-
-Ref fk_aluno_usuario_id_solicitacao_entrada {
-	aluno.usuario_id < solicitacao_entrada.aluno_id [ delete: no action, update: no action ]
+	Note: 'notificação (notifications.Notification)'
 }
 
-Ref fk_equipe_id_solicitacao_lideranca {
-	equipe.id < solicitacao_lideranca.equipe_id [ delete: no action, update: no action ]
+Enum accounts_user_role {
+	ADMIN [ note: 'Administrador' ]
+	STUDENT [ note: 'Acadêmico' ]
+	TEACHER [ note: 'Professor' ]
+	EXTERNAL_REVIEWER [ note: 'Avaliador Externo' ]
 }
 
-Ref fk_aluno_usuario_id_solicitacao_lideranca {
-	aluno.usuario_id < solicitacao_lideranca.solicitante_id [ delete: no action, update: no action ]
+Enum accounts_emaildomain_role {
+	ADMIN [ note: 'Administrador' ]
+	STUDENT [ note: 'Acadêmico' ]
+	TEACHER [ note: 'Professor' ]
+	EXTERNAL_REVIEWER [ note: 'Avaliador Externo' ]
 }
 
-Ref fk_professor_usuario_id_solicitacao_lideranca {
-	professor.usuario_id < solicitacao_lideranca.professor_id [ delete: no action, update: no action ]
+Enum editions_edition_status {
+	SETUP [ note: 'Em configuração' ]
+	PUBLISHED [ note: 'Publicada' ]
+	CLOSED [ note: 'Encerrada' ]
 }
 
-Ref fk_equipe_id_projeto {
-	equipe.id - projeto.equipe_id [ delete: no action, update: no action ]
+Enum editions_stage_kind {
+	FORMATION [ note: 'Formação de equipes' ]
+	SUBMISSION [ note: 'Entrega' ]
+	FINAL [ note: 'Apresentação final' ]
 }
 
-Ref fk_edicao_id_projeto {
-	edicao.id < projeto.edicao_id [ delete: no action, update: no action ]
+Enum editions_stagesubmissionfield_kind {
+	LINK [ note: 'Link' ]
+	FILE [ note: 'Arquivo' ]
+	CANVAS [ note: 'Business Model Canvas' ]
+	SWOT [ note: 'Matriz SWOT' ]
 }
 
-Ref fk_desafio_id_projeto {
-	desafio.id < projeto.desafio_id [ delete: no action, update: no action ]
+Enum teams_invitation_status {
+	PENDING [ note: 'Pendente' ]
+	ACCEPTED [ note: 'Aceito' ]
+	DECLINED [ note: 'Recusado' ]
+	CANCELLED [ note: 'Cancelado' ]
 }
 
-Ref fk_categoria_id_projeto {
-	categoria.id < projeto.categoria_id [ delete: no action, update: no action ]
+Enum teams_joinrequest_status {
+	PENDING [ note: 'Pendente' ]
+	APPROVED [ note: 'Aprovada' ]
+	REJECTED [ note: 'Recusada' ]
+	CANCELLED [ note: 'Cancelada' ]
 }
 
-Ref fk_equipe_membro_id_observacao_integrante {
-	equipe_membro.id < observacao_integrante.integrante_id [ delete: no action, update: no action ]
+Enum teams_leadershiprequest_status {
+	PENDING [ note: 'Pendente' ]
+	APPROVED [ note: 'Aprovada' ]
+	REJECTED [ note: 'Recusada' ]
+	CANCELLED [ note: 'Cancelada' ]
 }
 
-Ref fk_aluno_usuario_id_observacao_integrante {
-	aluno.usuario_id < observacao_integrante.autor_id [ delete: no action, update: no action ]
-}
-
-Ref fk_projeto_id_prorrogacao_prazo {
-	projeto.id < prorrogacao_prazo.projeto_id [ delete: no action, update: no action ]
-}
-
-Ref fk_etapa_id_prorrogacao_prazo {
-	etapa.id < prorrogacao_prazo.etapa_id [ delete: no action, update: no action ]
-}
-
-Ref fk_usuario_id_prorrogacao_prazo {
-	usuario.id < prorrogacao_prazo.concedido_por [ delete: no action, update: no action ]
-}
-
-Ref fk_projeto_id_entrega {
-	projeto.id < entrega.projeto_id [ delete: no action, update: no action ]
-}
-
-Ref fk_etapa_id_entrega {
-	etapa.id < entrega.etapa_id [ delete: no action, update: no action ]
-}
-
-Ref fk_entrega_id_entrega_versao {
-	entrega.id < entrega_versao.entrega_id [ delete: no action, update: no action ]
-}
-
-Ref fk_aluno_usuario_id_entrega_versao {
-	aluno.usuario_id < entrega_versao.enviado_por [ delete: no action, update: no action ]
-}
-
-Ref fk_entrega_versao_id_entrega_item {
-	entrega_versao.id < entrega_item.versao_id [ delete: no action, update: no action ]
-}
-
-Ref fk_etapa_campo_entrega_id_entrega_item {
-	etapa_campo_entrega.id < entrega_item.campo_id [ delete: no action, update: no action ]
-}
-
-Ref fk_entrega_versao_id_comprovante_entrega {
-	entrega_versao.id - comprovante_entrega.versao_id [ delete: no action, update: no action ]
-}
-
-Ref fk_projeto_id_avaliacao {
-	projeto.id < avaliacao.projeto_id [ delete: no action, update: no action ]
-}
-
-Ref fk_etapa_id_avaliacao {
-	etapa.id < avaliacao.etapa_id [ delete: no action, update: no action ]
-}
-
-Ref fk_professor_usuario_id_avaliacao {
-	professor.usuario_id < avaliacao.professor_id [ delete: no action, update: no action ]
-}
-
-Ref fk_avaliacao_item_id_retificacao_nota {
-	avaliacao_item.id < retificacao_nota.avaliacao_item_id [ delete: no action, update: no action ]
-}
-
-Ref fk_usuario_id_retificacao_nota {
-	usuario.id < retificacao_nota.retificado_por [ delete: no action, update: no action ]
-}
-
-Ref fk_avaliacao_id_avaliacao_item {
-	avaliacao.id < avaliacao_item.avaliacao_id [ delete: no action, update: no action ]
-}
-
-Ref fk_etapa_criterio_id_avaliacao_item {
-	etapa_criterio.id < avaliacao_item.etapa_criterio_id [ delete: no action, update: no action ]
-}
-
-Ref fk_projeto_id_nota_etapa {
-	projeto.id < nota_etapa.projeto_id [ delete: no action, update: no action ]
-}
-
-Ref fk_etapa_id_nota_etapa {
-	etapa.id < nota_etapa.etapa_id [ delete: no action, update: no action ]
-}
-
-Ref fk_usuario_id_equipe_desclassificado_por {
-	usuario.id < equipe.desclassificado_por [ delete: no action, update: no action ]
-}
-
-Ref fk_projeto_id_resultado_projeto {
-	projeto.id - resultado_projeto.projeto_id [ delete: no action, update: no action ]
-}
-
-Ref fk_projeto_id_pontuacao_aluno {
-	projeto.id < pontuacao_aluno.projeto_id [ delete: no action, update: no action ]
-}
-
-Ref fk_aluno_usuario_id_pontuacao_aluno {
-	aluno.usuario_id < pontuacao_aluno.aluno_id [ delete: no action, update: no action ]
-}
-
-Ref fk_projeto_id_avaliacao_final {
-	projeto.id < avaliacao_final.projeto_id [ delete: no action, update: no action ]
-}
-
-Ref fk_avaliador_externo_usuario_id_avaliacao_final {
-	avaliador_externo.usuario_id < avaliacao_final.avaliador_id [ delete: no action, update: no action ]
-}
-
-Ref fk_formulario_final_id_avaliacao_final {
-	formulario_final.id < avaliacao_final.formulario_id [ delete: no action, update: no action ]
-}
-
-Ref fk_avaliacao_final_id_resposta_final {
-	avaliacao_final.id < resposta_final.avaliacao_id [ delete: no action, update: no action ]
-}
-
-Ref fk_pergunta_final_id_resposta_final {
-	pergunta_final.id < resposta_final.pergunta_id [ delete: no action, update: no action ]
-}
-
-Ref fk_edicao_id_certificado_modelo {
-	edicao.id < certificado_modelo.edicao_id [ delete: no action, update: no action ]
-}
-
-Ref fk_certificado_modelo_id_certificado {
-	certificado_modelo.id < certificado.modelo_id [ delete: no action, update: no action ]
-}
-
-Ref fk_usuario_id_certificado {
-	usuario.id < certificado.usuario_id [ delete: no action, update: no action ]
-}
-
-Ref fk_usuario_id_log_auditoria {
-	usuario.id < log_auditoria.usuario_id [ delete: no action, update: no action ]
-}
+Enum teams_team_status {
+	ACTIVE [ note: 'Ativa' ]
+	DISQUALIFIED [ note: 'Desclassificada' ]
+	DISBANDED [ note: 'Desfeita' ]
+}
+
+Enum teams_team_situation {
+	COMPLETE [ note: 'Completa' ]
+	INCOMPLETE [ note: 'Incompleta' ]
+	REQUIREMENTS_NOT_MET [ note: 'Requisitos não atendidos' ]
+}
+
+Enum teams_teammember_role {
+	LEADER [ note: 'Líder' ]
+	MEMBER [ note: 'Membro' ]
+}
+
+Enum projects_project_status {
+	IN_PROGRESS [ note: 'Em andamento' ]
+	COMPLETED [ note: 'Concluído' ]
+	DISQUALIFIED [ note: 'Desclassificado' ]
+}
+
+Enum projects_submissionitem_kind {
+	LINK [ note: 'Link' ]
+	FILE [ note: 'Arquivo' ]
+	CANVAS [ note: 'Business Model Canvas' ]
+	SWOT [ note: 'Matriz SWOT' ]
+}
 
-// ============================================================================
-// NÃO EXPRESSÁVEL EM DBML (aplicar como SQL / UniqueConstraint com condition)
-// ============================================================================
-//
-// Índices únicos parciais:
-//
-//   CREATE UNIQUE INDEX ux_equipe_membro_aluno_edicao_ativo
-//     ON equipe_membro (aluno_id, edicao_id) WHERE ativo;
-//   CREATE UNIQUE INDEX ux_equipe_membro_equipe_aluno_ativo
-//     ON equipe_membro (equipe_id, aluno_id) WHERE ativo;
-//   CREATE UNIQUE INDEX ux_equipe_membro_lider_ativo
-//     ON equipe_membro (equipe_id) WHERE ativo AND papel = 'LIDER';
-//
-//   CREATE UNIQUE INDEX ux_convite_pendente_aluno
-//     ON convite (equipe_id, aluno_id) WHERE status = 'PENDENTE';
-//
-//   CREATE UNIQUE INDEX ux_solicitacao_entrada_pendente
-//     ON solicitacao_entrada (equipe_id, aluno_id) WHERE status = 'PENDENTE';
-//   CREATE UNIQUE INDEX ux_solicitacao_lideranca_pendente
-//     ON solicitacao_lideranca (equipe_id) WHERE status = 'PENDENTE';
-//
-//   CREATE UNIQUE INDEX ux_projeto_titulo_edicao
-//     ON projeto (edicao_id, lower(titulo)) WHERE titulo <> '';
+Enum evaluations_evaluation_status {
+	DRAFT [ note: 'Rascunho' ]
+	FINALIZED [ note: 'Finalizada' ]
+}
+
+Enum evaluations_stagescore_status {
+	PENDING [ note: 'Pendente' ]
+	DEFINITIVE [ note: 'Definitiva' ]
+	ZERO_NO_SUBMISSION [ note: 'Zero sem entrega' ]
+}
+
+Enum evaluations_finalquestion_kind {
+	SCORE [ note: 'Nota' ]
+	CONCEPT [ note: 'Conceito' ]
+	TEXT [ note: 'Texto' ]
+}
+
+Enum evaluations_finalevaluation_status {
+	PENDING [ note: 'Pendente' ]
+	EVALUATED [ note: 'Avaliado' ]
+}
+
+Enum results_certificatetemplate_kind {
+	PARTICIPATION [ note: 'Participação' ]
+	FINALIST [ note: 'Finalista' ]
+	AWARD [ note: 'Premiação' ]
+}
+
+Enum notifications_notification_type {
+	SYSTEM [ note: 'Sistema' ]
+	TEAM [ note: 'Equipe' ]
+	PROJECT [ note: 'Projeto' ]
+	DELIVERABLE [ note: 'Entrega' ]
+	EVALUATION [ note: 'Avaliação' ]
+	RESULT [ note: 'Resultado' ]
+	CERTIFICATE [ note: 'Certificado' ]
+}
+
+Ref: accounts_student.user_id - accounts_user.id [ delete: cascade ]
+Ref: accounts_student.course_id > core_course.id [ delete: restrict ]
+Ref: accounts_teacher.user_id - accounts_user.id [ delete: cascade ]
+Ref: accounts_teachercourse.teacher_id > accounts_teacher.user_id [ delete: cascade ]
+Ref: accounts_teachercourse.course_id > core_course.id [ delete: restrict ]
+Ref: accounts_externalreviewer.user_id - accounts_user.id [ delete: cascade ]
+Ref: editions_challenge.edition_id > editions_edition.id [ delete: restrict ]
+Ref: editions_challenge.course_id > core_course.id [ delete: restrict ]
+Ref: editions_challenge.sdg_id > core_sdg.id [ delete: restrict ]
+Ref: editions_criterion.edition_id > editions_edition.id [ delete: restrict ]
+Ref: editions_editionsdg.edition_id > editions_edition.id [ delete: restrict ]
+Ref: editions_editionsdg.sdg_id > core_sdg.id [ delete: restrict ]
+Ref: editions_category.edition_id > editions_edition.id [ delete: restrict ]
+Ref: editions_editionreviewer.edition_id > editions_edition.id [ delete: restrict ]
+Ref: editions_editionreviewer.reviewer_id > accounts_externalreviewer.user_id [ delete: restrict ]
+Ref: editions_editionreviewer.course_id > core_course.id [ delete: restrict ]
+Ref: editions_stage.edition_id > editions_edition.id [ delete: restrict ]
+Ref: editions_stagesubmissionfield.stage_id > editions_stage.id [ delete: cascade ]
+Ref: editions_stagecriterion.stage_id > editions_stage.id [ delete: cascade ]
+Ref: editions_stagecriterion.criterion_id > editions_criterion.id [ delete: restrict ]
+Ref: teams_membernote.member_id > teams_teammember.id [ delete: restrict ]
+Ref: teams_membernote.author_id > accounts_student.user_id [ delete: restrict ]
+Ref: teams_invitation.team_id > teams_team.id [ delete: restrict ]
+Ref: teams_invitation.student_id > accounts_student.user_id [ delete: restrict ]
+Ref: teams_joinrequest.team_id > teams_team.id [ delete: restrict ]
+Ref: teams_joinrequest.student_id > accounts_student.user_id [ delete: restrict ]
+Ref: teams_leadershiprequest.team_id > teams_team.id [ delete: restrict ]
+Ref: teams_leadershiprequest.requester_id > accounts_student.user_id [ delete: restrict ]
+Ref: teams_leadershiprequest.teacher_id > accounts_teacher.user_id [ delete: restrict ]
+Ref: teams_team.edition_id > editions_edition.id [ delete: restrict ]
+Ref: teams_team.disqualified_by_id > accounts_user.id [ delete: restrict ]
+Ref: teams_teammember.team_id > teams_team.id [ delete: restrict ]
+Ref: teams_teammember.edition_id > editions_edition.id [ delete: restrict ]
+Ref: teams_teammember.student_id > accounts_student.user_id [ delete: restrict ]
+Ref: projects_deadlineextension.project_id > projects_project.id [ delete: restrict ]
+Ref: projects_deadlineextension.stage_id > editions_stage.id [ delete: restrict ]
+Ref: projects_deadlineextension.granted_by_id > accounts_user.id [ delete: restrict ]
+Ref: projects_project.team_id - teams_team.id [ delete: restrict ]
+Ref: projects_project.edition_id > editions_edition.id [ delete: restrict ]
+Ref: projects_project.challenge_id > editions_challenge.id [ delete: restrict ]
+Ref: projects_project.category_id > editions_category.id [ delete: restrict ]
+Ref: projects_submission.project_id > projects_project.id [ delete: restrict ]
+Ref: projects_submission.stage_id > editions_stage.id [ delete: restrict ]
+Ref: projects_submissionversion.submission_id > projects_submission.id [ delete: restrict ]
+Ref: projects_submissionversion.submitted_by_id > accounts_student.user_id [ delete: restrict ]
+Ref: projects_submissionitem.version_id > projects_submissionversion.id [ delete: cascade ]
+Ref: projects_submissionitem.field_id > editions_stagesubmissionfield.id [ delete: restrict ]
+Ref: projects_submissionreceipt.version_id - projects_submissionversion.id [ delete: restrict ]
+Ref: evaluations_evaluation.project_id > projects_project.id [ delete: restrict ]
+Ref: evaluations_evaluation.stage_id > editions_stage.id [ delete: restrict ]
+Ref: evaluations_evaluation.teacher_id > accounts_teacher.user_id [ delete: restrict ]
+Ref: evaluations_evaluationitem.evaluation_id > evaluations_evaluation.id [ delete: cascade ]
+Ref: evaluations_evaluationitem.stage_criterion_id > editions_stagecriterion.id [ delete: restrict ]
+Ref: evaluations_stagescore.project_id > projects_project.id [ delete: restrict ]
+Ref: evaluations_stagescore.stage_id > editions_stage.id [ delete: restrict ]
+Ref: evaluations_finalform.edition_id - editions_edition.id [ delete: restrict ]
+Ref: evaluations_finalquestion.form_id > evaluations_finalform.id [ delete: cascade ]
+Ref: evaluations_finalevaluation.project_id > projects_project.id [ delete: restrict ]
+Ref: evaluations_finalevaluation.reviewer_id > accounts_externalreviewer.user_id [ delete: restrict ]
+Ref: evaluations_finalevaluation.form_id > evaluations_finalform.id [ delete: restrict ]
+Ref: evaluations_finalanswer.evaluation_id > evaluations_finalevaluation.id [ delete: cascade ]
+Ref: evaluations_finalanswer.question_id > evaluations_finalquestion.id [ delete: restrict ]
+Ref: evaluations_scorerectification.item_id > evaluations_evaluationitem.id [ delete: restrict ]
+Ref: evaluations_scorerectification.rectified_by_id > accounts_user.id [ delete: restrict ]
+Ref: results_projectresult.project_id - projects_project.id [ delete: restrict ]
+Ref: results_studentscore.project_id > projects_project.id [ delete: restrict ]
+Ref: results_studentscore.student_id > accounts_student.user_id [ delete: restrict ]
+Ref: results_certificatetemplate.edition_id > editions_edition.id [ delete: restrict ]
+Ref: results_certificate.template_id > results_certificatetemplate.id [ delete: restrict ]
+Ref: results_certificate.user_id > accounts_user.id [ delete: restrict ]
+Ref: notifications_notification.user_id > accounts_user.id [ delete: cascade ]
