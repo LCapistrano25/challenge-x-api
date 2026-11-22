@@ -1,4 +1,4 @@
-from django.db.models import Prefetch, QuerySet
+from django.db.models import Prefetch, Q, QuerySet
 
 from apps.editions.enums import EditionStatus
 from apps.editions.models import Challenge, Edition
@@ -9,6 +9,7 @@ from apps.teams.models import TeamMember
 
 
 def get_current_edition() -> Edition | None:
+    """Edição vigente: a publicada (RF44, P-41), com etapas, ODS e desafios."""
     return (
         Edition.objects.filter(status=EditionStatus.PUBLISHED)
         .prefetch_related(
@@ -26,10 +27,14 @@ def get_current_edition() -> Edition | None:
 
 
 def list_closed_editions() -> QuerySet[Edition]:
-    return Edition.objects.filter(status=EditionStatus.CLOSED).order_by("-closed_at")
+    """Edições encerradas (RF35, RF46)."""
+    return Edition.objects.filter(status=EditionStatus.CLOSED).order_by(
+        "-year", "-semester"
+    )
 
 
 def list_edition_winners(edition: Edition) -> QuerySet[ProjectResult]:
+    """Galeria de vencedores da edição (RF47)."""
     if edition.status != EditionStatus.CLOSED:
         return ProjectResult.objects.none()
 
@@ -49,27 +54,91 @@ def list_edition_winners(edition: Edition) -> QuerySet[ProjectResult]:
         .prefetch_related(
             Prefetch(
                 "project__team__members",
-                # Trazemos o student e o user encadeados
-                queryset=TeamMember.objects.select_related("student__user"),
-                # O serializer do revisor procura exatamente por 'active_members'
+                queryset=TeamMember.objects.filter(active=True).select_related(
+                    "student__user"
+                ),
                 to_attr="active_members",
             )
         )
-        .order_by("award")
+        .order_by(
+            "project__challenge__course__name", "project__category__name", "award"
+        )
     )
 
 
-def list_public_projects() -> QuerySet[Project]:
+def list_public_projects(
+    edition_id=None, course_id=None, sdg_id=None, category_id=None, search=None
+) -> QuerySet[Project]:
+    """Vitrine e acervo de projetos (público) - RF34."""
+    # Exclui as equipas desclassificadas
+    qs = Project.objects.exclude(status=ProjectStatus.DISQUALIFIED)
+
+    if edition_id:
+        qs = qs.filter(edition_id=edition_id)
+    else:
+        qs = qs.filter(edition__status=EditionStatus.PUBLISHED)
+
+    # Regra P-28: Nas edições encerradas (CLOSED), apenas projetos homologados
+    projetos_homologados_ids = ProjectResult.objects.filter(
+        approved_at__isnull=False
+    ).values("project_id")
+
+    qs = qs.filter(
+        Q(edition__status=EditionStatus.PUBLISHED)
+        | Q(edition__status=EditionStatus.CLOSED, id__in=projetos_homologados_ids)
+    )
+
+    # Filtros opcionais
+    if course_id:
+        qs = qs.filter(challenge__course_id=course_id)
+    if sdg_id:
+        qs = qs.filter(challenge__sdg_id=sdg_id)
+    if category_id:
+        qs = qs.filter(category_id=category_id)
+    if search:
+        qs = qs.filter(Q(title__icontains=search) | Q(summary__icontains=search))
+
     return (
-        Project.objects.filter(status=ProjectStatus.COMPLETED)
-        .select_related("edition", "category", "challenge")
+        qs.select_related(
+            "edition", "category", "team", "challenge__course", "challenge__sdg"
+        )
+        .prefetch_related(
+            Prefetch(
+                "team__members",
+                queryset=TeamMember.objects.filter(active=True).select_related(
+                    "student__user"
+                ),
+                to_attr="active_members",
+            )
+        )
         .order_by("-created_at")
     )
 
 
 def get_public_project(project_id: int) -> Project | None:
+    """Detalhe público do projeto (público) - RF45."""
+    projetos_homologados_ids = ProjectResult.objects.filter(
+        approved_at__isnull=False
+    ).values("project_id")
+
+    qs = Project.objects.exclude(status=ProjectStatus.DISQUALIFIED).filter(
+        Q(edition__status=EditionStatus.PUBLISHED)
+        | Q(edition__status=EditionStatus.CLOSED, id__in=projetos_homologados_ids)
+    )
+
     return (
-        Project.objects.filter(id=project_id, status=ProjectStatus.COMPLETED)
-        .select_related("edition", "category", "challenge", "team")
+        qs.filter(id=project_id)
+        .select_related(
+            "edition", "category", "team", "challenge__course", "challenge__sdg"
+        )
+        .prefetch_related(
+            Prefetch(
+                "team__members",
+                queryset=TeamMember.objects.filter(active=True).select_related(
+                    "student__user"
+                ),
+                to_attr="active_members",
+            )
+        )
         .first()
     )
