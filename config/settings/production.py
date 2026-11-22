@@ -16,6 +16,8 @@ TIME_ZONE = base.TIME_ZONE
 USE_I18N = base.USE_I18N
 USE_TZ = base.USE_TZ
 STATIC_URL = base.STATIC_URL
+# collectstatic grava aqui; o Caddy serve /static/ desta pasta (docker-compose.prod).
+STATIC_ROOT = base.BASE_DIR / "staticfiles"
 STORAGES = base.STORAGES
 DELIVERY_STORAGE_ROOT = base.DELIVERY_STORAGE_ROOT
 DELIVERY_MAX_FILE_MB = base.DELIVERY_MAX_FILE_MB
