@@ -93,7 +93,7 @@ def test_com_uma_avaliacao_a_nota_fica_pendente_e_oculta(ctx):
     assert etapa["feedback"] == []
     assert etapa["criteria"][0]["average"] is None
     assert etapa["evaluation_count"] == 1
-    assert etapa["min_evaluators"] == 2
+    assert etapa["min_evaluations"] == 2
 
 
 def test_com_o_minimo_de_avaliacoes_mostra_media_e_feedback(ctx):
@@ -102,7 +102,7 @@ def test_com_o_minimo_de_avaliacoes_mostra_media_e_feedback(ctx):
 
     etapa = etapa_0(client_for(ctx.aluno).get(ctx.url))
 
-    assert etapa["status"] == "FINALIZED"
+    assert etapa["status"] == "DEFINITIVE"
     assert etapa["value"] == "2.25"
     assert etapa["criteria"][0]["average"] == "0.75"
     assert len(etapa["feedback"]) == 2
@@ -122,7 +122,7 @@ def test_equipe_que_nao_entregou_mostra_zero(ctx):
     etapa = next(
         e for e in response.data["stages"] if e["stage"]["id"] == sem_entrega.pk
     )
-    assert etapa["status"] == "FINALIZED"
+    assert etapa["status"] == "ZERO_NO_SUBMISSION"
     assert etapa["value"] == "0.00"
     assert etapa["deliverable_status"] == "NOT_DELIVERED"
 

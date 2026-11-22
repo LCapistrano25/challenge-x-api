@@ -8,7 +8,7 @@ Plataforma do Desafio X da UniCatólica. Django 6.1 + DRF, uv, PostgreSQL. Conte
 |---|---|
 | Interface da API (rotas, campos, enums, códigos de erro, status HTTP) | **Contrato** — `docs/api/` (OpenAPI gerado por `gen_openapi.py`; edite o gerador, nunca o YAML) |
 | Comportamento e regras | Requisitos — Google Doc "DOCUMENTAÇÃO PADRÃO DE REQUISITOS \| PLATAFORMA DESAFIO X" |
-| Persistência | Models + migrations, desenhados para cumprir o contrato. Referência de nomes: `docs/modelagem/desafio-x.dbml` |
+| Persistência | Models + migrations, desenhados para cumprir o contrato. O DBML (`docs/modelagem/desafio-x.dbml`) é gerado das models por `gen_dbml.py`; nunca edite à mão |
 | Padrões de código e nomes internos | Guia — `docs/guia-implementacao-django.md` (glossário da seção 7) |
 
 - O contrato define o que vai para o frontend. Quando código e contrato divergem, o código se ajusta ao contrato.

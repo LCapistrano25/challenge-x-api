@@ -160,3 +160,28 @@ def test_corpo_acima_do_limite_sai_em_json(fmt, settings):
     )
     assert response.status_code == 400
     assert response.json()["error"]["code"] == "request_too_large"
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "url",
+    ["/api/rota-que-nao-existe", "/api/admin/editions/abc/evaluators"],
+)
+def test_rota_inexistente_da_api_responde_404_em_json(url):
+    from rest_framework.test import APIClient
+
+    response = APIClient().get(url)
+    assert response.status_code == 404
+    assert response.json() == {
+        "error": {
+            "code": "not_found",
+            "message": "Recurso não encontrado.",
+            "details": None,
+        }
+    }
+
+
+def test_rota_inexistente_fora_da_api_continua_em_html(client):
+    response = client.get("/pagina-que-nao-existe")
+    assert response.status_code == 404
+    assert response["Content-Type"].startswith("text/html")
