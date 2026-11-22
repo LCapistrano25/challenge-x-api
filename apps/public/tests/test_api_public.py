@@ -133,6 +133,7 @@ def test_vencedores_de_edicao_inexistente_responde_404(api_client):
 
     assert response.status_code == 404
 
+
 @pytest.mark.django_db
 def test_api_public_projects_list(api_client):
     """Testa se a vitrine retorna 200 OK apenas com projetos COMPLETED."""

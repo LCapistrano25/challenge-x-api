@@ -41,12 +41,15 @@ class ClosedEditionsListView(APIView):
 
 class EditionWinnersListView(APIView):
     """GET /api/public/editions/{edition_id}/winners : Galeria de vencedores"""
+
     permission_classes = []
 
     def get(self, request, edition_id):
         winners = list_edition_winners(edition_id)
         serializer = WinnerSerializer(winners, many=True)
         return Response(serializer.data)
+
+
 class ProjectPublicSerializer(serializers.Serializer):
     """Serializer para a vitrine de projetos."""
 
