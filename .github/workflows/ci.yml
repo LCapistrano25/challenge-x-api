@@ -36,6 +36,14 @@ jobs:
       - name: Format check
         run: uv run ruff format --check .
 
+      - name: Contract matches its generator
+        run: |
+          uv run python docs/api/gen_openapi.py
+          git diff --exit-code -- docs/api/openapi.yaml
+
+      - name: Validate contract
+        run: uv run --with jsonschema python docs/api/validate_openapi.py docs/api/openapi.yaml
+
       - name: Audit dependencies
         run: |
           uv export --frozen --format requirements-txt --no-emit-project -o requirements-audit.txt
