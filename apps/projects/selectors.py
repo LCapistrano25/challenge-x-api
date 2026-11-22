@@ -4,7 +4,7 @@ from apps.core.models import Course
 from apps.editions.enums import StageKind
 from apps.editions.models import Category, Challenge, Stage
 from apps.projects.enums import DeliveryStatus, PhaseStatus
-from apps.projects.models import Submission, SubmissionVersion
+from apps.projects.models import Submission, SubmissionReceipt, SubmissionVersion
 
 
 def get_team_courses(team):
@@ -94,4 +94,16 @@ def get_project_deliverables(project):
         )
         .distinct()
         .order_by("order")
+    )
+
+
+def get_receipt_by_version(version_id: int) -> SubmissionReceipt | None:
+    """Comprovante da versão, com equipe, projeto e etapa carregados (RF31)."""
+    return (
+        SubmissionReceipt.objects.select_related(
+            "version__submission__project__team",
+            "version__submission__stage",
+        )
+        .filter(version_id=version_id)
+        .first()
     )

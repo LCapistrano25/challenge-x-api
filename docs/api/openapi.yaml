@@ -7,7 +7,7 @@ info:
 
     Fonte de dados: models do código (nomes e enums em inglês do guia de implementação). Os perfis são STUDENT, TEACHER, EXTERNAL_REVIEWER e ADMIN (enum UserRole).
 
-    **Autenticação:** alunos e professores entram com a Microsoft; administradores e avaliadores externos, com e-mail e senha. Rotas protegidas usam Bearer JWT.
+    **Autenticação:** alunos e professores entram com a Microsoft; administradores e avaliadores externos, com e-mail e senha. Rotas protegidas usam a sessão criada no login (cookie `sessionid`); POST, PUT, PATCH e DELETE exigem o cabeçalho `X-CSRFToken` com o token de `GET /api/auth/csrf`. Sem sessão, 401 `not_authenticated`.
 
     **Convenções adotadas:** formato de erro `Error` (P-37) e paginação `page`/`page_size` (P-38). Regra de negócio violada responde 409 com `code` estável.
 
@@ -18,7 +18,7 @@ servers:
 - url: http://localhost:8000
   description: Ambiente local de desenvolvimento
 security:
-- bearerAuth: []
+- sessionAuth: []
 tags:
 - name: auth
   description: Autenticação, sessões e autocadastro.
@@ -54,7 +54,7 @@ paths:
 
         **Requisitos:** RF49
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -128,7 +128,7 @@ paths:
 
         **Requisitos:** RF49
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -179,7 +179,7 @@ paths:
 
         **Requisitos:** RF05
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
 
@@ -257,7 +257,7 @@ paths:
 
         **Requisitos:** RF03
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -298,7 +298,7 @@ paths:
 
         **Requisitos:** RF03
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
 
@@ -365,7 +365,7 @@ paths:
 
         **Requisitos:** RF03
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
 
@@ -434,7 +434,7 @@ paths:
 
         **Requisitos:** RF03
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -478,7 +478,7 @@ paths:
 
         **Requisitos:** RF06
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
 
@@ -569,7 +569,7 @@ paths:
 
         **Requisitos:** RF06
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -620,7 +620,7 @@ paths:
 
         **Requisitos:** RF47
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -664,7 +664,7 @@ paths:
 
         **Requisitos:** RF47, RF06, RF48, RF49
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
 
@@ -744,7 +744,7 @@ paths:
 
         **Requisitos:** RF47
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -790,7 +790,7 @@ paths:
 
         **Requisitos:** RF47, RF48
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
 
@@ -876,7 +876,7 @@ paths:
 
         **Requisitos:** RF49
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -919,7 +919,7 @@ paths:
 
         **Requisitos:** RF49
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -994,7 +994,7 @@ paths:
 
         **Requisitos:** RF17
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
 
@@ -1042,7 +1042,7 @@ paths:
 
         **Requisitos:** RF17
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
 
@@ -1098,7 +1098,7 @@ paths:
 
         **Requisitos:** RF05
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -1150,7 +1150,7 @@ paths:
 
         **Requisitos:** RF05
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
 
@@ -1229,7 +1229,7 @@ paths:
 
         **Requisitos:** RF47
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
 
@@ -1316,7 +1316,7 @@ paths:
 
         **Requisitos:** RF06
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -1359,7 +1359,7 @@ paths:
 
         **Requisitos:** RF06
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
 
@@ -1445,7 +1445,7 @@ paths:
 
         **Requisitos:** RF11
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -1493,7 +1493,7 @@ paths:
 
         **Requisitos:** RF11
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
 
@@ -1580,7 +1580,7 @@ paths:
 
         **Requisitos:** RF11, RFXX
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -1653,7 +1653,7 @@ paths:
 
         **Requisitos:** RF12
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -1699,7 +1699,7 @@ paths:
 
         **Requisitos:** RF12
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
 
@@ -1787,7 +1787,7 @@ paths:
 
         **Requisitos:** RF12
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -1862,7 +1862,7 @@ paths:
 
         **Requisitos:** RF09
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
 
@@ -1947,7 +1947,7 @@ paths:
 
         **Requisitos:** RF04
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -1992,7 +1992,7 @@ paths:
 
         **Requisitos:** RF04
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
 
@@ -2074,7 +2074,7 @@ paths:
 
         **Requisitos:** RF07
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -2132,7 +2132,7 @@ paths:
 
         **Requisitos:** RF07
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
 
@@ -2254,7 +2254,7 @@ paths:
 
         **Requisitos:** RF02
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -2293,7 +2293,7 @@ paths:
 
         **Requisitos:** RF02
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
 
@@ -2359,7 +2359,7 @@ paths:
 
         **Requisitos:** RF02
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
 
@@ -2429,7 +2429,7 @@ paths:
 
         **Requisitos:** RF14
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
 
@@ -2499,7 +2499,7 @@ paths:
 
         **Requisitos:** RFXX
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -2556,7 +2556,7 @@ paths:
 
         **Requisitos:** RFXX
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -2607,7 +2607,7 @@ paths:
 
         **Requisitos:** RFXX
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
 
@@ -2674,7 +2674,7 @@ paths:
 
         **Requisitos:** RFXX
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
 
@@ -2726,7 +2726,7 @@ paths:
 
         **Requisitos:** RF04
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -2769,7 +2769,7 @@ paths:
 
         **Requisitos:** RF04
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
 
@@ -2841,7 +2841,7 @@ paths:
 
         **Requisitos:** RF04
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -2897,7 +2897,7 @@ paths:
 
         **Requisitos:** RF04
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -2941,7 +2941,7 @@ paths:
 
         **Requisitos:** RF07
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -2997,7 +2997,7 @@ paths:
 
         **Requisitos:** RF07
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
 
@@ -3113,7 +3113,7 @@ paths:
 
         **Requisitos:** RF08
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -3154,7 +3154,7 @@ paths:
 
         **Requisitos:** RF08
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
 
@@ -3235,7 +3235,7 @@ paths:
 
         **Requisitos:** RFXX
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -3287,7 +3287,7 @@ paths:
 
         **Requisitos:** RFXX
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -3332,7 +3332,7 @@ paths:
 
         **Requisitos:** RFXX
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
 
@@ -3410,7 +3410,7 @@ paths:
 
         **Requisitos:** RFXX
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
 
@@ -3462,7 +3462,7 @@ paths:
 
         **Requisitos:** RFXX
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -3521,7 +3521,7 @@ paths:
 
         **Requisitos:** RFXX
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -3574,7 +3574,7 @@ paths:
 
         **Requisitos:** RFXX
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
 
@@ -3667,7 +3667,7 @@ paths:
 
         **Requisitos:** RFXX
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -3719,7 +3719,7 @@ paths:
 
         **Requisitos:** RFXX
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -3764,7 +3764,7 @@ paths:
 
         **Requisitos:** RFXX
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
 
@@ -3827,7 +3827,7 @@ paths:
 
         **Requisitos:** RFXX
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
 
@@ -3879,7 +3879,7 @@ paths:
 
         **Requisitos:** RF13
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -3930,7 +3930,7 @@ paths:
 
         **Requisitos:** RF13
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
 
@@ -4015,6 +4015,34 @@ paths:
                       code: edition_closed
                       message: A edição está encerrada e não pode ser alterada.
                       details: null
+  /api/auth/csrf:
+    get:
+      tags:
+      - auth
+      operationId: authGetCsrfToken
+      summary: Obter o token CSRF
+      description: |-
+        Devolve o token CSRF e grava o cookie csrftoken. O frontend envia o token no cabeçalho X-CSRFToken em toda escrita, inclusive no login.
+
+        **Requisitos:** RF01
+
+        **Autenticação:** pública (não exige sessão).
+
+        **Perfis permitidos:** qualquer visitante
+      x-status: confirmed
+      x-requirements:
+      - RF01
+      x-roles: []
+      security: []
+      responses:
+        '200':
+          description: Operação concluída.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CsrfToken'
+              example:
+                csrfToken: pZ1d3x...
   /api/auth/external-evaluators:
     post:
       tags:
@@ -4026,7 +4054,7 @@ paths:
 
         **Requisitos:** RF11
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
 
@@ -4097,7 +4125,7 @@ paths:
 
         **Requisitos:** RF01, RF18, RF36, RF41
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT, TEACHER, EXTERNAL_REVIEWER, ADMIN
 
@@ -4131,7 +4159,7 @@ paths:
 
         **Requisitos:** RF01, RF18, RF36, RF41
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT, TEACHER, EXTERNAL_REVIEWER, ADMIN
 
@@ -4174,7 +4202,7 @@ paths:
 
         **Requisitos:** RF18, RF36
 
-        **Autenticação:** pública (não exige token).
+        **Autenticação:** pública (não exige sessão).
 
         **Perfis permitidos:** qualquer visitante
 
@@ -4253,7 +4281,7 @@ paths:
 
         **Requisitos:** RF01, RF41
 
-        **Autenticação:** pública (não exige token).
+        **Autenticação:** pública (não exige sessão).
 
         **Perfis permitidos:** qualquer visitante
 
@@ -4312,7 +4340,7 @@ paths:
 
         **Requisitos:** RF19
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT
 
@@ -4390,7 +4418,7 @@ paths:
 
         **Requisitos:** RF36.1
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** TEACHER
 
@@ -4459,7 +4487,7 @@ paths:
 
         **Requisitos:** RF03, RF19, RF36.1, RF45
 
-        **Autenticação:** pública (não exige token).
+        **Autenticação:** pública (não exige sessão).
 
         **Perfis permitidos:** qualquer visitante
       x-status: confirmed
@@ -4493,7 +4521,7 @@ paths:
 
         **Requisitos:** RF31
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT, TEACHER, ADMIN
 
@@ -4536,17 +4564,27 @@ paths:
 
         **Requisitos:** RF31
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT, ADMIN
 
-        **Autorização adicional:** STUDENT: integrante ativo da equipe do projeto. ADMIN: qualquer.
+        **Autorização adicional:** STUDENT: integrante ativo da equipe do projeto. ADMIN: qualquer. TEACHER não consulta.
+
+        **Regras de negócio:**
+        - O comprovante nasce junto com a versão, no envio (RF31); o código de verificação é único e não muda.
+        - Somente leitura: o comprovante e a versão não se alteram depois de criados.
+        - A consulta continua permitida com equipe desclassificada, edição encerrada ou prazo vencido.
+        - file_url é nulo enquanto o PDF do comprovante não for gerado.
+
+        **Pendências relacionadas (api-pendencias.md):** P-43
       x-status: confirmed
       x-requirements:
       - RF31
       x-roles:
       - STUDENT
       - ADMIN
+      x-pendencias:
+      - P-43
       parameters:
       - $ref: '#/components/parameters/VersionId'
       responses:
@@ -4560,8 +4598,8 @@ paths:
                 id: 55
                 version_id: 77
                 number: 2
-                verification_code: DX-2026-1-7F3K9Q
-                file_url: https://storage.projetox.edu.br/comprovantes/DX-2026-1-7F3K9Q.pdf
+                verification_code: 3f2b8c1e9a7d4f60b5c2e1d0a9f8b7c6
+                file_url: null
                 generated_at: '2026-10-22T16:00:00Z'
                 team:
                   id: 12
@@ -4594,7 +4632,7 @@ paths:
 
         **Requisitos:** RF42
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** EXTERNAL_REVIEWER
 
@@ -4686,7 +4724,7 @@ paths:
 
         **Requisitos:** RF43
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** EXTERNAL_REVIEWER
 
@@ -4785,7 +4823,7 @@ paths:
 
         **Requisitos:** RF43
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** EXTERNAL_REVIEWER
 
@@ -4885,7 +4923,7 @@ paths:
 
         **Requisitos:** RF23
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT
 
@@ -4984,7 +5022,7 @@ paths:
 
         **Requisitos:** RF25
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT
 
@@ -5085,7 +5123,7 @@ paths:
 
         **Requisitos:** RF28, RF40
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** TEACHER
 
@@ -5180,7 +5218,7 @@ paths:
 
         **Requisitos:** RF17
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT, TEACHER, EXTERNAL_REVIEWER, ADMIN
 
@@ -5230,7 +5268,7 @@ paths:
 
         **Requisitos:** RF20, RF51
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT
 
@@ -5353,7 +5391,7 @@ paths:
 
         **Requisitos:** RF23
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT
 
@@ -5401,7 +5439,7 @@ paths:
 
         **Requisitos:** RF24
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT
 
@@ -5452,7 +5490,7 @@ paths:
 
         **Requisitos:** RF22, RF23, RF24, RF25, RF27, RF28
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT, TEACHER, EXTERNAL_REVIEWER, ADMIN
 
@@ -5510,7 +5548,7 @@ paths:
 
         **Requisitos:** RF22, RF23, RF24, RF25, RF27, RF28
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT, TEACHER, EXTERNAL_REVIEWER, ADMIN
 
@@ -5560,7 +5598,7 @@ paths:
 
         **Requisitos:** RF31, RF38
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT, TEACHER, ADMIN
 
@@ -5636,8 +5674,8 @@ paths:
                       key_partnerships: Texto do bloco.
                       cost_structure: Texto do bloco.
                   receipt:
-                    verification_code: DX-2026-1-7F3K9Q
-                    file_url: https://storage.projetox.edu.br/comprovantes/DX-2026-1-7F3K9Q.pdf
+                    verification_code: 3f2b8c1e9a7d4f60b5c2e1d0a9f8b7c6
+                    file_url: null
                     generated_at: '2026-10-22T16:00:00Z'
         '401':
           $ref: '#/components/responses/Unauthorized'
@@ -5656,7 +5694,7 @@ paths:
 
         **Requisitos:** RF32
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT, TEACHER, ADMIN
 
@@ -5733,7 +5771,7 @@ paths:
 
         **Requisitos:** RF38
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** TEACHER
 
@@ -5799,7 +5837,7 @@ paths:
 
         **Requisitos:** RF38
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** TEACHER
 
@@ -5897,7 +5935,7 @@ paths:
 
         **Requisitos:** RF31
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT
 
@@ -5975,8 +6013,8 @@ paths:
                     key_partnerships: Texto do bloco.
                     cost_structure: Texto do bloco.
                 receipt:
-                  verification_code: DX-2026-1-7F3K9Q
-                  file_url: https://storage.projetox.edu.br/comprovantes/DX-2026-1-7F3K9Q.pdf
+                  verification_code: 3f2b8c1e9a7d4f60b5c2e1d0a9f8b7c6
+                  file_url: null
                   generated_at: '2026-10-22T16:00:00Z'
         '400':
           $ref: '#/components/responses/BadRequest'
@@ -6050,7 +6088,7 @@ paths:
 
         **Requisitos:** RF35, RF46
 
-        **Autenticação:** pública (não exige token).
+        **Autenticação:** pública (não exige sessão).
 
         **Perfis permitidos:** qualquer visitante
       x-status: confirmed
@@ -6087,7 +6125,7 @@ paths:
 
         **Requisitos:** RF44
 
-        **Autenticação:** pública (não exige token).
+        **Autenticação:** pública (não exige sessão).
 
         **Perfis permitidos:** qualquer visitante
 
@@ -6162,7 +6200,7 @@ paths:
 
         **Requisitos:** RF35, RF46
 
-        **Autenticação:** pública (não exige token).
+        **Autenticação:** pública (não exige sessão).
 
         **Perfis permitidos:** qualquer visitante
 
@@ -6233,7 +6271,7 @@ paths:
 
         **Requisitos:** RF34, RF35, RF45, RF46
 
-        **Autenticação:** pública (não exige token).
+        **Autenticação:** pública (não exige sessão).
 
         **Perfis permitidos:** qualquer visitante
 
@@ -6305,7 +6343,7 @@ paths:
 
         **Requisitos:** RF34, RF45
 
-        **Autenticação:** pública (não exige token).
+        **Autenticação:** pública (não exige sessão).
 
         **Perfis permitidos:** qualquer visitante
 
@@ -6361,7 +6399,7 @@ paths:
 
         **Requisitos:** RF04, RF45
 
-        **Autenticação:** pública (não exige token).
+        **Autenticação:** pública (não exige sessão).
 
         **Perfis permitidos:** qualquer visitante
       x-status: confirmed
@@ -6398,7 +6436,7 @@ paths:
 
         **Requisitos:** RFXX
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT, TEACHER
 
@@ -6460,7 +6498,7 @@ paths:
 
         **Requisitos:** RFXX
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT, TEACHER
 
@@ -6511,7 +6549,7 @@ paths:
 
         **Requisitos:** RFXX
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT, TEACHER
 
@@ -6558,7 +6596,7 @@ paths:
 
         **Requisitos:** RF40
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** TEACHER
 
@@ -6615,7 +6653,7 @@ paths:
 
         **Requisitos:** RF37
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** TEACHER
 
@@ -6685,7 +6723,7 @@ paths:
 
         **Requisitos:** RF21
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT
 
@@ -6796,7 +6834,7 @@ paths:
 
         **Requisitos:** RF24
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT
 
@@ -6846,7 +6884,7 @@ paths:
 
         **Requisitos:** RF13, RF20
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT, TEACHER, ADMIN
 
@@ -6908,7 +6946,7 @@ paths:
 
         **Requisitos:** RF22
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT
 
@@ -7011,7 +7049,7 @@ paths:
 
         **Requisitos:** RF22
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT
 
@@ -7062,7 +7100,7 @@ paths:
 
         **Requisitos:** RF24
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT
 
@@ -7153,7 +7191,7 @@ paths:
 
         **Requisitos:** RF25
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT
 
@@ -7207,7 +7245,7 @@ paths:
 
         **Requisitos:** RF28
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT
 
@@ -7306,7 +7344,7 @@ paths:
 
         **Requisitos:** RF28
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT
 
@@ -7361,7 +7399,7 @@ paths:
 
         **Requisitos:** RF27
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT
 
@@ -7457,7 +7495,7 @@ paths:
 
         **Requisitos:** RF26
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT
 
@@ -7538,7 +7576,7 @@ paths:
 
         **Requisitos:** RF33
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT
 
@@ -7591,7 +7629,7 @@ paths:
 
         **Requisitos:** RF39
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** TEACHER, ADMIN
 
@@ -7640,7 +7678,7 @@ paths:
 
         **Requisitos:** RF30, RF20
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT, TEACHER, ADMIN
 
@@ -7705,7 +7743,7 @@ paths:
 
         **Requisitos:** RF30, RF49
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT
 
@@ -7805,7 +7843,7 @@ paths:
 
         **Requisitos:** RF29
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT
 
@@ -7896,7 +7934,7 @@ paths:
 
         **Requisitos:** RF30
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT
 
@@ -8003,7 +8041,7 @@ paths:
 
         **Requisitos:** RF29, RF50
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT
 
@@ -8046,11 +8084,17 @@ paths:
           $ref: '#/components/responses/NotFound'
 components:
   securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-      description: JWT da aplicação emitido pelas rotas de sessão.
+    sessionAuth:
+      type: apiKey
+      in: cookie
+      name: sessionid
+      description: Cookie de sessão do Django, criado pelas rotas de login e encerrado em POST /api/auth/logout. Expira após
+        30 minutos sem uso (P-03).
+    csrfToken:
+      type: apiKey
+      in: header
+      name: X-CSRFToken
+      description: Token de GET /api/auth/csrf, exigido em POST, PUT, PATCH e DELETE (inclusive no login).
   parameters:
     UserId:
       name: user_id
@@ -8343,18 +8387,27 @@ components:
         default: false
   responses:
     BadRequest:
-      description: Requisição inválida.
+      description: 'Requisição inválida: dados inválidos (`validation_error`) ou corpo acima de 2,5 MB, o `DATA_UPLOAD_MAX_MEMORY_SIZE`
+        (`request_too_large`).'
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
-          example:
-            error:
-              code: validation_error
-              message: Dados inválidos.
-              details:
-                title:
-                - Este campo é obrigatório.
+          examples:
+            validation_error:
+              value:
+                error:
+                  code: validation_error
+                  message: Dados inválidos.
+                  details:
+                    title:
+                    - Este campo é obrigatório.
+            request_too_large:
+              value:
+                error:
+                  code: request_too_large
+                  message: A requisição excede o tamanho permitido.
+                  details: null
     Unauthorized:
       description: Autenticação ausente, inválida ou expirada.
       content:
@@ -11475,14 +11528,15 @@ components:
         verification_code:
           type: string
           examples:
-          - DX-2026-1-7F3K9Q
+          - 3f2b8c1e9a7d4f60b5c2e1d0a9f8b7c6
         file_url:
           type:
           - string
           - 'null'
-          format: uri
+          description: Caminho autenticado do PDF do comprovante; nulo enquanto o PDF não for gerado. Nunca é URL pública.
+          format: uri-reference
           examples:
-          - https://storage.projetox.edu.br/comprovantes/DX-2026-1-7F3K9Q.pdf
+          - null
         generated_at:
           type: string
           format: date-time
@@ -11768,14 +11822,15 @@ components:
         verification_code:
           type: string
           examples:
-          - DX-2026-1-7F3K9Q
+          - 3f2b8c1e9a7d4f60b5c2e1d0a9f8b7c6
         file_url:
           type:
           - string
           - 'null'
-          format: uri
+          description: Caminho autenticado do PDF do comprovante; nulo enquanto o PDF não for gerado. Nunca é URL pública.
+          format: uri-reference
           examples:
-          - https://storage.projetox.edu.br/comprovantes/DX-2026-1-7F3K9Q.pdf
+          - null
         generated_at:
           type: string
           format: date-time
@@ -13183,3 +13238,13 @@ components:
       - next
       - previous
       - results
+    CsrfToken:
+      type: object
+      properties:
+        csrfToken:
+          type: string
+          description: Valor para o cabeçalho X-CSRFToken. A resposta também grava o cookie csrftoken.
+          examples:
+          - pZ1d3x...
+      required:
+      - csrfToken
