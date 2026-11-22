@@ -9,7 +9,6 @@ from apps.teams.models import TeamMember
 
 
 def get_current_edition() -> Edition | None:
-    """Edição vigente: a publicada (RF44, P-41), com etapas, ODS e desafios."""
     return (
         Edition.objects.filter(status=EditionStatus.PUBLISHED)
         .prefetch_related(
@@ -22,52 +21,45 @@ def get_current_edition() -> Edition | None:
                 ),
             ),
         )
-        .order_by("-year", "-semester")
         .first()
     )
 
 
 def list_closed_editions() -> QuerySet[Edition]:
-    """Edições encerradas, para o acervo (RF35, RF46)."""
-    return Edition.objects.filter(status=EditionStatus.CLOSED).order_by(
-        "-year", "-semester"
-    )
+    return Edition.objects.filter(status=EditionStatus.CLOSED).order_by("-closed_at")
 
 
 def list_edition_winners(edition: Edition) -> QuerySet[ProjectResult]:
-    """Pódio da edição: só edição encerrada e resultado homologado (RF35, RF46)."""
     if edition.status != EditionStatus.CLOSED:
         return ProjectResult.objects.none()
+
     return (
         ProjectResult.objects.filter(
-            project__edition=edition, award__isnull=False, approved_at__isnull=False
+            project__edition=edition,
+            award__isnull=False,
+            approved_at__isnull=False,
         )
         .select_related(
             "project__edition",
             "project__category",
+            "project__team",
             "project__challenge__course",
             "project__challenge__sdg",
         )
         .prefetch_related(
             Prefetch(
                 "project__team__members",
-                queryset=TeamMember.objects.filter(active=True).select_related(
-                    "student__user"
-                ),
+                # Trazemos o student e o user encadeados
+                queryset=TeamMember.objects.select_related("student__user"),
+                # O serializer do revisor procura exatamente por 'active_members'
                 to_attr="active_members",
             )
         )
-        .order_by(
-            "project__challenge__course__name", "project__category__name", "award"
-        )
+        .order_by("award")
     )
 
 
 def list_public_projects() -> QuerySet[Project]:
-    """
-    Lista todos os projetos públicos para a vitrine.
-    Regra (P-28): Apenas projetos com status COMPLETED.
-    """
     return (
         Project.objects.filter(status=ProjectStatus.COMPLETED)
         .select_related("edition", "category", "challenge")
@@ -76,10 +68,6 @@ def list_public_projects() -> QuerySet[Project]:
 
 
 def get_public_project(project_id: int) -> Project | None:
-    """
-    Retorna o detalhe de um projeto público específico.
-    Regra (P-28): O projeto deve ter o status COMPLETED.
-    """
     return (
         Project.objects.filter(id=project_id, status=ProjectStatus.COMPLETED)
         .select_related("edition", "category", "challenge", "team")

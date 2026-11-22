@@ -1,8 +1,10 @@
 from django.http import Http404
+from django.shortcuts import get_object_or_404
 from rest_framework import serializers
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.editions.models import Edition
 from apps.public.selectors import (
     get_current_edition,
     get_public_project,
@@ -45,7 +47,11 @@ class EditionWinnersListView(APIView):
     permission_classes = []
 
     def get(self, request, edition_id):
-        winners = list_edition_winners(edition_id)
+        # 1. Buscamos o objeto Edition primeiro
+        edition = get_object_or_404(Edition, id=edition_id)
+        # 2. Passamos o objeto para o seletor
+        winners = list_edition_winners(edition)
+
         serializer = WinnerSerializer(winners, many=True)
         return Response(serializer.data)
 
