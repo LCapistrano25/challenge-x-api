@@ -5,9 +5,9 @@ info:
   description: |-
     API REST da plataforma do Projeto X (Desafio X) da UniCatólica.
 
-    Fonte de dados: DBML aprovado (nomes e enums em inglês). Os perfis são STUDENT, TEACHER, EXTERNAL_EVALUATOR e ADMIN (enum user_role).
+    Fonte de dados: models do código (nomes e enums em inglês do guia de implementação). Os perfis são STUDENT, TEACHER, EXTERNAL_REVIEWER e ADMIN (enum UserRole).
 
-    **Autenticação:** alunos e professores entram com a Microsoft; administradores e avaliadores externos, com e-mail e senha. Rotas protegidas usam Bearer JWT.
+    **Autenticação:** alunos e professores entram com a Microsoft; administradores e avaliadores externos, com e-mail e senha. Rotas protegidas usam a sessão criada no login (cookie `sessionid`); POST, PUT, PATCH e DELETE exigem o cabeçalho `X-CSRFToken` com o token de `GET /api/auth/csrf`. Sem sessão, 401 `not_authenticated`.
 
     **Convenções adotadas:** formato de erro `Error` (P-37) e paginação `page`/`page_size` (P-38). Regra de negócio violada responde 409 com `code` estável.
 
@@ -18,7 +18,7 @@ servers:
 - url: http://localhost:8000
   description: Ambiente local de desenvolvimento
 security:
-- bearerAuth: []
+- sessionAuth: []
 tags:
 - name: auth
   description: Autenticação, sessões e autocadastro.
@@ -54,7 +54,7 @@ paths:
 
         **Requisitos:** RF49
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -128,7 +128,7 @@ paths:
 
         **Requisitos:** RF49
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -179,7 +179,7 @@ paths:
 
         **Requisitos:** RF05
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
 
@@ -201,7 +201,6 @@ paths:
             example:
               course_id: 1
               sdg_id: 9
-              title: Uso eficiente de recursos hídricos
               description: Texto revisado do desafio.
               active: false
       responses:
@@ -221,7 +220,6 @@ paths:
                   id: 9
                   number: 9
                   title: Indústria, Inovação e Infraestrutura
-                title: Uso eficiente de recursos hídricos no campus
                 description: Propor uma solução para reduzir o desperdício de água nas instalações da universidade.
                 active: true
                 created_at: '2026-10-22T16:00:00Z'
@@ -259,7 +257,7 @@ paths:
 
         **Requisitos:** RF03
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -282,7 +280,6 @@ paths:
               example:
               - id: 1
                 name: Engenharia de Software
-                slug: ES
                 term_count: 8
                 active: true
                 created_at: '2026-10-22T16:00:00Z'
@@ -301,22 +298,18 @@ paths:
 
         **Requisitos:** RF03
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
 
         **Regras de negócio:**
-        - term_count > 0.
-        - Nome e slug (código/sigla) únicos.
-
-        **Pendências relacionadas (api-pendencias.md):** P-17
+        - term_count ∈ {8, 10}.
+        - Nome único.
       x-status: confirmed
       x-requirements:
       - RF03
       x-roles:
       - ADMIN
-      x-pendencias:
-      - P-17
       requestBody:
         required: true
         content:
@@ -325,7 +318,6 @@ paths:
               $ref: '#/components/schemas/CourseCreate'
             example:
               name: Engenharia de Software
-              slug: ES
               term_count: 8
               active: true
       responses:
@@ -338,7 +330,6 @@ paths:
               example:
                 id: 1
                 name: Engenharia de Software
-                slug: ES
                 term_count: 8
                 active: true
                 created_at: '2026-10-22T16:00:00Z'
@@ -363,13 +354,6 @@ paths:
                       code: course_name_taken
                       message: Já existe curso com este nome.
                       details: null
-                course_slug_taken:
-                  summary: Já existe curso com esta sigla.
-                  value:
-                    error:
-                      code: course_slug_taken
-                      message: Já existe curso com esta sigla.
-                      details: null
   /api/admin/courses/{course_id}:
     patch:
       tags:
@@ -381,12 +365,12 @@ paths:
 
         **Requisitos:** RF03
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
 
         **Regras de negócio:**
-        - Reduzir term_count abaixo do período de alunos vinculados é recusado (400).
+        - term_count ∈ {8, 10}. Reduzir term_count abaixo do período de alunos vinculados é recusado (400).
       x-status: confirmed
       x-requirements:
       - RF03
@@ -402,7 +386,6 @@ paths:
               $ref: '#/components/schemas/CourseUpdate'
             example:
               name: Engenharia de Software
-              slug: ES
               term_count: 10
               active: false
       responses:
@@ -415,7 +398,6 @@ paths:
               example:
                 id: 1
                 name: Engenharia de Software
-                slug: ES
                 term_count: 8
                 active: true
                 created_at: '2026-10-22T16:00:00Z'
@@ -442,13 +424,6 @@ paths:
                       code: course_name_taken
                       message: Já existe curso com este nome.
                       details: null
-                course_slug_taken:
-                  summary: Já existe curso com esta sigla.
-                  value:
-                    error:
-                      code: course_slug_taken
-                      message: Já existe curso com esta sigla.
-                      details: null
     delete:
       tags:
       - core
@@ -459,7 +434,7 @@ paths:
 
         **Requisitos:** RF03
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -503,7 +478,7 @@ paths:
 
         **Requisitos:** RF06
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
 
@@ -524,7 +499,7 @@ paths:
               $ref: '#/components/schemas/CriterionUpdate'
             example:
               name: Inovação
-              description: Faixas revisadas.
+              rubric: Faixas revisadas.
               tiebreak_order: null
       responses:
         '200':
@@ -537,7 +512,7 @@ paths:
                 id: 21
                 edition_id: 3
                 name: Inovação
-                description: Avalia o grau de originalidade da solução...
+                rubric: Avalia o grau de originalidade da solução...
                 tiebreak_order: 1
                 created_at: '2026-10-22T16:00:00Z'
                 updated_at: '2026-10-22T16:00:00Z'
@@ -594,7 +569,7 @@ paths:
 
         **Requisitos:** RF06
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -645,7 +620,7 @@ paths:
 
         **Requisitos:** RF47
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -668,7 +643,7 @@ paths:
                 semester: 1
                 name: Desafio X 2026/1
                 status: SETUP
-                notice_url: https://storage.projetox.edu.br/editais/2026-1.pdf
+                regulation_url: https://storage.projetox.edu.br/editais/2026-1.pdf
                 min_members: 3
                 max_members: 5
                 published_at: null
@@ -689,7 +664,7 @@ paths:
 
         **Requisitos:** RF47, RF06, RF48, RF49
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
 
@@ -731,7 +706,7 @@ paths:
                 semester: 1
                 name: Desafio X 2026/1
                 status: SETUP
-                notice_url: https://storage.projetox.edu.br/editais/2026-1.pdf
+                regulation_url: https://storage.projetox.edu.br/editais/2026-1.pdf
                 min_members: 3
                 max_members: 5
                 published_at: null
@@ -769,7 +744,7 @@ paths:
 
         **Requisitos:** RF47
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -792,7 +767,7 @@ paths:
                 semester: 1
                 name: Desafio X 2026/1
                 status: SETUP
-                notice_url: https://storage.projetox.edu.br/editais/2026-1.pdf
+                regulation_url: https://storage.projetox.edu.br/editais/2026-1.pdf
                 min_members: 3
                 max_members: 5
                 published_at: null
@@ -815,7 +790,7 @@ paths:
 
         **Requisitos:** RF47, RF48
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
 
@@ -854,7 +829,7 @@ paths:
                 semester: 1
                 name: Desafio X 2026/1
                 status: SETUP
-                notice_url: https://storage.projetox.edu.br/editais/2026-1.pdf
+                regulation_url: https://storage.projetox.edu.br/editais/2026-1.pdf
                 min_members: 3
                 max_members: 5
                 published_at: null
@@ -901,7 +876,7 @@ paths:
 
         **Requisitos:** RF49
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -944,7 +919,7 @@ paths:
 
         **Requisitos:** RF49
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -1019,7 +994,7 @@ paths:
 
         **Requisitos:** RF17
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
 
@@ -1045,7 +1020,7 @@ paths:
               example:
               - id: 6
                 edition_id: 3
-                type: PARTICIPATION
+                kind: PARTICIPATION
                 template_url: https://storage.projetox.edu.br/certificados/modelos/participacao-2026-1.pdf
                 signatures: Reitoria; Coordenação do Desafio X
                 created_at: '2026-10-22T16:00:00Z'
@@ -1067,7 +1042,7 @@ paths:
 
         **Requisitos:** RF17
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
 
@@ -1099,7 +1074,7 @@ paths:
               example:
                 id: 6
                 edition_id: 3
-                type: PARTICIPATION
+                kind: PARTICIPATION
                 template_url: https://storage.projetox.edu.br/certificados/modelos/participacao-2026-1.pdf
                 signatures: Reitoria; Coordenação do Desafio X
                 created_at: '2026-10-22T16:00:00Z'
@@ -1123,7 +1098,7 @@ paths:
 
         **Requisitos:** RF05
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -1155,7 +1130,6 @@ paths:
                   id: 9
                   number: 9
                   title: Indústria, Inovação e Infraestrutura
-                title: Uso eficiente de recursos hídricos no campus
                 description: Propor uma solução para reduzir o desperdício de água nas instalações da universidade.
                 active: true
                 created_at: '2026-10-22T16:00:00Z'
@@ -1176,7 +1150,7 @@ paths:
 
         **Requisitos:** RF05
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
 
@@ -1199,7 +1173,6 @@ paths:
             example:
               course_id: 1
               sdg_id: 9
-              title: Uso eficiente de recursos hídricos no campus
               description: Propor uma solução para reduzir o desperdício de água nas instalações da universidade.
               active: true
       responses:
@@ -1219,7 +1192,6 @@ paths:
                   id: 9
                   number: 9
                   title: Indústria, Inovação e Infraestrutura
-                title: Uso eficiente de recursos hídricos no campus
                 description: Propor uma solução para reduzir o desperdício de água nas instalações da universidade.
                 active: true
                 created_at: '2026-10-22T16:00:00Z'
@@ -1257,7 +1229,7 @@ paths:
 
         **Requisitos:** RF47
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
 
@@ -1297,7 +1269,7 @@ paths:
                 semester: 1
                 name: Desafio X 2026/1
                 status: SETUP
-                notice_url: https://storage.projetox.edu.br/editais/2026-1.pdf
+                regulation_url: https://storage.projetox.edu.br/editais/2026-1.pdf
                 min_members: 3
                 max_members: 5
                 published_at: null
@@ -1344,7 +1316,7 @@ paths:
 
         **Requisitos:** RF06
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -1367,7 +1339,7 @@ paths:
               - id: 21
                 edition_id: 3
                 name: Inovação
-                description: Avalia o grau de originalidade da solução...
+                rubric: Avalia o grau de originalidade da solução...
                 tiebreak_order: 1
                 created_at: '2026-10-22T16:00:00Z'
                 updated_at: '2026-10-22T16:00:00Z'
@@ -1387,7 +1359,7 @@ paths:
 
         **Requisitos:** RF06
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
 
@@ -1409,7 +1381,7 @@ paths:
               $ref: '#/components/schemas/CriterionCreate'
             example:
               name: Inovação
-              description: Avalia o grau de originalidade da solução...
+              rubric: Avalia o grau de originalidade da solução...
               tiebreak_order: 1
       responses:
         '201':
@@ -1422,7 +1394,7 @@ paths:
                 id: 21
                 edition_id: 3
                 name: Inovação
-                description: Avalia o grau de originalidade da solução...
+                rubric: Avalia o grau de originalidade da solução...
                 tiebreak_order: 1
                 created_at: '2026-10-22T16:00:00Z'
                 updated_at: '2026-10-22T16:00:00Z'
@@ -1473,7 +1445,7 @@ paths:
 
         **Requisitos:** RF11
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -1521,7 +1493,7 @@ paths:
 
         **Requisitos:** RF11
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
 
@@ -1608,7 +1580,7 @@ paths:
 
         **Requisitos:** RF11, RFXX
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -1681,7 +1653,7 @@ paths:
 
         **Requisitos:** RF12
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -1705,9 +1677,9 @@ paths:
                 published: false
                 questions:
                 - id: 61
-                  position: 1
+                  order: 1
                   prompt: Clareza e qualidade do pitch
-                  type: SCORE
+                  kind: SCORE
                   max_score: '10.00'
                 created_at: '2026-10-22T16:00:00Z'
                 updated_at: '2026-10-22T16:00:00Z'
@@ -1727,13 +1699,13 @@ paths:
 
         **Requisitos:** RF12
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
 
         **Regras de negócio:**
-        - position única no formulário.
-        - SCORE exige max_score > 0; TEXT exige max_score nulo.
+        - order única no formulário.
+        - SCORE exige max_score > 0; CONCEPT e TEXT exigem max_score nulo.
         - Proibido alterar formulário publicado que já tenha respostas.
       x-status: confirmed
       x-requirements:
@@ -1751,9 +1723,9 @@ paths:
             example:
               title: Avaliação da Apresentação Final
               questions:
-              - position: 1
+              - order: 1
                 prompt: Clareza e qualidade do pitch
-                type: SCORE
+                kind: SCORE
                 max_score: '10.00'
       responses:
         '200':
@@ -1769,9 +1741,9 @@ paths:
                 published: false
                 questions:
                 - id: 61
-                  position: 1
+                  order: 1
                   prompt: Clareza e qualidade do pitch
-                  type: SCORE
+                  kind: SCORE
                   max_score: '10.00'
                 created_at: '2026-10-22T16:00:00Z'
                 updated_at: '2026-10-22T16:00:00Z'
@@ -1815,7 +1787,7 @@ paths:
 
         **Requisitos:** RF12
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -1839,9 +1811,9 @@ paths:
                 published: false
                 questions:
                 - id: 61
-                  position: 1
+                  order: 1
                   prompt: Clareza e qualidade do pitch
-                  type: SCORE
+                  kind: SCORE
                   max_score: '10.00'
                 created_at: '2026-10-22T16:00:00Z'
                 updated_at: '2026-10-22T16:00:00Z'
@@ -1890,7 +1862,7 @@ paths:
 
         **Requisitos:** RF09
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
 
@@ -1928,7 +1900,7 @@ paths:
                 semester: 1
                 name: Desafio X 2026/1
                 status: SETUP
-                notice_url: https://storage.projetox.edu.br/editais/2026-1.pdf
+                regulation_url: https://storage.projetox.edu.br/editais/2026-1.pdf
                 min_members: 3
                 max_members: 5
                 published_at: null
@@ -1975,7 +1947,7 @@ paths:
 
         **Requisitos:** RF04
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -2020,7 +1992,7 @@ paths:
 
         **Requisitos:** RF04
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
 
@@ -2102,7 +2074,7 @@ paths:
 
         **Requisitos:** RF07
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -2124,17 +2096,18 @@ paths:
               example:
               - id: 7
                 edition_id: 3
-                position: 3
+                order: 3
                 name: Entrega Preliminar
-                type: FORMATION
+                kind: FORMATION
                 starts_at: '2026-04-01T00:00:00Z'
                 ends_at: '2026-04-20T23:59:00Z'
+                evaluation_ends_at: '2026-04-27T23:59:00Z'
                 scored: true
-                points_value: '3.00'
-                min_evaluators: 2
-                deliverable_fields:
+                max_score: '3.00'
+                min_evaluations: 2
+                submission_fields:
                 - id: 31
-                  type: LINK
+                  kind: LINK
                   label: Relatório técnico (PDF)
                   required: true
                   formats: pdf
@@ -2159,18 +2132,19 @@ paths:
 
         **Requisitos:** RF07
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
 
         **Regras de negócio:**
-        - ends_at > starts_at; position única na edição; min_evaluators ≥ 1.
-        - points_value obrigatório e > 0 quando scored; nulo quando não pontuada.
+        - ends_at > starts_at; order única na edição; min_evaluations ≥ 1.
+        - max_score obrigatório e > 0 quando scored; nulo quando não pontuada.
+        - evaluation_ends_at obrigatório e posterior a ends_at quando scored (P-19).
         - A soma de 10,00 pontos é exigida na publicação (RF09), não a cada gravação.
-        - max_size_mb > 0; formats e max_size_mb apenas para FILE.
+        - max_size_mb > 0; formats e max_size_mb apenas para FILE (CANVAS e SWOT não usam).
         - Etapa FINAL não compõe a nota acadêmica (P-20).
 
-        **Pendências relacionadas (api-pendencias.md):** P-19, P-20
+        **Pendências relacionadas (api-pendencias.md):** P-19, P-20, P-47
       x-status: proposed
       x-requirements:
       - RF07
@@ -2179,6 +2153,7 @@ paths:
       x-pendencias:
       - P-19
       - P-20
+      - P-47
       parameters:
       - $ref: '#/components/parameters/EditionId'
       requestBody:
@@ -2188,17 +2163,18 @@ paths:
             schema:
               $ref: '#/components/schemas/StageCreate'
             example:
-              position: 3
+              order: 3
               name: Entrega Preliminar
-              type: FORMATION
+              kind: FORMATION
               starts_at: '2026-04-01T00:00:00Z'
               ends_at: '2026-04-20T23:59:00Z'
+              evaluation_ends_at: '2026-04-27T23:59:00Z'
               scored: true
-              points_value: '3.00'
-              min_evaluators: 2
-              deliverable_fields:
+              max_score: '3.00'
+              min_evaluations: 2
+              submission_fields:
               - id: 31
-                type: LINK
+                kind: LINK
                 label: Relatório técnico (PDF)
                 required: true
                 formats: pdf
@@ -2213,17 +2189,18 @@ paths:
               example:
                 id: 7
                 edition_id: 3
-                position: 3
+                order: 3
                 name: Entrega Preliminar
-                type: FORMATION
+                kind: FORMATION
                 starts_at: '2026-04-01T00:00:00Z'
                 ends_at: '2026-04-20T23:59:00Z'
+                evaluation_ends_at: '2026-04-27T23:59:00Z'
                 scored: true
-                points_value: '3.00'
-                min_evaluators: 2
-                deliverable_fields:
+                max_score: '3.00'
+                min_evaluations: 2
+                submission_fields:
                 - id: 31
-                  type: LINK
+                  kind: LINK
                   label: Relatório técnico (PDF)
                   required: true
                   formats: pdf
@@ -2266,6 +2243,251 @@ paths:
                       code: edition_closed
                       message: A edição está encerrada e não pode ser alterada.
                       details: null
+  /api/admin/email-domains:
+    get:
+      tags:
+      - accounts
+      operationId: accountsListEmailDomains
+      summary: Listar domínios institucionais
+      description: |-
+        Lista os domínios de e-mail institucionais cadastrados.
+
+        **Requisitos:** RF02
+
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
+
+        **Perfis permitidos:** ADMIN
+      x-status: confirmed
+      x-requirements:
+      - RF02
+      x-roles:
+      - ADMIN
+      parameters:
+      - $ref: '#/components/parameters/ActiveFilter'
+      - $ref: '#/components/parameters/InstitutionalRoleFilter'
+      responses:
+        '200':
+          description: Operação concluída.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EmailDomain'
+              example:
+              - id: 1
+                name: a.catolica-to.edu.br
+                role: STUDENT
+                active: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags:
+      - accounts
+      operationId: accountsCreateEmailDomain
+      summary: Cadastrar domínio institucional
+      description: |-
+        Cadastra um domínio de e-mail institucional associado a um perfil (STUDENT ou TEACHER).
+
+        **Requisitos:** RF02
+
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
+
+        **Perfis permitidos:** ADMIN
+
+        **Regras de negócio:**
+        - O nome é normalizado para minúsculas e sem espaços; formato de domínio válido é obrigatório.
+        - Unicidade case-insensitive (409 email_domain_taken).
+        - Apenas STUDENT e TEACHER são aceitos.
+      x-status: confirmed
+      x-requirements:
+      - RF02
+      x-roles:
+      - ADMIN
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailDomainCreate'
+            example:
+              name: a.catolica-to.edu.br
+              role: STUDENT
+              active: true
+      responses:
+        '201':
+          description: Domínio criado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmailDomain'
+              example:
+                id: 1
+                name: a.catolica-to.edu.br
+                role: STUDENT
+                active: true
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: Conflito com uma regra de negócio.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                email_domain_taken:
+                  summary: Já existe um domínio de e-mail cadastrado com este nome.
+                  value:
+                    error:
+                      code: email_domain_taken
+                      message: Já existe um domínio de e-mail cadastrado com este nome.
+                      details: null
+  /api/admin/email-domains/{domain_id}:
+    patch:
+      tags:
+      - accounts
+      operationId: accountsUpdateEmailDomain
+      summary: Atualizar domínio institucional
+      description: |-
+        Edita nome, perfil ou status de ativação de um domínio institucional.
+
+        **Requisitos:** RF02
+
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
+
+        **Perfis permitidos:** ADMIN
+
+        **Regras de negócio:**
+        - Aplica as mesmas regras de normalização, formato e unicidade case-insensitive do cadastro.
+      x-status: confirmed
+      x-requirements:
+      - RF02
+      x-roles:
+      - ADMIN
+      parameters:
+      - $ref: '#/components/parameters/DomainId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailDomainUpdate'
+            example:
+              name: a.catolica-to.edu.br
+              role: STUDENT
+              active: false
+      responses:
+        '200':
+          description: Operação concluída.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmailDomain'
+              example:
+                id: 1
+                name: a.catolica-to.edu.br
+                role: STUDENT
+                active: true
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Conflito com uma regra de negócio.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                email_domain_taken:
+                  summary: Já existe um domínio de e-mail cadastrado com este nome.
+                  value:
+                    error:
+                      code: email_domain_taken
+                      message: Já existe um domínio de e-mail cadastrado com este nome.
+                      details: null
+  /api/admin/evaluations/{evaluation_id}/rectifications:
+    post:
+      tags:
+      - evaluations
+      operationId: evaluationsCreateRectification
+      summary: Retificar a nota de um critério
+      description: |-
+        **Status: PROPOSTO** — o contrato depende da decisão de P-21 e pode mudar.
+
+        Altera os pontos de um critério de uma avaliação finalizada e grava o ajuste no histórico, que não pode ser alterado nem excluído.
+
+        **Requisitos:** RF14
+
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
+
+        **Perfis permitidos:** ADMIN
+
+        **Regras de negócio:**
+        - Somente avaliação finalizada; o rascunho continua do professor.
+        - Vale mesmo com o prazo de avaliação encerrado.
+        - Justificativa obrigatória; new_points entre 0 e o máximo do critério e diferente do valor atual.
+        - O critério precisa ter sido pontuado na avaliação (400 validation_error).
+        - Edição encerrada não aceita ajuste, nem do administrador (RN33).
+        - Recalcula a nota da etapa; a resposta traz o valor novo em stage_score.
+
+        **Pendências relacionadas (api-pendencias.md):** P-21
+      x-status: proposed
+      x-requirements:
+      - RF14
+      x-roles:
+      - ADMIN
+      x-pendencias:
+      - P-21
+      parameters:
+      - $ref: '#/components/parameters/EvaluationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RectificationWrite'
+            example:
+              stage_criterion_id: 51
+              new_points: '1.50'
+              reason: Erro de digitação do professor.
+      responses:
+        '201':
+          description: Retificação registrada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Rectification'
+              example:
+                id: 9
+                evaluation_id: 201
+                stage_criterion_id: 51
+                previous_points: '1.00'
+                new_points: '1.50'
+                reason: Erro de digitação do professor.
+                rectified_by: 1
+                rectified_at: '2026-11-18T21:30:00Z'
+                stage_score:
+                  value: '2.40'
+                  evaluation_count: 2
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/admin/external-evaluators:
     get:
       tags:
@@ -2277,7 +2499,7 @@ paths:
 
         **Requisitos:** RFXX
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -2334,7 +2556,7 @@ paths:
 
         **Requisitos:** RFXX
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -2385,7 +2607,7 @@ paths:
 
         **Requisitos:** RFXX
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
 
@@ -2452,7 +2674,7 @@ paths:
 
         **Requisitos:** RFXX
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
 
@@ -2504,7 +2726,7 @@ paths:
 
         **Requisitos:** RF04
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -2547,7 +2769,7 @@ paths:
 
         **Requisitos:** RF04
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
 
@@ -2619,7 +2841,7 @@ paths:
 
         **Requisitos:** RF04
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -2675,7 +2897,7 @@ paths:
 
         **Requisitos:** RF04
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -2719,7 +2941,7 @@ paths:
 
         **Requisitos:** RF07
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -2739,17 +2961,18 @@ paths:
               example:
                 id: 7
                 edition_id: 3
-                position: 3
+                order: 3
                 name: Entrega Preliminar
-                type: FORMATION
+                kind: FORMATION
                 starts_at: '2026-04-01T00:00:00Z'
                 ends_at: '2026-04-20T23:59:00Z'
+                evaluation_ends_at: '2026-04-27T23:59:00Z'
                 scored: true
-                points_value: '3.00'
-                min_evaluators: 2
-                deliverable_fields:
+                max_score: '3.00'
+                min_evaluations: 2
+                submission_fields:
                 - id: 31
-                  type: LINK
+                  kind: LINK
                   label: Relatório técnico (PDF)
                   required: true
                   formats: pdf
@@ -2774,7 +2997,7 @@ paths:
 
         **Requisitos:** RF07
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
 
@@ -2799,17 +3022,18 @@ paths:
             schema:
               $ref: '#/components/schemas/StageUpdate'
             example:
-              position: 3
+              order: 3
               name: Entrega Preliminar
-              type: FORMATION
+              kind: FORMATION
               starts_at: '2026-04-01T00:00:00Z'
               ends_at: '2026-04-22T23:59:00Z'
+              evaluation_ends_at: '2026-04-29T23:59:00Z'
               scored: true
-              points_value: '3.00'
-              min_evaluators: 2
-              deliverable_fields:
+              max_score: '3.00'
+              min_evaluations: 2
+              submission_fields:
               - id: 31
-                type: LINK
+                kind: LINK
                 label: Relatório técnico (PDF)
                 required: true
                 formats: pdf
@@ -2824,17 +3048,18 @@ paths:
               example:
                 id: 7
                 edition_id: 3
-                position: 3
+                order: 3
                 name: Entrega Preliminar
-                type: FORMATION
+                kind: FORMATION
                 starts_at: '2026-04-01T00:00:00Z'
                 ends_at: '2026-04-20T23:59:00Z'
+                evaluation_ends_at: '2026-04-27T23:59:00Z'
                 scored: true
-                points_value: '3.00'
-                min_evaluators: 2
-                deliverable_fields:
+                max_score: '3.00'
+                min_evaluations: 2
+                submission_fields:
                 - id: 31
-                  type: LINK
+                  kind: LINK
                   label: Relatório técnico (PDF)
                   required: true
                   formats: pdf
@@ -2888,7 +3113,7 @@ paths:
 
         **Requisitos:** RF08
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -2929,14 +3154,14 @@ paths:
 
         **Requisitos:** RF08
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
 
         **Regras de negócio:**
         - Somente etapas pontuadas.
         - max_score > 0.
-        - Soma dos max_score igual a points_value da etapa (400 stage_criteria_sum_mismatch).
+        - Soma dos max_score dos critérios igual ao max_score da etapa (400 stage_criteria_sum_mismatch).
         - Critério e etapa da mesma edição.
       x-status: confirmed
       x-requirements:
@@ -3010,7 +3235,7 @@ paths:
 
         **Requisitos:** RFXX
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -3062,7 +3287,7 @@ paths:
 
         **Requisitos:** RFXX
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -3107,7 +3332,7 @@ paths:
 
         **Requisitos:** RFXX
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
 
@@ -3185,7 +3410,7 @@ paths:
 
         **Requisitos:** RFXX
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
 
@@ -3237,7 +3462,7 @@ paths:
 
         **Requisitos:** RFXX
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -3296,7 +3521,7 @@ paths:
 
         **Requisitos:** RFXX
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -3349,7 +3574,7 @@ paths:
 
         **Requisitos:** RFXX
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
 
@@ -3442,7 +3667,7 @@ paths:
 
         **Requisitos:** RFXX
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -3494,7 +3719,7 @@ paths:
 
         **Requisitos:** RFXX
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -3539,7 +3764,7 @@ paths:
 
         **Requisitos:** RFXX
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
 
@@ -3602,7 +3827,7 @@ paths:
 
         **Requisitos:** RFXX
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
 
@@ -3654,7 +3879,7 @@ paths:
 
         **Requisitos:** RF13
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
       x-status: confirmed
@@ -3685,7 +3910,7 @@ paths:
                   name: Equipe Aurora
                   code: DXA7K2
                   status: ACTIVE
-                  qualification: QUALIFIED
+                  situation: COMPLETE
                   member_count: 4
                   project:
                     id: 40
@@ -3705,13 +3930,13 @@ paths:
 
         **Requisitos:** RF13
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
 
         **Regras de negócio:**
         - A equipe deixa de enviar entregas, fica fora de finalistas, ranking e certificados e some da vitrine pública.
-        - Data e responsável não são persistidos no modelo atual (P-22).
+        - Grava motivo, data (disqualified_at) e responsável (disqualified_by) (P-22).
 
         **Pendências relacionadas (api-pendencias.md):** P-22
       x-status: confirmed
@@ -3744,8 +3969,11 @@ paths:
                 name: Equipe Aurora
                 code: DXA7K2
                 status: ACTIVE
-                qualification: QUALIFIED
+                situation: COMPLETE
                 disqualification_reason: null
+                disqualified_at: null
+                disqualified_by: null
+                formation_extended_until: null
                 members:
                 - id: 101
                   student:
@@ -3787,6 +4015,34 @@ paths:
                       code: edition_closed
                       message: A edição está encerrada e não pode ser alterada.
                       details: null
+  /api/auth/csrf:
+    get:
+      tags:
+      - auth
+      operationId: authGetCsrfToken
+      summary: Obter o token CSRF
+      description: |-
+        Devolve o token CSRF e grava o cookie csrftoken. O frontend envia o token no cabeçalho X-CSRFToken em toda escrita, inclusive no login.
+
+        **Requisitos:** RF01
+
+        **Autenticação:** pública (não exige sessão).
+
+        **Perfis permitidos:** qualquer visitante
+      x-status: confirmed
+      x-requirements:
+      - RF01
+      x-roles: []
+      security: []
+      responses:
+        '200':
+          description: Operação concluída.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CsrfToken'
+              example:
+                csrfToken: pZ1d3x...
   /api/auth/external-evaluators:
     post:
       tags:
@@ -3794,17 +4050,17 @@ paths:
       operationId: accountsCreateExternalEvaluator
       summary: Cadastrar avaliador externo
       description: |-
-        Cria o usuário (role EXTERNAL_EVALUATOR, senha com hash) e o perfil external_evaluator.
+        Cria o usuário (role EXTERNAL_REVIEWER, senha com hash) e o perfil external_reviewer.
 
         **Requisitos:** RF11
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** ADMIN
 
         **Regras de negócio:**
         - E-mail sem restrição de domínio e único no sistema.
-        - Criação atômica de users + external_evaluator.
+        - Criação atômica de users + external_reviewer.
         - A senha nunca é retornada.
         - O vínculo com a edição é feito em POST /api/admin/editions/{edition_id}/evaluators (P-05).
 
@@ -3869,9 +4125,9 @@ paths:
 
         **Requisitos:** RF01, RF18, RF36, RF41
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
-        **Perfis permitidos:** STUDENT, TEACHER, EXTERNAL_EVALUATOR, ADMIN
+        **Perfis permitidos:** STUDENT, TEACHER, EXTERNAL_REVIEWER, ADMIN
 
         **Pendências relacionadas (api-pendencias.md):** P-03
       x-status: confirmed
@@ -3883,7 +4139,7 @@ paths:
       x-roles:
       - STUDENT
       - TEACHER
-      - EXTERNAL_EVALUATOR
+      - EXTERNAL_REVIEWER
       - ADMIN
       x-pendencias:
       - P-03
@@ -3903,9 +4159,9 @@ paths:
 
         **Requisitos:** RF01, RF18, RF36, RF41
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
-        **Perfis permitidos:** STUDENT, TEACHER, EXTERNAL_EVALUATOR, ADMIN
+        **Perfis permitidos:** STUDENT, TEACHER, EXTERNAL_REVIEWER, ADMIN
 
         **Pendências relacionadas (api-pendencias.md):** P-03
       x-status: confirmed
@@ -3917,7 +4173,7 @@ paths:
       x-roles:
       - STUDENT
       - TEACHER
-      - EXTERNAL_EVALUATOR
+      - EXTERNAL_REVIEWER
       - ADMIN
       x-pendencias:
       - P-03
@@ -3946,7 +4202,7 @@ paths:
 
         **Requisitos:** RF18, RF36
 
-        **Autenticação:** pública (não exige token).
+        **Autenticação:** pública (não exige sessão).
 
         **Perfis permitidos:** qualquer visitante
 
@@ -4021,18 +4277,18 @@ paths:
       description: |-
         **Status: PROPOSTO** — o contrato depende da decisão de P-01 e pode mudar.
 
-        Autentica contas com senha local (ADMIN e EXTERNAL_EVALUATOR) e cria a sessão (cookie). Exige o cabeçalho X-CSRFToken, obtido em GET /api/auth/csrf.
+        Autentica contas com senha local (ADMIN e EXTERNAL_REVIEWER) e cria a sessão (cookie). Exige o cabeçalho X-CSRFToken, obtido em GET /api/auth/csrf.
 
         **Requisitos:** RF01, RF41
 
-        **Autenticação:** pública (não exige token).
+        **Autenticação:** pública (não exige sessão).
 
         **Perfis permitidos:** qualquer visitante
 
         **Regras de negócio:**
         - Credenciais inválidas, conta inexistente, conta inativa ou conta sem senha (somente Microsoft) retornam o mesmo erro 401 invalid_credentials, sem indicar o campo incorreto.
-        - Somente perfis ADMIN e EXTERNAL_EVALUATOR autenticam por senha.
-        - EXTERNAL_EVALUATOR só autentica se vinculado à edição vigente, a publicada (P-41); caso contrário, 403 reviewer_not_in_current_edition (RF41).
+        - Somente perfis ADMIN e EXTERNAL_REVIEWER autenticam por senha.
+        - EXTERNAL_REVIEWER só autentica se vinculado à edição vigente, a publicada (P-41); caso contrário, 403 reviewer_not_in_current_edition (RF41).
         - A sessão expira após 30 minutos de inatividade, renovados a cada requisição (P-03).
 
         **Pendências relacionadas (api-pendencias.md):** P-01, P-03, P-05
@@ -4084,7 +4340,7 @@ paths:
 
         **Requisitos:** RF19
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT
 
@@ -4162,7 +4418,7 @@ paths:
 
         **Requisitos:** RF36.1
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** TEACHER
 
@@ -4231,7 +4487,7 @@ paths:
 
         **Requisitos:** RF03, RF19, RF36.1, RF45
 
-        **Autenticação:** pública (não exige token).
+        **Autenticação:** pública (não exige sessão).
 
         **Perfis permitidos:** qualquer visitante
       x-status: confirmed
@@ -4254,6 +4510,49 @@ paths:
               example:
               - id: 1
                 name: Engenharia de Software
+  /api/deliverable-items/{item_id}/file:
+    get:
+      tags:
+      - projects
+      operationId: projectsDownloadDeliverableFile
+      summary: Baixar arquivo de um item da entrega
+      description: |-
+        Devolve o arquivo enviado em um item de campo FILE. O armazenamento é privado: este é o único caminho de acesso.
+
+        **Requisitos:** RF31
+
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
+
+        **Perfis permitidos:** STUDENT, TEACHER, ADMIN
+
+        **Autorização adicional:** STUDENT: integrante ativo da equipe. TEACHER: vínculo ativo com o curso do desafio. ADMIN: qualquer (403 project_access_denied nos demais).
+
+        **Regras de negócio:**
+        - Item inexistente, de link ou com arquivo removido do armazenamento: 404.
+      x-status: confirmed
+      x-requirements:
+      - RF31
+      x-roles:
+      - STUDENT
+      - TEACHER
+      - ADMIN
+      parameters:
+      - $ref: '#/components/parameters/ItemId'
+      responses:
+        '200':
+          description: 'Conteúdo do arquivo, como anexo (`Content-Disposition: attachment`, `X-Content-Type-Options: nosniff`,
+            `Cache-Control: private, no-store`).'
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/deliverable-versions/{version_id}/receipt:
     get:
       tags:
@@ -4265,17 +4564,27 @@ paths:
 
         **Requisitos:** RF31
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT, ADMIN
 
-        **Autorização adicional:** STUDENT: integrante ativo da equipe do projeto. ADMIN: qualquer.
+        **Autorização adicional:** STUDENT: integrante ativo da equipe do projeto. ADMIN: qualquer. TEACHER não consulta.
+
+        **Regras de negócio:**
+        - O comprovante nasce junto com a versão, no envio (RF31); o código de verificação é único e não muda.
+        - Somente leitura: o comprovante e a versão não se alteram depois de criados.
+        - A consulta continua permitida com equipe desclassificada, edição encerrada ou prazo vencido.
+        - file_url é nulo enquanto o PDF do comprovante não for gerado.
+
+        **Pendências relacionadas (api-pendencias.md):** P-43
       x-status: confirmed
       x-requirements:
       - RF31
       x-roles:
       - STUDENT
       - ADMIN
+      x-pendencias:
+      - P-43
       parameters:
       - $ref: '#/components/parameters/VersionId'
       responses:
@@ -4288,9 +4597,9 @@ paths:
               example:
                 id: 55
                 version_id: 77
-                version_number: 2
-                verification_code: DX-2026-1-7F3K9Q
-                file_url: https://storage.projetox.edu.br/comprovantes/DX-2026-1-7F3K9Q.pdf
+                number: 2
+                verification_code: 3f2b8c1e9a7d4f60b5c2e1d0a9f8b7c6
+                file_url: null
                 generated_at: '2026-10-22T16:00:00Z'
                 team:
                   id: 12
@@ -4302,7 +4611,7 @@ paths:
                 stage:
                   id: 7
                   name: Entrega Preliminar
-                  position: 3
+                  order: 3
                 submitted_at: '2026-10-22T16:00:00Z'
         '401':
           $ref: '#/components/responses/Unauthorized'
@@ -4323,9 +4632,9 @@ paths:
 
         **Requisitos:** RF42
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
-        **Perfis permitidos:** EXTERNAL_EVALUATOR
+        **Perfis permitidos:** EXTERNAL_REVIEWER
 
         **Autorização adicional:** Avaliador vinculado à edição vigente (edition_evaluator) e restrito ao curso da abrangência.
 
@@ -4338,7 +4647,7 @@ paths:
       x-requirements:
       - RF42
       x-roles:
-      - EXTERNAL_EVALUATOR
+      - EXTERNAL_REVIEWER
       x-pendencias:
       - P-29
       - P-32
@@ -4415,16 +4724,16 @@ paths:
 
         **Requisitos:** RF43
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
-        **Perfis permitidos:** EXTERNAL_EVALUATOR
+        **Perfis permitidos:** EXTERNAL_REVIEWER
 
         **Autorização adicional:** Projeto finalista dentro da abrangência do avaliador.
       x-status: confirmed
       x-requirements:
       - RF43
       x-roles:
-      - EXTERNAL_EVALUATOR
+      - EXTERNAL_REVIEWER
       parameters:
       - $ref: '#/components/parameters/ProjectId'
       responses:
@@ -4464,9 +4773,9 @@ paths:
                   published: false
                   questions:
                   - id: 61
-                    position: 1
+                    order: 1
                     prompt: Clareza e qualidade do pitch
-                    type: SCORE
+                    kind: SCORE
                     max_score: '10.00'
                   created_at: '2026-10-22T16:00:00Z'
                   updated_at: '2026-10-22T16:00:00Z'
@@ -4476,9 +4785,9 @@ paths:
                   comment: Apresentação objetiva.
                   answers:
                   - question_id: 61
-                    type: SCORE
+                    kind: SCORE
                     value: '8.50'
-                    answer_text: null
+                    text: null
                   finalized_at: null
                   created_at: '2026-10-22T16:00:00Z'
                   updated_at: '2026-10-22T16:00:00Z'
@@ -4488,6 +4797,20 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          description: Conflito com uma regra de negócio.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                final_form_not_published:
+                  summary: O formulário da etapa final ainda não foi publicado.
+                  value:
+                    error:
+                      code: final_form_not_published
+                      message: O formulário da etapa final ainda não foi publicado.
+                      details: null
     put:
       tags:
       - evaluations
@@ -4500,15 +4823,15 @@ paths:
 
         **Requisitos:** RF43
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
-        **Perfis permitidos:** EXTERNAL_EVALUATOR
+        **Perfis permitidos:** EXTERNAL_REVIEWER
 
         **Autorização adicional:** Projeto finalista dentro da abrangência do avaliador.
 
         **Regras de negócio:**
-        - SCORE exige value entre 0 e max_score; TEXT exige answer_text.
-        - FINALIZED exige resposta para todas as perguntas e torna a avaliação imutável.
+        - SCORE exige value entre 0 e max_score; CONCEPT e TEXT exigem text.
+        - EVALUATED exige resposta para todas as perguntas e torna a avaliação imutável.
         - Notas alimentam apenas a premiação; não alteram a nota acadêmica.
 
         **Pendências relacionadas (api-pendencias.md):** P-30
@@ -4516,7 +4839,7 @@ paths:
       x-requirements:
       - RF43
       x-roles:
-      - EXTERNAL_EVALUATOR
+      - EXTERNAL_REVIEWER
       x-pendencias:
       - P-30
       parameters:
@@ -4528,12 +4851,12 @@ paths:
             schema:
               $ref: '#/components/schemas/FinalEvaluationWrite'
             example:
-              status: FINALIZED
+              status: EVALUATED
               comment: Apresentação objetiva.
               answers:
               - question_id: 61
                 value: '8.50'
-                answer_text: null
+                text: null
       responses:
         '200':
           description: Operação concluída.
@@ -4547,9 +4870,9 @@ paths:
                 comment: Apresentação objetiva.
                 answers:
                 - question_id: 61
-                  type: SCORE
+                  kind: SCORE
                   value: '8.50'
-                  answer_text: null
+                  text: null
                 finalized_at: null
                 created_at: '2026-10-22T16:00:00Z'
                 updated_at: '2026-10-22T16:00:00Z'
@@ -4568,6 +4891,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
               examples:
+                final_form_not_published:
+                  summary: O formulário da etapa final ainda não foi publicado.
+                  value:
+                    error:
+                      code: final_form_not_published
+                      message: O formulário da etapa final ainda não foi publicado.
+                      details: null
                 final_evaluation_already_finalized:
                   summary: A avaliação final já foi finalizada.
                   value:
@@ -4593,7 +4923,7 @@ paths:
 
         **Requisitos:** RF23
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT
 
@@ -4634,8 +4964,7 @@ paths:
                   code: DXA7K2
                 student:
                   user_id: 42
-                  name: Maria Souza
-                invited_email: null
+                  name: João Lima
                 status: PENDING
                 created_at: '2026-10-22T16:00:00Z'
                 responded_at: null
@@ -4693,7 +5022,7 @@ paths:
 
         **Requisitos:** RF25
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT
 
@@ -4794,7 +5123,7 @@ paths:
 
         **Requisitos:** RF28, RF40
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** TEACHER
 
@@ -4889,9 +5218,9 @@ paths:
 
         **Requisitos:** RF17
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
-        **Perfis permitidos:** STUDENT, TEACHER, EXTERNAL_EVALUATOR, ADMIN
+        **Perfis permitidos:** STUDENT, TEACHER, EXTERNAL_REVIEWER, ADMIN
 
         **Autorização adicional:** Somente certificados do próprio usuário; preservados mesmo com a conta desativada.
       x-status: confirmed
@@ -4900,7 +5229,7 @@ paths:
       x-roles:
       - STUDENT
       - TEACHER
-      - EXTERNAL_EVALUATOR
+      - EXTERNAL_REVIEWER
       - ADMIN
       responses:
         '200':
@@ -4913,16 +5242,13 @@ paths:
                   $ref: '#/components/schemas/Certificate'
               example:
               - id: 901
-                type: PARTICIPATION
+                kind: PARTICIPATION
                 edition:
                   id: 3
                   year: 2026
                   semester: 1
                   name: Desafio X 2026/1
                   status: SETUP
-                project:
-                  id: 40
-                  title: Monitoramento inteligente do consumo de água
                 workload_hours: 40
                 verification_code: CERT-2026-1-Q8W2E4
                 file_url: https://storage.projetox.edu.br/certificados/CERT-2026-1-Q8W2E4.pdf
@@ -4942,14 +5268,14 @@ paths:
 
         **Requisitos:** RF20, RF51
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT
 
         **Autorização adicional:** Somente os dados do próprio aluno.
 
         **Regras de negócio:**
-        - A edição vigente é a edição com status PUBLISHED ou IN_PROGRESS (P-41).
+        - A edição vigente é a edição com status PUBLISHED (P-41).
         - incomplete_requirements reflete a verificação de fim de formação (RF51).
         - Notas seguem as regras de exibição do RF32.
 
@@ -4984,8 +5310,11 @@ paths:
                   name: Equipe Aurora
                   code: DXA7K2
                   status: ACTIVE
-                  qualification: QUALIFIED
+                  situation: COMPLETE
                   disqualification_reason: null
+                  disqualified_at: null
+                  disqualified_by: null
+                  formation_extended_until: null
                   members:
                   - id: 101
                     student:
@@ -5030,13 +5359,14 @@ paths:
                 stages:
                 - stage:
                     id: 7
-                    position: 3
+                    order: 3
                     name: Entrega Preliminar
-                    type: FORMATION
+                    kind: FORMATION
                     starts_at: '2026-04-01T00:00:00Z'
                     ends_at: '2026-04-20T23:59:00Z'
+                    evaluation_ends_at: '2026-04-27T23:59:00Z'
                     scored: true
-                    points_value: '3.00'
+                    max_score: '3.00'
                     phase_status: UPCOMING
                   deliverable_status: NOT_SUBMITTED
                   score:
@@ -5061,7 +5391,7 @@ paths:
 
         **Requisitos:** RF23
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT
 
@@ -5090,8 +5420,7 @@ paths:
                   code: DXA7K2
                 student:
                   user_id: 42
-                  name: Maria Souza
-                invited_email: null
+                  name: João Lima
                 status: PENDING
                 created_at: '2026-10-22T16:00:00Z'
                 responded_at: null
@@ -5110,7 +5439,7 @@ paths:
 
         **Requisitos:** RF24
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT
 
@@ -5161,9 +5490,9 @@ paths:
 
         **Requisitos:** RF22, RF23, RF24, RF25, RF27, RF28
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
-        **Perfis permitidos:** STUDENT, TEACHER, EXTERNAL_EVALUATOR, ADMIN
+        **Perfis permitidos:** STUDENT, TEACHER, EXTERNAL_REVIEWER, ADMIN
 
         **Autorização adicional:** Somente as próprias notificações.
 
@@ -5179,7 +5508,7 @@ paths:
       x-roles:
       - STUDENT
       - TEACHER
-      - EXTERNAL_EVALUATOR
+      - EXTERNAL_REVIEWER
       - ADMIN
       x-pendencias:
       - P-14
@@ -5219,9 +5548,9 @@ paths:
 
         **Requisitos:** RF22, RF23, RF24, RF25, RF27, RF28
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
-        **Perfis permitidos:** STUDENT, TEACHER, EXTERNAL_EVALUATOR, ADMIN
+        **Perfis permitidos:** STUDENT, TEACHER, EXTERNAL_REVIEWER, ADMIN
 
         **Autorização adicional:** Somente notificações do próprio usuário; de outro usuário retorna 404.
       x-status: confirmed
@@ -5235,7 +5564,7 @@ paths:
       x-roles:
       - STUDENT
       - TEACHER
-      - EXTERNAL_EVALUATOR
+      - EXTERNAL_REVIEWER
       - ADMIN
       parameters:
       - $ref: '#/components/parameters/NotificationId'
@@ -5269,7 +5598,7 @@ paths:
 
         **Requisitos:** RF31, RF38
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT, TEACHER, ADMIN
 
@@ -5300,17 +5629,18 @@ paths:
               example:
               - stage:
                   id: 7
-                  position: 3
+                  order: 3
                   name: Entrega Preliminar
-                  type: FORMATION
+                  kind: FORMATION
                   starts_at: '2026-04-01T00:00:00Z'
                   ends_at: '2026-04-20T23:59:00Z'
+                  evaluation_ends_at: '2026-04-27T23:59:00Z'
                   scored: true
-                  points_value: '3.00'
+                  max_score: '3.00'
                   phase_status: UPCOMING
                 fields:
                 - id: 31
-                  type: LINK
+                  kind: LINK
                   label: Relatório técnico (PDF)
                   required: true
                   formats: pdf
@@ -5319,7 +5649,7 @@ paths:
                 official_version_id: null
                 versions:
                 - id: 77
-                  version_number: 2
+                  number: 2
                   submitted_by:
                     user_id: 42
                     name: Maria Souza
@@ -5330,12 +5660,22 @@ paths:
                     field_id: 31
                     type: LINK
                     link: null
-                    file_url: https://storage.projetox.edu.br/entregas/40/7/relatorio.pdf
+                    file_url: /api/deliverable-items/301/file
                     file_name: relatorio.pdf
                     size_bytes: 1048576
+                    content:
+                      customer_segments: Texto do bloco.
+                      value_propositions: Texto do bloco.
+                      channels: Texto do bloco.
+                      customer_relationships: Texto do bloco.
+                      revenue_streams: Texto do bloco.
+                      key_resources: Texto do bloco.
+                      key_activities: Texto do bloco.
+                      key_partnerships: Texto do bloco.
+                      cost_structure: Texto do bloco.
                   receipt:
-                    verification_code: DX-2026-1-7F3K9Q
-                    file_url: https://storage.projetox.edu.br/comprovantes/DX-2026-1-7F3K9Q.pdf
+                    verification_code: 3f2b8c1e9a7d4f60b5c2e1d0a9f8b7c6
+                    file_url: null
                     generated_at: '2026-10-22T16:00:00Z'
         '401':
           $ref: '#/components/responses/Unauthorized'
@@ -5354,7 +5694,7 @@ paths:
 
         **Requisitos:** RF32
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT, TEACHER, ADMIN
 
@@ -5362,8 +5702,8 @@ paths:
 
         **Regras de negócio:**
         - Nota = média aritmética das avaliações finalizadas.
-        - Abaixo de min_evaluators, status PENDING e valor oculto.
-        - Sem entrega no prazo, nota zero.
+        - Abaixo de min_evaluations, status PENDING; valor, média por critério e feedbacks ficam ocultos.
+        - Sem entrega no prazo da equipe (com a prorrogação), nota zero: status ZERO_NO_SUBMISSION, value 0.00 e deliverable_status NOT_DELIVERED. Um job (apply_zero_scores) grava o zero (RN24, P-27).
         - Avaliações finais de avaliadores externos não aparecem.
 
         **Pendências relacionadas (api-pendencias.md):** P-27, P-33, P-44
@@ -5395,12 +5735,12 @@ paths:
                 - stage:
                     id: 7
                     name: Entrega Preliminar
-                    position: 3
-                  points_value: '3.00'
+                    order: 3
+                  max_score: '3.00'
                   status: PENDING
                   value: '2.40'
                   evaluation_count: 2
-                  min_evaluators: 2
+                  min_evaluations: 2
                   deliverable_status: NOT_SUBMITTED
                   criteria:
                   - criterion:
@@ -5431,7 +5771,7 @@ paths:
 
         **Requisitos:** RF38
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** TEACHER
 
@@ -5458,13 +5798,13 @@ paths:
                 stage:
                   id: 7
                   name: Entrega Preliminar
-                  points_value: '3.00'
+                  max_score: '3.00'
                 criteria:
                 - stage_criterion_id: 51
                   criterion:
                     id: 21
                     name: Inovação
-                    description: Avalia o grau de originalidade...
+                    rubric: Avalia o grau de originalidade...
                   max_score: '1.50'
                 evaluation:
                   id: 201
@@ -5497,18 +5837,22 @@ paths:
 
         **Requisitos:** RF38
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** TEACHER
 
         **Autorização adicional:** Vínculo ativo com o curso do desafio do projeto.
 
         **Regras de negócio:**
-        - Somente etapas pontuadas do tipo EVALUATION.
+        - Somente etapas pontuadas do tipo SUBMISSION.
         - 0 ≤ points ≤ max_score do critério (400 points_out_of_range).
+        - Só avalia projeto com entrega válida: versão enviada até o prazo da equipe, com a prorrogação se houver.
+        - Um item por critério da etapa, sem repetição; critério de outra etapa é recusado.
         - FINALIZED exige todos os critérios e torna a avaliação imutável; retificação é escopo do RF14 (P-21).
-        - Ao finalizar, recalcula stage_score (média simples; FINALIZED quando evaluation_count ≥ min_evaluators).
+        - FINALIZED só depois do prazo de entrega da equipe, para não travar a nota numa versão que ela ainda pode substituir; o rascunho (DRAFT) pode ser salvo antes.
+        - Ao finalizar, recalcula stage_score (média simples; DEFINITIVE quando evaluation_count ≥ min_evaluations). A retificação do admin (RF14) também recalcula.
         - Respeita o prazo de avaliação (P-19).
+        - Violações de regra (avaliação finalizada, prazo, entrega inválida, critério repetido) voltam como 400 validation_error; professor sem vínculo com o curso volta 403 teacher_not_in_course.
 
         **Pendências relacionadas (api-pendencias.md):** P-19, P-21, P-33
       x-status: proposed
@@ -5571,20 +5915,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
               examples:
-                evaluation_already_finalized:
-                  summary: A avaliação já foi finalizada.
-                  value:
-                    error:
-                      code: evaluation_already_finalized
-                      message: A avaliação já foi finalizada.
-                      details: null
-                evaluation_period_closed:
-                  summary: O prazo de avaliação está encerrado.
-                  value:
-                    error:
-                      code: evaluation_period_closed
-                      message: O prazo de avaliação está encerrado.
-                      details: null
                 edition_closed:
                   summary: A edição está encerrada e não pode ser alterada.
                   value:
@@ -5605,19 +5935,24 @@ paths:
 
         **Requisitos:** RF31
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT
 
         **Autorização adicional:** O usuário deve ser o LEADER ativo da equipe.
 
         **Regras de negócio:**
-        - Somente dentro do prazo da etapa.
-        - Todos os campos obrigatórios preenchidos e válidos (formatos e tamanho máximo).
-        - Cada envio cria version_number sequencial; versões anteriores são preservadas.
+        - Somente dentro do prazo da etapa, incluindo a prorrogação da equipe (409 stage_deadline_closed); antes do início, 409 stage_not_open.
+        - Todos os campos obrigatórios (LINK, FILE, CANVAS e SWOT) respondidos, sem repetir, cada item com o tipo do seu campo (400 validation_error).
+        - Canvas: um texto não vazio, de até 5000 caracteres, nos nove blocos. SWOT: de 1 a 20 textos não vazios, de até 5000 caracteres, em cada quadrante. Chave desconhecida ou bloco vazio é 400 validation_error (P-47).
+        - Arquivo: extensão permitida pelos formatos do campo (400 file_format_not_allowed), até o tamanho máximo do campo e do servidor (400 file_too_large), não vazio e com conteúdo que combine com a extensão. Executáveis e scripts nunca entram.
+        - JSON aceita links, canvas e SWOT. Arquivos exigem multipart/form-data: `items` em string JSON, com `file_index` apontando para `files[]`; arquivo sobrando ou índice inexistente é 400.
+        - Os arquivos ficam em armazenamento privado, sem URL pública; o download é por GET /api/deliverable-items/{item_id}/file.
+        - O projeto precisa ter desafio, título e resumo (400 validation_error).
+        - Cada envio cria number sequencial; versões anteriores são preservadas.
         - Equipe desclassificada ou incompleta não envia (P-23).
 
-        **Pendências relacionadas (api-pendencias.md):** P-23, P-43
+        **Pendências relacionadas (api-pendencias.md):** P-23, P-43, P-47
       x-status: proposed
       x-requirements:
       - RF31
@@ -5626,15 +5961,24 @@ paths:
       x-pendencias:
       - P-23
       - P-43
+      - P-47
       parameters:
       - $ref: '#/components/parameters/ProjectId'
       - $ref: '#/components/parameters/StageId'
       requestBody:
         required: true
         content:
-          multipart/form-data:
+          application/json:
             schema:
               $ref: '#/components/schemas/DeliverableSubmission'
+            example:
+              items:
+              - field_id: 31
+                link: https://github.com/equipe/projeto
+              notes: Correção do relatório.
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DeliverableSubmissionMultipart'
       responses:
         '201':
           description: Versão registrada.
@@ -5644,7 +5988,7 @@ paths:
                 $ref: '#/components/schemas/DeliverableVersion'
               example:
                 id: 77
-                version_number: 2
+                number: 2
                 submitted_by:
                   user_id: 42
                   name: Maria Souza
@@ -5655,12 +5999,22 @@ paths:
                   field_id: 31
                   type: LINK
                   link: null
-                  file_url: https://storage.projetox.edu.br/entregas/40/7/relatorio.pdf
+                  file_url: /api/deliverable-items/301/file
                   file_name: relatorio.pdf
                   size_bytes: 1048576
+                  content:
+                    customer_segments: Texto do bloco.
+                    value_propositions: Texto do bloco.
+                    channels: Texto do bloco.
+                    customer_relationships: Texto do bloco.
+                    revenue_streams: Texto do bloco.
+                    key_resources: Texto do bloco.
+                    key_activities: Texto do bloco.
+                    key_partnerships: Texto do bloco.
+                    cost_structure: Texto do bloco.
                 receipt:
-                  verification_code: DX-2026-1-7F3K9Q
-                  file_url: https://storage.projetox.edu.br/comprovantes/DX-2026-1-7F3K9Q.pdf
+                  verification_code: 3f2b8c1e9a7d4f60b5c2e1d0a9f8b7c6
+                  file_url: null
                   generated_at: '2026-10-22T16:00:00Z'
         '400':
           $ref: '#/components/responses/BadRequest'
@@ -5698,6 +6052,13 @@ paths:
                       code: team_incomplete
                       message: Equipes incompletas não podem realizar entregas.
                       details: null
+                stage_not_open:
+                  summary: A etapa ainda não está aberta.
+                  value:
+                    error:
+                      code: stage_not_open
+                      message: A etapa ainda não está aberta.
+                      details: null
                 edition_closed:
                   summary: A edição está encerrada e não pode ser alterada.
                   value:
@@ -5705,6 +6066,17 @@ paths:
                       code: edition_closed
                       message: A edição está encerrada e não pode ser alterada.
                       details: null
+        '503':
+          description: Armazenamento de arquivos indisponível.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  code: storage_unavailable
+                  message: Armazenamento indisponível.
+                  details: null
   /api/public/editions:
     get:
       tags:
@@ -5716,7 +6088,7 @@ paths:
 
         **Requisitos:** RF35, RF46
 
-        **Autenticação:** pública (não exige token).
+        **Autenticação:** pública (não exige sessão).
 
         **Perfis permitidos:** qualquer visitante
       x-status: confirmed
@@ -5753,12 +6125,12 @@ paths:
 
         **Requisitos:** RF44
 
-        **Autenticação:** pública (não exige token).
+        **Autenticação:** pública (não exige sessão).
 
         **Perfis permitidos:** qualquer visitante
 
         **Regras de negócio:**
-        - A edição vigente é a edição com status PUBLISHED ou IN_PROGRESS (P-41).
+        - A edição vigente é a edição com status PUBLISHED (P-41).
         - phase_status é derivado das datas da etapa.
         - Notícias e canal de dúvidas não estão modelados (P-35).
 
@@ -5785,16 +6157,17 @@ paths:
                   semester: 1
                   name: Desafio X 2026/1
                   status: SETUP
-                notice_url: https://storage.projetox.edu.br/editais/2026-1.pdf
+                regulation_url: https://storage.projetox.edu.br/editais/2026-1.pdf
                 stages:
                 - id: 7
-                  position: 3
+                  order: 3
                   name: Entrega Preliminar
-                  type: FORMATION
+                  kind: FORMATION
                   starts_at: '2026-04-01T00:00:00Z'
                   ends_at: '2026-04-20T23:59:00Z'
+                  evaluation_ends_at: '2026-04-27T23:59:00Z'
                   scored: true
-                  points_value: '3.00'
+                  max_score: '3.00'
                   phase_status: UPCOMING
                 sdgs:
                 - id: 9
@@ -5827,7 +6200,7 @@ paths:
 
         **Requisitos:** RF35, RF46
 
-        **Autenticação:** pública (não exige token).
+        **Autenticação:** pública (não exige sessão).
 
         **Perfis permitidos:** qualquer visitante
 
@@ -5856,7 +6229,7 @@ paths:
                 items:
                   $ref: '#/components/schemas/Winner'
               example:
-              - award_place: 1
+              - award: 1
                 course:
                   id: 1
                   name: Engenharia de Software
@@ -5898,7 +6271,7 @@ paths:
 
         **Requisitos:** RF34, RF35, RF45, RF46
 
-        **Autenticação:** pública (não exige token).
+        **Autenticação:** pública (não exige sessão).
 
         **Perfis permitidos:** qualquer visitante
 
@@ -5970,7 +6343,7 @@ paths:
 
         **Requisitos:** RF34, RF45
 
-        **Autenticação:** pública (não exige token).
+        **Autenticação:** pública (não exige sessão).
 
         **Perfis permitidos:** qualquer visitante
 
@@ -6026,7 +6399,7 @@ paths:
 
         **Requisitos:** RF04, RF45
 
-        **Autenticação:** pública (não exige token).
+        **Autenticação:** pública (não exige sessão).
 
         **Perfis permitidos:** qualquer visitante
       x-status: confirmed
@@ -6063,7 +6436,7 @@ paths:
 
         **Requisitos:** RFXX
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT, TEACHER
 
@@ -6125,7 +6498,7 @@ paths:
 
         **Requisitos:** RFXX
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT, TEACHER
 
@@ -6176,7 +6549,7 @@ paths:
 
         **Requisitos:** RFXX
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT, TEACHER
 
@@ -6223,7 +6596,7 @@ paths:
 
         **Requisitos:** RF40
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** TEACHER
 
@@ -6280,16 +6653,25 @@ paths:
 
         **Requisitos:** RF37
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** TEACHER
 
         **Autorização adicional:** Somente projetos cujo desafio pertence a curso com vínculo ativo do professor. Não há atribuição individual de projetos.
+
+        **Regras de negócio:**
+        - Uma linha por projeto e etapa pontuada de entrega, só de edição publicada.
+        - deliverable_status é derivado (P-27): versão no prazo da equipe = SUBMITTED; sem versão e prazo aberto = NOT_SUBMITTED; sem versão e prazo encerrado = NOT_DELIVERED.
+        - pending_only devolve só entregas SUBMITTED que o professor autenticado ainda não finalizou.
+
+        **Pendências relacionadas (api-pendencias.md):** P-27
       x-status: confirmed
       x-requirements:
       - RF37
       x-roles:
       - TEACHER
+      x-pendencias:
+      - P-27
       parameters:
       - $ref: '#/components/parameters/CourseFilter'
       - $ref: '#/components/parameters/StageFilter'
@@ -6321,10 +6703,10 @@ paths:
                   stage:
                     id: 7
                     name: Entrega Preliminar
-                    position: 3
+                    order: 3
                   deliverable_status: NOT_SUBMITTED
                   evaluation_count: 1
-                  min_evaluators: 2
+                  min_evaluations: 2
                   my_evaluation_status: NOT_STARTED
         '401':
           $ref: '#/components/responses/Unauthorized'
@@ -6341,15 +6723,17 @@ paths:
 
         **Requisitos:** RF21
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT
 
         **Regras de negócio:**
-        - A edição vigente é a edição com status PUBLISHED ou IN_PROGRESS (P-41).
+        - A edição vigente é a edição com status PUBLISHED (P-41).
         - Somente durante o prazo da etapa FORMATION.
         - O aluno não pode estar em outra equipe ativa na edição.
-        - Nome único na edição.
+        - Nome único na edição (equipe desfeita libera o nome).
+        - A equipe não nasce só com o líder: o corpo traz de min_members - 1 a max_members - 1 convites (nunca menos de 1); fora disso, 400 team_invitations_required.
+        - Equipe e convites são criados na mesma transação; um convite recusado por regra (aluno já em equipe, sem cadastro confirmado) desfaz a criação.
 
         **Pendências relacionadas (api-pendencias.md):** P-41
       x-status: confirmed
@@ -6367,6 +6751,8 @@ paths:
               $ref: '#/components/schemas/TeamCreate'
             example:
               name: Equipe Aurora
+              invitations:
+              - student_id: 42
       responses:
         '201':
           description: Equipe criada.
@@ -6380,8 +6766,11 @@ paths:
                 name: Equipe Aurora
                 code: DXA7K2
                 status: ACTIVE
-                qualification: QUALIFIED
+                situation: COMPLETE
                 disqualification_reason: null
+                disqualified_at: null
+                disqualified_by: null
+                formation_extended_until: null
                 members:
                 - id: 101
                   student:
@@ -6445,12 +6834,12 @@ paths:
 
         **Requisitos:** RF24
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT
 
         **Regras de negócio:**
-        - A edição vigente é a edição com status PUBLISHED ou IN_PROGRESS (P-41).
+        - A edição vigente é a edição com status PUBLISHED (P-41).
       x-status: confirmed
       x-requirements:
       - RF24
@@ -6495,7 +6884,7 @@ paths:
 
         **Requisitos:** RF13, RF20
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT, TEACHER, ADMIN
 
@@ -6523,8 +6912,11 @@ paths:
                 name: Equipe Aurora
                 code: DXA7K2
                 status: ACTIVE
-                qualification: QUALIFIED
+                situation: COMPLETE
                 disqualification_reason: null
+                disqualified_at: null
+                disqualified_by: null
+                formation_extended_until: null
                 members:
                 - id: 101
                   student:
@@ -6554,7 +6946,7 @@ paths:
 
         **Requisitos:** RF22
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT
 
@@ -6600,8 +6992,7 @@ paths:
                   code: DXA7K2
                 student:
                   user_id: 42
-                  name: Maria Souza
-                invited_email: null
+                  name: João Lima
                 status: PENDING
                 created_at: '2026-10-22T16:00:00Z'
                 responded_at: null
@@ -6658,7 +7049,7 @@ paths:
 
         **Requisitos:** RF22
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT
 
@@ -6688,8 +7079,7 @@ paths:
                   code: DXA7K2
                 student:
                   user_id: 42
-                  name: Maria Souza
-                invited_email: null
+                  name: João Lima
                 status: PENDING
                 created_at: '2026-10-22T16:00:00Z'
                 responded_at: null
@@ -6710,7 +7100,7 @@ paths:
 
         **Requisitos:** RF24
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT
 
@@ -6801,7 +7191,7 @@ paths:
 
         **Requisitos:** RF25
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT
 
@@ -6855,7 +7245,7 @@ paths:
 
         **Requisitos:** RF28
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT
 
@@ -6954,7 +7344,7 @@ paths:
 
         **Requisitos:** RF28
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT
 
@@ -7009,7 +7399,7 @@ paths:
 
         **Requisitos:** RF27
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT
 
@@ -7046,8 +7436,11 @@ paths:
                 name: Equipe Aurora
                 code: DXA7K2
                 status: ACTIVE
-                qualification: QUALIFIED
+                situation: COMPLETE
                 disqualification_reason: null
+                disqualified_at: null
+                disqualified_by: null
+                formation_extended_until: null
                 members:
                 - id: 101
                   student:
@@ -7102,7 +7495,7 @@ paths:
 
         **Requisitos:** RF26
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT
 
@@ -7110,8 +7503,10 @@ paths:
 
         **Regras de negócio:**
         - Somente durante a formação; depois disso a composição é congelada.
-        - O LEADER deve transferir a liderança antes (RF27).
+        - O LEADER deve transferir a liderança antes (RF27), a não ser que esteja sozinho: aí a saída desfaz a equipe (status DISBANDED) e cancela os convites e as solicitações pendentes, avisando por notificação quem esperava resposta, e o aluno pode entrar em outra equipe.
         - Se o curso do desafio ficar sem representante, a seleção do desafio deve ser invalidada (P-25).
+        - Se a saída deixa a equipe com algum integrante, mas abaixo do mínimo da edição, a API responde 409 leave_below_minimum até receber confirm true; os demais integrantes são avisados de quantos restaram.
+        - Se a saída ocorre nas últimas 24 horas do prazo de formação e deixa a equipe abaixo do mínimo, a equipe ganha, uma única vez, 48 horas depois do fim do prazo (formation_extended_until) para convidar, receber solicitações e aceitar convites. Durante a janela extra ninguém sai.
 
         **Pendências relacionadas (api-pendencias.md):** P-25
       x-status: proposed
@@ -7123,9 +7518,19 @@ paths:
       - P-25
       parameters:
       - $ref: '#/components/parameters/TeamId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TeamLeave'
+            example:
+              confirm: false
       responses:
         '204':
           description: Saída registrada.
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -7153,6 +7558,13 @@ paths:
                       code: leader_must_transfer
                       message: Transfira a liderança antes de sair da equipe.
                       details: null
+                leave_below_minimum:
+                  summary: A saída deixa a equipe com algum integrante, mas abaixo do mínimo; reenvie com confirm true.
+                  value:
+                    error:
+                      code: leave_below_minimum
+                      message: A saída deixa a equipe com algum integrante, mas abaixo do mínimo; reenvie com confirm true.
+                      details: null
   /api/teams/{team_id}/member-notes:
     post:
       tags:
@@ -7164,7 +7576,7 @@ paths:
 
         **Requisitos:** RF33
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT
 
@@ -7188,7 +7600,7 @@ paths:
               $ref: '#/components/schemas/MemberNoteCreate'
             example:
               member_id: 103
-              content: Não participou das duas últimas reuniões.
+              text: Não participou das duas últimas reuniões.
       responses:
         '201':
           description: Observação registrada.
@@ -7217,7 +7629,7 @@ paths:
 
         **Requisitos:** RF39
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** TEACHER, ADMIN
 
@@ -7247,7 +7659,7 @@ paths:
                 author:
                   user_id: 42
                   name: Maria Souza
-                content: Não participou das duas últimas reuniões.
+                text: Não participou das duas últimas reuniões.
                 created_at: '2026-10-22T16:00:00Z'
         '401':
           $ref: '#/components/responses/Unauthorized'
@@ -7266,7 +7678,7 @@ paths:
 
         **Requisitos:** RF30, RF20
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT, TEACHER, ADMIN
 
@@ -7320,6 +7732,106 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+  /api/teams/{team_id}/project/category:
+    put:
+      tags:
+      - projects
+      operationId: projectsSelectCategory
+      summary: Escolher a categoria do projeto
+      description: |-
+        Grava a categoria escolhida pela equipe. Não altera desafio, título, resumo nem objetivo.
+
+        **Requisitos:** RF30, RF49
+
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
+
+        **Perfis permitidos:** STUDENT
+
+        **Autorização adicional:** O usuário deve ser o LEADER ativo da equipe. Erro 403: not_team_leader.
+
+        **Regras de negócio:**
+        - Somente durante a formação; depois a categoria fica congelada (409 formation_closed).
+        - O projeto já existe, criado ao escolher o desafio (409 project_not_found).
+        - Categoria ativa da edição da equipe (400 category_not_available).
+        - Pode trocar de categoria até o fim da formação; não é possível limpá-la.
+      x-status: confirmed
+      x-requirements:
+      - RF30
+      - RF49
+      x-roles:
+      - STUDENT
+      parameters:
+      - $ref: '#/components/parameters/TeamId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategorySelection'
+            example:
+              category_id: 2
+      responses:
+        '200':
+          description: Operação concluída.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+              example:
+                id: 40
+                team_id: 12
+                edition_id: 3
+                challenge:
+                  id: 15
+                  description: Propor uma solução para reduzir o desperdício de água nas instalações da universidade.
+                  course:
+                    id: 1
+                    name: Engenharia de Software
+                  sdg:
+                    id: 9
+                    number: 9
+                    title: Indústria, Inovação e Infraestrutura
+                category:
+                  id: 2
+                  name: Protótipos e Artefatos
+                title: Monitoramento inteligente do consumo de água
+                summary: Sensores de baixo custo e um painel web para identificar vazamentos no campus.
+                objective: Reduzir em 20% o desperdício de água no campus.
+                status: IN_PROGRESS
+                courses:
+                - id: 1
+                  name: Engenharia de Software
+                created_at: '2026-10-22T16:00:00Z'
+                updated_at: '2026-10-22T16:00:00Z'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Conflito com uma regra de negócio.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                formation_closed:
+                  summary: O prazo de formação de equipes está encerrado.
+                  value:
+                    error:
+                      code: formation_closed
+                      message: O prazo de formação de equipes está encerrado.
+                      details: null
+                project_not_found:
+                  summary: A equipe ainda não tem projeto. Escolha o desafio primeiro.
+                  value:
+                    error:
+                      code: project_not_found
+                      message: A equipe ainda não tem projeto. Escolha o desafio primeiro.
+                      details: null
   /api/teams/{team_id}/project/challenge:
     put:
       tags:
@@ -7331,7 +7843,7 @@ paths:
 
         **Requisitos:** RF29
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT
 
@@ -7422,7 +7934,7 @@ paths:
 
         **Requisitos:** RF30
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT
 
@@ -7529,7 +8041,7 @@ paths:
 
         **Requisitos:** RF29, RF50
 
-        **Autenticação:** obrigatória (Bearer JWT).
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
 
         **Perfis permitidos:** STUDENT
 
@@ -7572,17 +8084,31 @@ paths:
           $ref: '#/components/responses/NotFound'
 components:
   securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-      description: JWT da aplicação emitido pelas rotas de sessão.
+    sessionAuth:
+      type: apiKey
+      in: cookie
+      name: sessionid
+      description: Cookie de sessão do Django, criado pelas rotas de login e encerrado em POST /api/auth/logout. Expira após
+        30 minutos sem uso (P-03).
+    csrfToken:
+      type: apiKey
+      in: header
+      name: X-CSRFToken
+      description: Token de GET /api/auth/csrf, exigido em POST, PUT, PATCH e DELETE (inclusive no login).
   parameters:
     UserId:
       name: user_id
       in: path
       required: true
       description: Identificador do usuário.
+      schema:
+        type: integer
+        minimum: 1
+    DomainId:
+      name: domain_id
+      in: path
+      required: true
+      description: Identificador do domínio de e-mail.
       schema:
         type: integer
         minimum: 1
@@ -7671,11 +8197,25 @@ components:
       description: Identificador da solicitação de liderança.
       schema:
         type: integer
+    EvaluationId:
+      name: evaluation_id
+      in: path
+      required: true
+      description: Identificador da avaliação.
+      schema:
+        type: integer
     ProjectId:
       name: project_id
       in: path
       required: true
       description: Identificador do projeto.
+      schema:
+        type: integer
+    ItemId:
+      name: item_id
+      in: path
+      required: true
+      description: Identificador do item da entrega.
       schema:
         type: integer
     VersionId:
@@ -7741,6 +8281,16 @@ components:
       description: Filtra pelo status de ativação.
       schema:
         type: boolean
+    InstitutionalRoleFilter:
+      name: role
+      in: query
+      required: false
+      description: Filtra pelo perfil institucional.
+      schema:
+        type: string
+        enum:
+        - STUDENT
+        - TEACHER
     CourseFilter:
       name: course_id
       in: query
@@ -7837,18 +8387,27 @@ components:
         default: false
   responses:
     BadRequest:
-      description: Requisição inválida.
+      description: 'Requisição inválida: dados inválidos (`validation_error`) ou corpo acima de 2,5 MB, o `DATA_UPLOAD_MAX_MEMORY_SIZE`
+        (`request_too_large`).'
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
-          example:
-            error:
-              code: validation_error
-              message: Dados inválidos.
-              details:
-                title:
-                - Este campo é obrigatório.
+          examples:
+            validation_error:
+              value:
+                error:
+                  code: validation_error
+                  message: Dados inválidos.
+                  details:
+                    title:
+                    - Este campo é obrigatório.
+            request_too_large:
+              value:
+                error:
+                  code: request_too_large
+                  message: A requisição excede o tamanho permitido.
+                  details: null
     Unauthorized:
       description: Autenticação ausente, inválida ou expirada.
       content:
@@ -7888,57 +8447,59 @@ components:
       enum:
       - STUDENT
       - TEACHER
-      - EXTERNAL_EVALUATOR
+      - EXTERNAL_REVIEWER
       - ADMIN
-      description: Perfil do usuário (enum user_role).
+      description: Perfil do usuário (enum UserRole).
     EditionStatus:
       type: string
       enum:
       - SETUP
       - PUBLISHED
-      - IN_PROGRESS
       - CLOSED
-      description: Situação da edição (enum edition_status).
+      description: Situação da edição (enum EditionStatus).
     TeamStatus:
       type: string
       enum:
       - ACTIVE
       - DISQUALIFIED
-      description: Situação disciplinar da equipe (enum team_status).
-    TeamQualification:
+      - DISBANDED
+      description: 'Situação disciplinar da equipe (enum TeamStatus). DISBANDED: o líder saiu sozinho e a equipe foi desfeita.'
+    TeamSituation:
       type: string
       enum:
-      - QUALIFIED
-      - NOT_QUALIFIED
-      description: Resultado da verificação da equipe ao fim da formação (enum team_qualification). Semântica pendente (P-23).
+      - COMPLETE
+      - INCOMPLETE
+      - REQUIREMENTS_NOT_MET
+      description: Situação da equipe apurada no encerramento da formação (enum TeamSituation, RF51, P-23).
     MemberRole:
       type: string
       enum:
       - LEADER
       - MEMBER
-      description: Papel do integrante na equipe (enum member_role).
+      description: Papel do integrante na equipe (enum MemberRole).
     ProjectStatus:
       type: string
       enum:
       - IN_PROGRESS
-      - SUBMITTED
-      - UNDER_EVALUATION
-      - APPROVED
-      - REJECTED
-      description: Situação do projeto (enum project_status). Transições pendentes (P-26).
+      - COMPLETED
+      - DISQUALIFIED
+      description: Situação do projeto (enum ProjectStatus).
     StageType:
       type: string
       enum:
       - FORMATION
-      - EVALUATION
+      - SUBMISSION
       - FINAL
-      description: Tipo da etapa (enum stage_type).
+      description: Tipo da etapa (enum StageKind).
     FieldType:
       type: string
       enum:
       - LINK
       - FILE
-      description: Tipo do campo de entrega (enum field_type).
+      - CANVAS
+      - SWOT
+      description: Tipo do campo de entrega (enum FieldKind). CANVAS (Business Model Canvas) e SWOT (matriz SWOT) são preenchidos
+        no sistema, com modelo fixo (P-47).
     InvitationStatus:
       type: string
       enum:
@@ -7946,7 +8507,7 @@ components:
       - ACCEPTED
       - DECLINED
       - CANCELLED
-      description: Situação do convite (enum invitation_status).
+      description: Situação do convite (enum InvitationStatus).
     RequestStatus:
       type: string
       enum:
@@ -7954,40 +8515,40 @@ components:
       - APPROVED
       - REJECTED
       - CANCELLED
-      description: Situação de solicitação (enum request_status).
+      description: Situação de solicitação (enum RequestStatus).
     EvaluationStatus:
       type: string
       enum:
       - DRAFT
       - FINALIZED
-      description: Situação da avaliação do professor (enum evaluation_status).
+      description: Situação da avaliação do professor (enum EvaluationStatus).
     ScoreStatus:
       type: string
       enum:
       - PENDING
-      - PARTIAL
-      - FINALIZED
-      description: Situação da nota consolidada da etapa (enum score_status).
+      - DEFINITIVE
+      - ZERO_NO_SUBMISSION
+      description: Situação da nota consolidada da etapa (enum ScoreStatus).
     QuestionType:
       type: string
       enum:
       - SCORE
+      - CONCEPT
       - TEXT
-      description: Tipo de pergunta do formulário final (enum question_type).
+      description: Tipo de pergunta do formulário final (enum QuestionKind).
     FinalEvaluationStatus:
       type: string
       enum:
       - PENDING
-      - IN_PROGRESS
-      - FINALIZED
-      description: Situação da avaliação final (enum final_evaluation_status).
+      - EVALUATED
+      description: Situação da avaliação final (enum FinalEvaluationStatus).
     CertificateType:
       type: string
       enum:
       - PARTICIPATION
       - FINALIST
       - AWARD
-      description: Tipo de certificado (enum certificate_type). Incompleto em relação ao RF17 (P-34).
+      description: Tipo de certificado (enum CertificateKind). Incompleto em relação ao RF17 (P-34).
     SupportTicketStatus:
       type: string
       enum:
@@ -8212,14 +8773,14 @@ components:
           type: string
           examples:
           - Entrega Preliminar
-        position:
+        order:
           type: integer
           examples:
           - 3
       required:
       - id
       - name
-      - position
+      - order
     CriterionRef:
       type: object
       properties:
@@ -8751,6 +9312,76 @@ components:
           - email
       required:
       - external_evaluator
+    EmailDomain:
+      type: object
+      properties:
+        id:
+          type: integer
+          examples:
+          - 1
+        name:
+          type: string
+          examples:
+          - a.catolica-to.edu.br
+        role:
+          type: string
+          enum:
+          - STUDENT
+          - TEACHER
+          example: STUDENT
+        active:
+          type: boolean
+          examples:
+          - true
+      required:
+      - id
+      - name
+      - role
+      - active
+    EmailDomainCreate:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 100
+          examples:
+          - a.catolica-to.edu.br
+        role:
+          type: string
+          enum:
+          - STUDENT
+          - TEACHER
+          example: STUDENT
+        active:
+          type: boolean
+          default: true
+          examples:
+          - true
+      required:
+      - name
+      - role
+      additionalProperties: false
+    EmailDomainUpdate:
+      type: object
+      description: Ao menos um campo deve ser informado.
+      properties:
+        name:
+          type: string
+          maxLength: 100
+          examples:
+          - a.catolica-to.edu.br
+        role:
+          type: string
+          enum:
+          - STUDENT
+          - TEACHER
+          example: TEACHER
+        active:
+          type: boolean
+          examples:
+          - false
+      additionalProperties: false
+      minProperties: 1
     Course:
       type: object
       properties:
@@ -8762,14 +9393,11 @@ components:
           type: string
           examples:
           - Engenharia de Software
-        slug:
-          type: string
-          description: Código/sigla do curso (P-17).
-          examples:
-          - ES
         term_count:
           type: integer
-          minimum: 1
+          enum:
+          - 8
+          - 10
           examples:
           - 8
         active:
@@ -8789,7 +9417,6 @@ components:
       required:
       - id
       - name
-      - slug
       - term_count
       - active
       - created_at
@@ -8802,14 +9429,11 @@ components:
           maxLength: 150
           examples:
           - Engenharia de Software
-        slug:
-          type: string
-          maxLength: 255
-          examples:
-          - ES
         term_count:
           type: integer
-          minimum: 1
+          enum:
+          - 8
+          - 10
           examples:
           - 8
         active:
@@ -8819,7 +9443,6 @@ components:
           - true
       required:
       - name
-      - slug
       - term_count
       additionalProperties: false
     CourseUpdate:
@@ -8831,14 +9454,11 @@ components:
           maxLength: 150
           examples:
           - Engenharia de Software
-        slug:
-          type: string
-          maxLength: 255
-          examples:
-          - ES
         term_count:
           type: integer
-          minimum: 1
+          enum:
+          - 8
+          - 10
           examples:
           - 10
         active:
@@ -9022,7 +9642,7 @@ components:
           - Desafio X 2026/1
         status:
           $ref: '#/components/schemas/EditionStatus'
-        notice_url:
+        regulation_url:
           type:
           - string
           - 'null'
@@ -9070,7 +9690,7 @@ components:
       - semester
       - name
       - status
-      - notice_url
+      - regulation_url
       - min_members
       - max_members
       - published_at
@@ -9176,10 +9796,6 @@ components:
           $ref: '#/components/schemas/CourseSummary'
         sdg:
           $ref: '#/components/schemas/SdgSummary'
-        title:
-          type: string
-          examples:
-          - Uso eficiente de recursos hídricos no campus
         description:
           type: string
           examples:
@@ -9203,7 +9819,6 @@ components:
       - edition_id
       - course
       - sdg
-      - title
       - description
       - active
       - created_at
@@ -9219,11 +9834,6 @@ components:
           type: integer
           examples:
           - 9
-        title:
-          type: string
-          maxLength: 200
-          examples:
-          - Uso eficiente de recursos hídricos no campus
         description:
           type: string
           examples:
@@ -9236,7 +9846,6 @@ components:
       required:
       - course_id
       - sdg_id
-      - title
       - description
       additionalProperties: false
     ChallengeUpdate:
@@ -9251,11 +9860,6 @@ components:
           type: integer
           examples:
           - 9
-        title:
-          type: string
-          maxLength: 200
-          examples:
-          - Uso eficiente de recursos hídricos
         description:
           type: string
           examples:
@@ -9367,11 +9971,11 @@ components:
           type: string
           examples:
           - Inovação
-        description:
+        rubric:
           type:
           - string
           - 'null'
-          description: Descrição do critério e das faixas de desempenho.
+          description: Rubrica do critério e das faixas de desempenho.
           examples:
           - Avalia o grau de originalidade da solução...
         tiebreak_order:
@@ -9396,7 +10000,7 @@ components:
       - id
       - edition_id
       - name
-      - description
+      - rubric
       - tiebreak_order
       - created_at
       - updated_at
@@ -9408,7 +10012,7 @@ components:
           maxLength: 150
           examples:
           - Inovação
-        description:
+        rubric:
           type:
           - string
           - 'null'
@@ -9433,7 +10037,7 @@ components:
           maxLength: 150
           examples:
           - Inovação
-        description:
+        rubric:
           type:
           - string
           - 'null'
@@ -9455,7 +10059,7 @@ components:
           type: integer
           examples:
           - 31
-        type:
+        kind:
           $ref: '#/components/schemas/FieldType'
         label:
           type: string
@@ -9481,7 +10085,7 @@ components:
           - 10
       required:
       - id
-      - type
+      - kind
       - label
       - required
       - formats
@@ -9494,7 +10098,7 @@ components:
           description: Informe para atualizar um campo existente; omita para criar.
           examples:
           - 31
-        type:
+        kind:
           $ref: '#/components/schemas/FieldType'
         label:
           type: string
@@ -9521,8 +10125,7 @@ components:
           examples:
           - 10
       required:
-      - type
-      - label
+      - kind
       additionalProperties: false
     Stage:
       type: object
@@ -9535,7 +10138,7 @@ components:
           type: integer
           examples:
           - 3
-        position:
+        order:
           type: integer
           examples:
           - 3
@@ -9543,7 +10146,7 @@ components:
           type: string
           examples:
           - Entrega Preliminar
-        type:
+        kind:
           $ref: '#/components/schemas/StageType'
         starts_at:
           type: string
@@ -9555,24 +10158,32 @@ components:
           format: date-time
           examples:
           - '2026-04-20T23:59:00Z'
+        evaluation_ends_at:
+          type:
+          - string
+          - 'null'
+          description: Prazo limite para avaliação dos professores; obrigatório em etapa pontuada (P-19).
+          format: date-time
+          examples:
+          - '2026-04-27T23:59:00Z'
         scored:
           type: boolean
           examples:
           - true
-        points_value:
+        max_score:
           type:
           - string
           - 'null'
           format: decimal
-          pattern: ^\d{1,2}(\.\d{1,2})?$
+          pattern: ^\d{1,3}(\.\d{1,2})?$
           examples:
           - '3.00'
-        min_evaluators:
+        min_evaluations:
           type: integer
           minimum: 1
           examples:
           - 2
-        deliverable_fields:
+        submission_fields:
           type: array
           items:
             $ref: '#/components/schemas/DeliverableField'
@@ -9589,21 +10200,22 @@ components:
       required:
       - id
       - edition_id
-      - position
+      - order
       - name
-      - type
+      - kind
       - starts_at
       - ends_at
+      - evaluation_ends_at
       - scored
-      - points_value
-      - min_evaluators
-      - deliverable_fields
+      - max_score
+      - min_evaluations
+      - submission_fields
       - created_at
       - updated_at
     StageCreate:
       type: object
       properties:
-        position:
+        order:
           type: integer
           minimum: 1
           examples:
@@ -9613,7 +10225,7 @@ components:
           maxLength: 100
           examples:
           - Entrega Preliminar
-        type:
+        kind:
           $ref: '#/components/schemas/StageType'
         starts_at:
           type: string
@@ -9625,33 +10237,41 @@ components:
           format: date-time
           examples:
           - '2026-04-20T23:59:00Z'
+        evaluation_ends_at:
+          type:
+          - string
+          - 'null'
+          description: Prazo limite para avaliação dos professores; obrigatório e posterior a ends_at quando scored=true.
+          format: date-time
+          examples:
+          - '2026-04-27T23:59:00Z'
         scored:
           type: boolean
           default: true
           examples:
           - true
-        points_value:
+        max_score:
           type:
           - string
           - 'null'
           format: decimal
-          pattern: ^\d{1,2}(\.\d{1,2})?$
+          pattern: ^\d{1,3}(\.\d{1,2})?$
           examples:
           - '3.00'
-        min_evaluators:
+        min_evaluations:
           type: integer
           minimum: 1
           default: 1
           examples:
           - 2
-        deliverable_fields:
+        submission_fields:
           type: array
           items:
             $ref: '#/components/schemas/DeliverableFieldWrite'
       required:
-      - position
+      - order
       - name
-      - type
+      - kind
       - starts_at
       - ends_at
       additionalProperties: false
@@ -9659,7 +10279,7 @@ components:
       type: object
       description: Ao menos um campo deve ser informado.
       properties:
-        position:
+        order:
           type: integer
           minimum: 1
           examples:
@@ -9669,7 +10289,7 @@ components:
           maxLength: 100
           examples:
           - Entrega Preliminar
-        type:
+        kind:
           $ref: '#/components/schemas/StageType'
         starts_at:
           type: string
@@ -9681,24 +10301,31 @@ components:
           format: date-time
           examples:
           - '2026-04-22T23:59:00Z'
+        evaluation_ends_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+          examples:
+          - '2026-04-29T23:59:00Z'
         scored:
           type: boolean
           examples:
           - true
-        points_value:
+        max_score:
           type:
           - string
           - 'null'
           format: decimal
-          pattern: ^\d{1,2}(\.\d{1,2})?$
+          pattern: ^\d{1,3}(\.\d{1,2})?$
           examples:
           - '3.00'
-        min_evaluators:
+        min_evaluations:
           type: integer
           minimum: 1
           examples:
           - 2
-        deliverable_fields:
+        submission_fields:
           type: array
           items:
             $ref: '#/components/schemas/DeliverableFieldWrite'
@@ -9729,7 +10356,7 @@ components:
         max_score:
           type: string
           format: decimal
-          pattern: ^\d{1,2}(\.\d{1,2})?$
+          pattern: ^\d{1,3}(\.\d{1,2})?$
           examples:
           - '1.50'
       required:
@@ -9751,7 +10378,7 @@ components:
               max_score:
                 type: string
                 format: decimal
-                pattern: ^\d{1,2}(\.\d{1,2})?$
+                pattern: ^\d{1,3}(\.\d{1,2})?$
                 examples:
                 - '1.50'
             required:
@@ -9769,7 +10396,7 @@ components:
           type: integer
           examples:
           - 61
-        position:
+        order:
           type: integer
           examples:
           - 1
@@ -9777,21 +10404,21 @@ components:
           type: string
           examples:
           - Clareza e qualidade do pitch
-        type:
+        kind:
           $ref: '#/components/schemas/QuestionType'
         max_score:
           type:
           - string
           - 'null'
           format: decimal
-          pattern: ^\d{1,2}(\.\d{1,2})?$
+          pattern: ^\d{1,3}(\.\d{1,2})?$
           examples:
           - '10.00'
       required:
       - id
-      - position
+      - order
       - prompt
-      - type
+      - kind
       - max_score
     FinalForm:
       type: object
@@ -9839,7 +10466,7 @@ components:
     FinalQuestionWrite:
       type: object
       properties:
-        position:
+        order:
           type: integer
           minimum: 1
           examples:
@@ -9848,21 +10475,21 @@ components:
           type: string
           examples:
           - Clareza e qualidade do pitch
-        type:
+        kind:
           $ref: '#/components/schemas/QuestionType'
         max_score:
           type:
           - string
           - 'null'
-          description: Obrigatória e positiva para SCORE; nula para TEXT.
+          description: Obrigatória e positiva para SCORE; nula para CONCEPT e TEXT.
           format: decimal
-          pattern: ^\d{1,2}(\.\d{1,2})?$
+          pattern: ^\d{1,3}(\.\d{1,2})?$
           examples:
           - '10.00'
       required:
-      - position
+      - order
       - prompt
-      - type
+      - kind
       additionalProperties: false
     FinalFormWrite:
       type: object
@@ -9984,7 +10611,7 @@ components:
           type: integer
           examples:
           - 7
-        position:
+        order:
           type: integer
           examples:
           - 3
@@ -9992,7 +10619,7 @@ components:
           type: string
           examples:
           - Entrega Preliminar
-        type:
+        kind:
           $ref: '#/components/schemas/StageType'
         starts_at:
           type: string
@@ -10004,29 +10631,37 @@ components:
           format: date-time
           examples:
           - '2026-04-20T23:59:00Z'
+        evaluation_ends_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+          examples:
+          - '2026-04-27T23:59:00Z'
         scored:
           type: boolean
           examples:
           - true
-        points_value:
+        max_score:
           type:
           - string
           - 'null'
           format: decimal
-          pattern: ^\d{1,2}(\.\d{1,2})?$
+          pattern: ^\d{1,3}(\.\d{1,2})?$
           examples:
           - '3.00'
         phase_status:
           $ref: '#/components/schemas/PhaseStatus'
       required:
       - id
-      - position
+      - order
       - name
-      - type
+      - kind
       - starts_at
       - ends_at
+      - evaluation_ends_at
       - scored
-      - points_value
+      - max_score
       - phase_status
     PublicChallenge:
       type: object
@@ -10053,7 +10688,7 @@ components:
       properties:
         edition:
           $ref: '#/components/schemas/EditionSummary'
-        notice_url:
+        regulation_url:
           type:
           - string
           - 'null'
@@ -10074,7 +10709,7 @@ components:
             $ref: '#/components/schemas/PublicChallenge'
       required:
       - edition
-      - notice_url
+      - regulation_url
       - stages
       - sdgs
       - challenges
@@ -10143,7 +10778,7 @@ components:
     Winner:
       type: object
       properties:
-        award_place:
+        award:
           type: integer
           enum:
           - 1
@@ -10158,7 +10793,7 @@ components:
         project:
           $ref: '#/components/schemas/PublicProject'
       required:
-      - award_place
+      - award
       - course
       - category
       - project
@@ -10202,6 +10837,8 @@ components:
       - joined_at
     Team:
       type: object
+      description: 'formation_extended_until: fim da janela extra para repor a vaga, concedida uma vez quando uma saída nas
+        últimas 24 horas do prazo deixa a equipe abaixo do mínimo; nulo se não houve.'
       properties:
         id:
           type: integer
@@ -10222,14 +10859,36 @@ components:
           - DXA7K2
         status:
           $ref: '#/components/schemas/TeamStatus'
-        qualification:
+        situation:
           oneOf:
-          - $ref: '#/components/schemas/TeamQualification'
+          - $ref: '#/components/schemas/TeamSituation'
           - type: 'null'
         disqualification_reason:
           type:
           - string
           - 'null'
+          examples:
+          - null
+        disqualified_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+          examples:
+          - null
+        disqualified_by:
+          type:
+          - integer
+          - 'null'
+          description: Administrador responsável pela desclassificação (P-22).
+          minimum: 1
+          examples:
+          - null
+        formation_extended_until:
+          type:
+          - string
+          - 'null'
+          format: date-time
           examples:
           - null
         members:
@@ -10253,11 +10912,25 @@ components:
       - name
       - code
       - status
-      - qualification
+      - situation
       - disqualification_reason
+      - disqualified_at
+      - disqualified_by
+      - formation_extended_until
       - members
       - created_at
       - updated_at
+    TeamLeave:
+      type: object
+      properties:
+        confirm:
+          type: boolean
+          description: Confirma a saída que deixa a equipe abaixo do mínimo de integrantes. Corpo opcional; sem ele, confirm
+            é false.
+          examples:
+          - false
+      additionalProperties: false
+      description: Corpo opcional.
     TeamCreate:
       type: object
       properties:
@@ -10266,8 +10939,15 @@ components:
           maxLength: 150
           examples:
           - Equipe Aurora
+        invitations:
+          type: array
+          items:
+            $ref: '#/components/schemas/InvitationCreate'
+          minItems: 1
+          description: Alunos a convidar, por student_id ou email. De min_members - 1 a max_members - 1 (nunca menos de 1).
       required:
       - name
+      - invitations
       additionalProperties: false
     TeamListing:
       type: object
@@ -10324,9 +11004,9 @@ components:
           - DXA7K2
         status:
           $ref: '#/components/schemas/TeamStatus'
-        qualification:
+        situation:
           oneOf:
-          - $ref: '#/components/schemas/TeamQualification'
+          - $ref: '#/components/schemas/TeamSituation'
           - type: 'null'
         member_count:
           type: integer
@@ -10342,7 +11022,7 @@ components:
       - name
       - code
       - status
-      - qualification
+      - situation
       - member_count
       - project
     TeamDisqualify:
@@ -10358,29 +11038,17 @@ components:
       - reason
       additionalProperties: false
     InvitationCreate:
-      oneOf:
-      - type: object
-        properties:
-          student_id:
-            type: integer
-            minimum: 1
-            examples:
-            - 42
-        required:
-        - student_id
-        additionalProperties: false
-      - type: object
-        properties:
-          email:
-            type: string
-            format: email
-            maxLength: 254
-            examples:
-            - joao.lima@a.catolica-to.edu.br
-        required:
-        - email
-        additionalProperties: false
-      description: Informe exatamente um entre student_id e email institucional.
+      type: object
+      properties:
+        student_id:
+          type: integer
+          description: Aluno cadastrado a ser convidado.
+          minimum: 1
+          examples:
+          - 42
+      required:
+      - student_id
+      additionalProperties: false
     Invitation:
       type: object
       properties:
@@ -10391,17 +11059,20 @@ components:
         team:
           $ref: '#/components/schemas/TeamRef'
         student:
-          oneOf:
-          - $ref: '#/components/schemas/UserSummary'
-          - type: 'null'
-        invited_email:
-          type:
-          - string
-          - 'null'
-          format: email
-          maxLength: 254
-          examples:
-          - null
+          type: object
+          properties:
+            user_id:
+              type: integer
+              minimum: 1
+              examples:
+              - 42
+            name:
+              type: string
+              examples:
+              - João Lima
+          required:
+          - user_id
+          - name
         status:
           $ref: '#/components/schemas/InvitationStatus'
         created_at:
@@ -10420,7 +11091,6 @@ components:
       - id
       - team
       - student
-      - invited_email
       - status
       - created_at
       - responded_at
@@ -10596,14 +11266,14 @@ components:
           description: Vínculo (team_member) observado.
           examples:
           - 103
-        content:
+        text:
           type: string
           minLength: 1
           examples:
           - Não participou das duas últimas reuniões.
       required:
       - member_id
-      - content
+      - text
       additionalProperties: false
     MemberNoteCreated:
       type: object
@@ -10632,7 +11302,7 @@ components:
           $ref: '#/components/schemas/UserSummary'
         author:
           $ref: '#/components/schemas/UserSummary'
-        content:
+        text:
           type: string
           examples:
           - Não participou das duas últimas reuniões.
@@ -10645,7 +11315,7 @@ components:
       - id
       - member
       - author
-      - content
+      - text
       - created_at
     Project:
       type: object
@@ -10724,6 +11394,16 @@ components:
       required:
       - challenge_id
       additionalProperties: false
+    CategorySelection:
+      type: object
+      properties:
+        category_id:
+          type: integer
+          examples:
+          - 2
+      required:
+      - category_id
+      additionalProperties: false
     ProjectDetailsWrite:
       type: object
       properties:
@@ -10789,7 +11469,9 @@ components:
           examples:
           - 301
         field_id:
-          type: integer
+          type:
+          - integer
+          - 'null'
           examples:
           - 31
         type:
@@ -10805,9 +11487,11 @@ components:
           type:
           - string
           - 'null'
-          format: uri
+          description: Caminho autenticado de download (GET projectsDownloadDeliverableFile), nunca uma URL pública do armazenamento.
+            Nulo para link.
+          format: uri-reference
           examples:
-          - https://storage.projetox.edu.br/entregas/40/7/relatorio.pdf
+          - /api/deliverable-items/301/file
         file_name:
           type:
           - string
@@ -10822,6 +11506,13 @@ components:
           format: int64
           examples:
           - 1048576
+        content:
+          oneOf:
+          - oneOf:
+            - $ref: '#/components/schemas/CanvasContent'
+            - $ref: '#/components/schemas/SwotContent'
+            description: Conteúdo preenchido no sistema (campo CANVAS ou SWOT). Nulo para link e arquivo (P-47).
+          - type: 'null'
       required:
       - id
       - field_id
@@ -10830,20 +11521,22 @@ components:
       - file_url
       - file_name
       - size_bytes
+      - content
     ReceiptSummary:
       type: object
       properties:
         verification_code:
           type: string
           examples:
-          - DX-2026-1-7F3K9Q
+          - 3f2b8c1e9a7d4f60b5c2e1d0a9f8b7c6
         file_url:
           type:
           - string
           - 'null'
-          format: uri
+          description: Caminho autenticado do PDF do comprovante; nulo enquanto o PDF não for gerado. Nunca é URL pública.
+          format: uri-reference
           examples:
-          - https://storage.projetox.edu.br/comprovantes/DX-2026-1-7F3K9Q.pdf
+          - null
         generated_at:
           type: string
           format: date-time
@@ -10860,7 +11553,7 @@ components:
           type: integer
           examples:
           - 77
-        version_number:
+        number:
           type: integer
           minimum: 1
           examples:
@@ -10888,7 +11581,7 @@ components:
           - type: 'null'
       required:
       - id
-      - version_number
+      - number
       - submitted_by
       - submitted_at
       - notes
@@ -10923,30 +11616,194 @@ components:
       - status
       - official_version_id
       - versions
-    DeliverableSubmission:
+    CanvasContent:
       type: object
-      description: Formato multipart proposto (P-43).
+      description: 'Business Model Canvas (campo CANVAS): um texto não vazio por bloco, de até 5000 caracteres, todos obrigatórios
+        (P-47).'
       properties:
-        items:
+        customer_segments:
           type: string
-          description: 'JSON (string) com a lista de itens: [{"field_id": int, "link": string}] para LINK e [{"field_id":
-            int, "file_index": int}] para FILE, onde file_index aponta para a posição em files.'
-          contentMediaType: application/json
+          minLength: 1
+          maxLength: 5000
           examples:
-          - '[{"field_id":31,"file_index":0},{"field_id":32,"link":"https://youtu.be/abc123"}]'
-        files:
+          - Texto do bloco.
+        value_propositions:
+          type: string
+          minLength: 1
+          maxLength: 5000
+          examples:
+          - Texto do bloco.
+        channels:
+          type: string
+          minLength: 1
+          maxLength: 5000
+          examples:
+          - Texto do bloco.
+        customer_relationships:
+          type: string
+          minLength: 1
+          maxLength: 5000
+          examples:
+          - Texto do bloco.
+        revenue_streams:
+          type: string
+          minLength: 1
+          maxLength: 5000
+          examples:
+          - Texto do bloco.
+        key_resources:
+          type: string
+          minLength: 1
+          maxLength: 5000
+          examples:
+          - Texto do bloco.
+        key_activities:
+          type: string
+          minLength: 1
+          maxLength: 5000
+          examples:
+          - Texto do bloco.
+        key_partnerships:
+          type: string
+          minLength: 1
+          maxLength: 5000
+          examples:
+          - Texto do bloco.
+        cost_structure:
+          type: string
+          minLength: 1
+          maxLength: 5000
+          examples:
+          - Texto do bloco.
+      required:
+      - customer_segments
+      - value_propositions
+      - channels
+      - customer_relationships
+      - revenue_streams
+      - key_resources
+      - key_activities
+      - key_partnerships
+      - cost_structure
+      additionalProperties: false
+    SwotContent:
+      type: object
+      description: 'Matriz SWOT (campo SWOT): de 1 a 20 textos não vazios por quadrante, de até 5000 caracteres cada (P-47).'
+      properties:
+        strengths:
           type: array
           items:
             type: string
-            format: binary
-            contentMediaType: application/octet-stream
-          description: Arquivos referenciados por file_index.
+            minLength: 1
+            maxLength: 5000
+            examples:
+            - Texto do item.
+          minItems: 1
+          maxItems: 20
+        weaknesses:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 5000
+            examples:
+            - Texto do item.
+          minItems: 1
+          maxItems: 20
+        opportunities:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 5000
+            examples:
+            - Texto do item.
+          minItems: 1
+          maxItems: 20
+        threats:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 5000
+            examples:
+            - Texto do item.
+          minItems: 1
+          maxItems: 20
+      required:
+      - strengths
+      - weaknesses
+      - opportunities
+      - threats
+      additionalProperties: false
+    DeliverableSubmissionItem:
+      type: object
+      description: Informe `link` (campo LINK), `file_index` (campo FILE) ou `content` (campo CANVAS ou SWOT), apenas um dos
+        três.
+      properties:
+        field_id:
+          type: integer
+          examples:
+          - 31
+        link:
+          type: string
+          format: uri
+          examples:
+          - https://github.com/equipe/projeto
+        file_index:
+          type: integer
+          description: Posição do arquivo em `files[]`. Só vale em multipart.
+          minimum: 0
+          examples:
+          - 0
+        content:
+          oneOf:
+          - $ref: '#/components/schemas/CanvasContent'
+          - $ref: '#/components/schemas/SwotContent'
+          description: Conteúdo do campo CANVAS (CanvasContent) ou SWOT (SwotContent).
+      required:
+      - field_id
+      additionalProperties: false
+    DeliverableSubmission:
+      type: object
+      description: Envio com links, canvas e SWOT, em JSON. Com arquivos (FILE), use multipart/form-data (DeliverableSubmissionMultipart,
+        P-43).
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeliverableSubmissionItem'
+          minItems: 1
+          description: Um item por campo da etapa; campos obrigatórios devem constar. Em JSON vão links, canvas e SWOT.
         notes:
           type: string
           examples:
           - Correção do relatório.
       required:
       - items
+      additionalProperties: false
+    DeliverableSubmissionMultipart:
+      type: object
+      description: Envio com arquivos (P-43). Aceita também o nome de campo `files`.
+      properties:
+        items:
+          type: string
+          description: Lista de itens em JSON, como em `DeliverableSubmission.items`. Item de arquivo usa `file_index`.
+          examples:
+          - '[{"field_id": 31, "link": "https://github.com/equipe/projeto"}, {"field_id": 32, "file_index": 0}]'
+        notes:
+          type: string
+          examples:
+          - Correção do relatório.
+        files[]:
+          type: array
+          items:
+            type: string
+            format: binary
+          description: Arquivos da entrega; cada item de arquivo aponta para um deles por `file_index`. Sem arquivo sobrando.
+      required:
+      - items
+      additionalProperties: false
     Receipt:
       type: object
       properties:
@@ -10958,21 +11815,22 @@ components:
           type: integer
           examples:
           - 77
-        version_number:
+        number:
           type: integer
           examples:
           - 2
         verification_code:
           type: string
           examples:
-          - DX-2026-1-7F3K9Q
+          - 3f2b8c1e9a7d4f60b5c2e1d0a9f8b7c6
         file_url:
           type:
           - string
           - 'null'
-          format: uri
+          description: Caminho autenticado do PDF do comprovante; nulo enquanto o PDF não for gerado. Nunca é URL pública.
+          format: uri-reference
           examples:
-          - https://storage.projetox.edu.br/comprovantes/DX-2026-1-7F3K9Q.pdf
+          - null
         generated_at:
           type: string
           format: date-time
@@ -10992,7 +11850,7 @@ components:
       required:
       - id
       - version_id
-      - version_number
+      - number
       - verification_code
       - file_url
       - generated_at
@@ -11010,7 +11868,7 @@ components:
           - string
           - 'null'
           format: decimal
-          pattern: ^\d{1,2}(\.\d{1,2})?$
+          pattern: ^\d{1,3}(\.\d{1,2})?$
           examples:
           - '2.40'
       required:
@@ -11111,7 +11969,7 @@ components:
           description: Avaliações finalizadas na etapa.
           examples:
           - 1
-        min_evaluators:
+        min_evaluations:
           type: integer
           examples:
           - 2
@@ -11124,7 +11982,7 @@ components:
       - stage
       - deliverable_status
       - evaluation_count
-      - min_evaluators
+      - min_evaluations
       - my_evaluation_status
     EvaluationItem:
       type: object
@@ -11136,7 +11994,7 @@ components:
         points:
           type: string
           format: decimal
-          pattern: ^\d{1,2}(\.\d{1,2})?$
+          pattern: ^\d{1,3}(\.\d{1,2})?$
           examples:
           - '1.25'
         comment:
@@ -11180,7 +12038,7 @@ components:
           type: string
           description: Soma dos pontos dos itens.
           format: decimal
-          pattern: ^\d{1,2}(\.\d{1,2})?$
+          pattern: ^\d{1,3}(\.\d{1,2})?$
           examples:
           - '2.40'
         created_at:
@@ -11221,16 +12079,16 @@ components:
               type: string
               examples:
               - Entrega Preliminar
-            points_value:
+            max_score:
               type: string
               format: decimal
-              pattern: ^\d{1,2}(\.\d{1,2})?$
+              pattern: ^\d{1,3}(\.\d{1,2})?$
               examples:
               - '3.00'
           required:
           - id
           - name
-          - points_value
+          - max_score
         criteria:
           type: array
           items:
@@ -11251,7 +12109,7 @@ components:
                     type: string
                     examples:
                     - Inovação
-                  description:
+                  rubric:
                     type:
                     - string
                     - 'null'
@@ -11260,11 +12118,11 @@ components:
                 required:
                 - id
                 - name
-                - description
+                - rubric
               max_score:
                 type: string
                 format: decimal
-                pattern: ^\d{1,2}(\.\d{1,2})?$
+                pattern: ^\d{1,3}(\.\d{1,2})?$
                 examples:
                 - '1.50'
             required:
@@ -11290,7 +12148,7 @@ components:
         points:
           type: string
           format: decimal
-          pattern: ^\d{1,2}(\.\d{1,2})?$
+          pattern: ^\d{1,3}(\.\d{1,2})?$
           examples:
           - '1.25'
         comment:
@@ -11329,15 +12187,109 @@ components:
       - status
       - items
       additionalProperties: false
+    RectificationWrite:
+      type: object
+      properties:
+        stage_criterion_id:
+          type: integer
+          examples:
+          - 51
+        new_points:
+          type: string
+          description: Novo valor; de 0 até o máximo do critério e diferente do atual.
+          format: decimal
+          pattern: ^\d{1,3}(\.\d{1,2})?$
+          examples:
+          - '1.50'
+        reason:
+          type: string
+          description: Justificativa técnica ou operacional (obrigatória).
+          examples:
+          - Erro de digitação do professor.
+      required:
+      - stage_criterion_id
+      - new_points
+      - reason
+      additionalProperties: false
+    Rectification:
+      type: object
+      properties:
+        id:
+          type: integer
+          examples:
+          - 9
+        evaluation_id:
+          type: integer
+          examples:
+          - 201
+        stage_criterion_id:
+          type: integer
+          examples:
+          - 51
+        previous_points:
+          type: string
+          format: decimal
+          pattern: ^\d{1,3}(\.\d{1,2})?$
+          examples:
+          - '1.00'
+        new_points:
+          type: string
+          format: decimal
+          pattern: ^\d{1,3}(\.\d{1,2})?$
+          examples:
+          - '1.50'
+        reason:
+          type: string
+          examples:
+          - Erro de digitação do professor.
+        rectified_by:
+          type: integer
+          description: Id do administrador.
+          examples:
+          - 1
+        rectified_at:
+          type: string
+          format: date-time
+          examples:
+          - '2026-11-18T21:30:00Z'
+        stage_score:
+          type: object
+          description: Nota da etapa já recalculada.
+          properties:
+            value:
+              type:
+              - string
+              - 'null'
+              format: decimal
+              pattern: ^\d{1,3}(\.\d{1,2})?$
+              examples:
+              - '2.40'
+            evaluation_count:
+              type: integer
+              examples:
+              - 2
+          required:
+          - value
+          - evaluation_count
+      required:
+      - id
+      - evaluation_id
+      - stage_criterion_id
+      - previous_points
+      - new_points
+      - reason
+      - rectified_by
+      - rectified_at
+      - stage_score
     StageScoreDetail:
       type: object
       properties:
         stage:
           $ref: '#/components/schemas/StageRef'
-        points_value:
+        max_score:
           type: string
           format: decimal
-          pattern: ^\d{1,2}(\.\d{1,2})?$
+          pattern: ^\d{1,3}(\.\d{1,2})?$
           examples:
           - '3.00'
         status:
@@ -11346,17 +12298,16 @@ components:
           type:
           - string
           - 'null'
-          description: Média aritmética das avaliações finalizadas; exibida quando FINALIZED. Zero quando a entrega não foi
-            realizada.
+          description: Média aritmética das avaliações finalizadas; exibida quando DEFINITIVE. Zero quando ZERO_NO_SUBMISSION.
           format: decimal
-          pattern: ^\d{1,2}(\.\d{1,2})?$
+          pattern: ^\d{1,3}(\.\d{1,2})?$
           examples:
           - '2.40'
         evaluation_count:
           type: integer
           examples:
           - 2
-        min_evaluators:
+        min_evaluations:
           type: integer
           examples:
           - 2
@@ -11372,7 +12323,7 @@ components:
               max_score:
                 type: string
                 format: decimal
-                pattern: ^\d{1,2}(\.\d{1,2})?$
+                pattern: ^\d{1,3}(\.\d{1,2})?$
                 examples:
                 - '1.50'
               average:
@@ -11380,7 +12331,7 @@ components:
                 - string
                 - 'null'
                 format: decimal
-                pattern: ^\d{1,2}(\.\d{1,2})?$
+                pattern: ^\d{1,3}(\.\d{1,2})?$
                 examples:
                 - '1.20'
             required:
@@ -11411,7 +12362,7 @@ components:
                     points:
                       type: string
                       format: decimal
-                      pattern: ^\d{1,2}(\.\d{1,2})?$
+                      pattern: ^\d{1,3}(\.\d{1,2})?$
                       examples:
                       - '1.25'
                     comment:
@@ -11430,11 +12381,11 @@ components:
           description: Feedbacks das avaliações finalizadas, sem identificar o professor (P-44).
       required:
       - stage
-      - points_value
+      - max_score
       - status
       - value
       - evaluation_count
-      - min_evaluators
+      - min_evaluations
       - deliverable_status
       - criteria
       - feedback
@@ -11470,17 +12421,17 @@ components:
           type: integer
           examples:
           - 61
-        type:
+        kind:
           $ref: '#/components/schemas/QuestionType'
         value:
           type:
           - string
           - 'null'
           format: decimal
-          pattern: ^\d{1,2}(\.\d{1,2})?$
+          pattern: ^\d{1,3}(\.\d{1,2})?$
           examples:
           - '8.50'
-        answer_text:
+        text:
           type:
           - string
           - 'null'
@@ -11488,9 +12439,9 @@ components:
           - null
       required:
       - question_id
-      - type
+      - kind
       - value
-      - answer_text
+      - text
     FinalEvaluation:
       type: object
       properties:
@@ -11563,14 +12514,14 @@ components:
           - 'null'
           description: Obrigatório para SCORE (0..max_score).
           format: decimal
-          pattern: ^\d{1,2}(\.\d{1,2})?$
+          pattern: ^\d{1,3}(\.\d{1,2})?$
           examples:
           - '8.50'
-        answer_text:
+        text:
           type:
           - string
           - 'null'
-          description: Obrigatório para TEXT.
+          description: Obrigatório para CONCEPT e TEXT.
           examples:
           - null
       required:
@@ -11582,10 +12533,10 @@ components:
         status:
           type: string
           enum:
-          - IN_PROGRESS
-          - FINALIZED
+          - PENDING
+          - EVALUATED
           examples:
-          - FINALIZED
+          - EVALUATED
         comment:
           type:
           - string
@@ -11611,7 +12562,7 @@ components:
           type: integer
           examples:
           - 3
-        type:
+        kind:
           $ref: '#/components/schemas/CertificateType'
         template_url:
           type:
@@ -11639,7 +12590,7 @@ components:
       required:
       - id
       - edition_id
-      - type
+      - kind
       - template_url
       - signatures
       - created_at
@@ -11665,19 +12616,17 @@ components:
           type: integer
           examples:
           - 901
-        type:
+        kind:
           $ref: '#/components/schemas/CertificateType'
         edition:
           $ref: '#/components/schemas/EditionSummary'
-        project:
-          oneOf:
-          - $ref: '#/components/schemas/ProjectRef'
-          - type: 'null'
         workload_hours:
           type:
           - integer
           - 'null'
-          minimum: 1
+          enum:
+          - 20
+          - 40
           examples:
           - 40
         verification_code:
@@ -11698,9 +12647,8 @@ components:
           - '2026-10-22T16:00:00Z'
       required:
       - id
-      - type
+      - kind
       - edition
-      - project
       - workload_hours
       - verification_code
       - file_url
@@ -12290,3 +13238,13 @@ components:
       - next
       - previous
       - results
+    CsrfToken:
+      type: object
+      properties:
+        csrfToken:
+          type: string
+          description: Valor para o cabeçalho X-CSRFToken. A resposta também grava o cookie csrftoken.
+          examples:
+          - pZ1d3x...
+      required:
+      - csrfToken

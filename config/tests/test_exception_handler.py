@@ -145,3 +145,43 @@ def test_erro_inesperado_nao_e_engolido():
     # O handler devolve None e o DRF relança: vira 500 e aparece no log.
     with pytest.raises(RuntimeError):
         respond(RuntimeError("bug"))
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("fmt", ["json", "multipart"])
+def test_corpo_acima_do_limite_sai_em_json(fmt, settings):
+    from rest_framework.test import APIClient
+
+    settings.DATA_UPLOAD_MAX_MEMORY_SIZE = 1024
+    response = APIClient().post(
+        "/api/auth/sessions/password",
+        {"email": "x" * 2048, "password": "a"},
+        format=fmt,
+    )
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "request_too_large"
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "url",
+    ["/api/rota-que-nao-existe", "/api/admin/editions/abc/evaluators"],
+)
+def test_rota_inexistente_da_api_responde_404_em_json(url):
+    from rest_framework.test import APIClient
+
+    response = APIClient().get(url)
+    assert response.status_code == 404
+    assert response.json() == {
+        "error": {
+            "code": "not_found",
+            "message": "Recurso não encontrado.",
+            "details": None,
+        }
+    }
+
+
+def test_rota_inexistente_fora_da_api_continua_em_html(client):
+    response = client.get("/pagina-que-nao-existe")
+    assert response.status_code == 404
+    assert response["Content-Type"].startswith("text/html")

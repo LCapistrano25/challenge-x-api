@@ -22,7 +22,14 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/", include("apps.core.urls")),
     path("api/auth/", include("apps.accounts.urls")),
+    path("api/admin/", include("apps.accounts.admin_urls")),
     path("api/", include("apps.teams.urls")),
     path("api/teams/", include("apps.projects.urls")),
+    path("api/", include("apps.evaluations.urls")),
+    path("api/projects/", include("apps.projects.delivery_urls")),
+    path("api/deliverable-versions/", include("apps.projects.version_urls")),
+    path("api/deliverable-items/", include("apps.projects.file_urls")),
     path("api/admin/editions/", include("apps.editions.urls")),
 ]
+
+handler404 = "config.exception.api_not_found"

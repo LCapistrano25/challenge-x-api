@@ -1,6 +1,12 @@
 from django.core.exceptions import PermissionDenied as DjangoPermissionDenied
+from django.core.exceptions import (
+    RequestDataTooBig,
+    TooManyFieldsSent,
+    TooManyFilesSent,
+)
 from django.core.exceptions import ValidationError as DjangoValidationError
-from django.http import Http404
+from django.http import Http404, JsonResponse
+from django.views.defaults import page_not_found
 from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 from rest_framework.response import Response
 from rest_framework.views import exception_handler
@@ -28,6 +34,14 @@ def custom_exception_handler(exc, context):
     elif isinstance(exc, DjangoPermissionDenied):
         exc = PermissionDenied()
 
+    # Corpo acima de DATA_UPLOAD_MAX_MEMORY_SIZE ou campos demais: sem isto o
+    # Django responde a página HTML de 400.
+    if isinstance(exc, (RequestDataTooBig, TooManyFieldsSent, TooManyFilesSent)):
+        return Response(
+            body("request_too_large", "A requisição excede o tamanho permitido."),
+            status=400,
+        )
+
     if isinstance(exc, AppError):
         return Response(body(exc.code, str(exc)), status=exc.http_status)
 
@@ -45,3 +59,10 @@ def custom_exception_handler(exc, context):
     else:
         response.data = body(exc.default_code, str(exc.detail))
     return response
+
+
+def api_not_found(request, exception=None):
+    """Rota inexistente: na API sai no formato padrão; fora dela, a página do Django."""
+    if request.path.startswith("/api/"):
+        return JsonResponse(body("not_found", "Recurso não encontrado."), status=404)
+    return page_not_found(request, exception)

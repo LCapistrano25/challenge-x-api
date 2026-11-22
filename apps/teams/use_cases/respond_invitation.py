@@ -3,8 +3,6 @@ from django.utils import timezone
 
 from apps.accounts.enums import UserRole
 from apps.accounts.models import Student, User
-from apps.editions.enums import StageKind
-from apps.editions.models import Stage
 from apps.notifications.models import NotificationType
 from apps.notifications.services import create_notification
 from apps.teams.enums import (
@@ -19,6 +17,7 @@ from apps.teams.models import (
     Team,
     TeamMember,
 )
+from apps.teams.rules import is_formation_open_for_team
 
 
 class InvitationResponseRejected(Exception):
@@ -78,12 +77,7 @@ def respond_invitation(
 
     now = timezone.now()
 
-    formation_open = Stage.objects.filter(
-        edition=invitation.team.edition,
-        kind=StageKind.FORMATION,
-        starts_at__lte=now,
-        ends_at__gte=now,
-    ).exists()
+    formation_open = is_formation_open_for_team(invitation.team, now)
 
     if not formation_open:
         raise InvitationResponseRejected(

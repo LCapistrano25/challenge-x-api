@@ -3,7 +3,11 @@ from django.db.models import F, Q
 
 from apps.core.models import TimeStampedModel
 from apps.editions.enums import FieldKind, StageKind
-from apps.editions.rules import ensure_criterion_in_stage_edition
+from apps.editions.rules import (
+    ensure_criterion_fits_stage,
+    ensure_criterion_in_stage_edition,
+    ensure_stage_max_score_fits,
+)
 
 
 class Stage(TimeStampedModel):
@@ -61,12 +65,16 @@ class Stage(TimeStampedModel):
             ),
         ]
 
+    def clean(self):
+        if self.edition_id:
+            ensure_stage_max_score_fits(self)
+
     def __str__(self):
         return f"{self.edition} - {self.order}. {self.name}"
 
 
 class StageSubmissionField(TimeStampedModel):
-    """Link ou arquivo que a entrega da etapa deve conter (RF07)."""
+    """Link, arquivo, canvas ou SWOT que a entrega da etapa deve conter (RF07)."""
 
     # Campo de configuração da etapa: sem a etapa não faz sentido (CASCADE).
     stage = models.ForeignKey(
@@ -81,6 +89,14 @@ class StageSubmissionField(TimeStampedModel):
     class Meta:
         verbose_name = "campo de entrega"
         verbose_name_plural = "campos de entrega"
+        constraints = [
+            # Canvas e SWOT são preenchidos no sistema: não têm formato nem tamanho.
+            models.CheckConstraint(
+                condition=~Q(kind__in=[FieldKind.CANVAS, FieldKind.SWOT])
+                | (Q(formats="") & Q(max_size_mb__isnull=True)),
+                name="submission_field_canvas_swot_without_file_options",
+            ),
+        ]
 
     def __str__(self):
         return self.label or self.get_kind_display()
@@ -115,6 +131,8 @@ class StageCriterion(TimeStampedModel):
         has_stage = self.stage_id or StageCriterion.stage.is_cached(self)
         if has_stage and self.criterion_id:
             ensure_criterion_in_stage_edition(self.stage, self.criterion)
+        if has_stage:
+            ensure_criterion_fits_stage(self)
 
     def __str__(self):
         return f"{self.stage} - {self.criterion}"

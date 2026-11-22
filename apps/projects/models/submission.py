@@ -96,9 +96,13 @@ class SubmissionItem(TimeStampedModel):
     )
     kind = models.CharField(max_length=10, choices=FieldKind)
     link = models.URLField(max_length=1000, blank=True)
+    # Para arquivo, guarda a chave no armazenamento privado "deliveries", não uma
+    # URL: o arquivo só sai pela API, que checa a permissão.
     file_url = models.CharField(max_length=1000, blank=True)
     file_name = models.CharField(max_length=255, blank=True)
     size_bytes = models.PositiveBigIntegerField(null=True, blank=True)
+    # Conteúdo preenchido no sistema, só nos campos CANVAS e SWOT (RF31).
+    content = models.JSONField(null=True, blank=True)
 
     class Meta:
         verbose_name = "item da entrega"
@@ -106,7 +110,11 @@ class SubmissionItem(TimeStampedModel):
         constraints = [
             models.CheckConstraint(
                 condition=(Q(kind=FieldKind.LINK) & ~Q(link=""))
-                | (Q(kind=FieldKind.FILE) & ~Q(file_url="")),
+                | (Q(kind=FieldKind.FILE) & ~Q(file_url=""))
+                | (
+                    Q(kind__in=[FieldKind.CANVAS, FieldKind.SWOT])
+                    & Q(content__isnull=False)
+                ),
                 name="submission_item_matches_kind",
             ),
         ]

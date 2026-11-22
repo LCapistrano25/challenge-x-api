@@ -10,8 +10,9 @@ from apps.teams.models import (
 )
 
 
-class TeamCreateSerializer(serializers.Serializer):
-    name = serializers.CharField(max_length=150)
+class TeamLeaveSerializer(serializers.Serializer):
+    # Confirma a saída que deixa a equipe abaixo do mínimo de integrantes.
+    confirm = serializers.BooleanField(default=False)
 
 
 class TeamMemberSerializer(serializers.ModelSerializer):
@@ -47,6 +48,7 @@ class TeamSerializer(serializers.ModelSerializer):
             "status",
             "qualification",
             "disqualification_reason",
+            "formation_extended_until",
             "members",
             "created_at",
             "updated_at",
@@ -77,6 +79,12 @@ class InvitationCreateSerializer(serializers.Serializer):
             )
 
         return attrs
+
+
+class TeamCreateSerializer(serializers.Serializer):
+    name = serializers.CharField(max_length=150)
+    # A quantidade exigida depende da edição; o caso de uso confere e explica.
+    invitations = InvitationCreateSerializer(many=True, required=False)
 
 
 class InvitationSerializer(serializers.ModelSerializer):

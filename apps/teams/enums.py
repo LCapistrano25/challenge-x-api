@@ -4,6 +4,8 @@ from django.db import models
 class TeamStatus(models.TextChoices):
     ACTIVE = "ACTIVE", "Ativa"
     DISQUALIFIED = "DISQUALIFIED", "Desclassificada"
+    # O líder saiu sozinho: a equipe deixa de existir e o aluno fica livre para outra.
+    DISBANDED = "DISBANDED", "Desfeita"
 
 
 class TeamSituation(models.TextChoices):

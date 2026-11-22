@@ -16,6 +16,9 @@ TIME_ZONE = base.TIME_ZONE
 USE_I18N = base.USE_I18N
 USE_TZ = base.USE_TZ
 STATIC_URL = base.STATIC_URL
+STORAGES = base.STORAGES
+DELIVERY_STORAGE_ROOT = base.DELIVERY_STORAGE_ROOT
+DELIVERY_MAX_FILE_MB = base.DELIVERY_MAX_FILE_MB
 DEFAULT_AUTO_FIELD = base.DEFAULT_AUTO_FIELD
 AUTH_USER_MODEL = base.AUTH_USER_MODEL
 DEFAULT_FROM_EMAIL = base.DEFAULT_FROM_EMAIL
@@ -31,3 +34,12 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 SECURE_SSL_REDIRECT = True
+# Atrás de proxy que termina o TLS o Django só vê HTTP; sem isto o redirecionamento
+# acima não termina nunca. shortcut: confia no cabeçalho de qualquer origem, então o
+# proxy deve sobrescrevê-lo; sem proxy, remover esta linha.
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+# shortcut: 1 hora, para errar barato; subir para 31536000 (1 ano) quando o site
+# inteiro estiver confirmado em HTTPS.
+SECURE_HSTS_SECONDS = 3600
+# Preload e subdomínios no HSTS são difíceis de desfazer; ficam fora de propósito.
+SILENCED_SYSTEM_CHECKS = ["security.W005", "security.W021"]

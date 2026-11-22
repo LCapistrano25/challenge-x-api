@@ -25,6 +25,8 @@ class Team(TimeStampedModel):
     )
     # Motivo, data e responsável da desclassificação andam juntos (RF13, P-22).
     disqualification_reason = models.TextField(blank=True)
+    # Janela extra para repor a vaga de quem saiu em cima da hora (uma por equipe).
+    formation_extended_until = models.DateTimeField(null=True, blank=True)
     disqualified_at = models.DateTimeField(null=True, blank=True)
     disqualified_by = models.ForeignKey(
         "accounts.User",
@@ -39,8 +41,11 @@ class Team(TimeStampedModel):
         verbose_name = "equipe"
         verbose_name_plural = "equipes"
         constraints = [
+            # Equipe desfeita libera o nome para uma equipe nova.
             models.UniqueConstraint(
-                fields=["edition", "name"], name="unique_team_name_per_edition"
+                fields=["edition", "name"],
+                condition=~Q(status=TeamStatus.DISBANDED),
+                name="unique_team_name_per_edition",
             ),
             models.CheckConstraint(
                 condition=(

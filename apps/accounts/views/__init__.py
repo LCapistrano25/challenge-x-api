@@ -1,3 +1,7 @@
+from apps.accounts.views.email_domains import (
+    EmailDomainDetailView,
+    EmailDomainListCreateView,
+)
 from apps.accounts.views.external_review_profile import ExternalReviewProfileView
 from apps.accounts.views.login import (
     CsrfView,
@@ -11,6 +15,8 @@ from apps.accounts.views.teacher_profile import TeacherProfileView
 
 __all__ = [
     "CsrfView",
+    "EmailDomainDetailView",
+    "EmailDomainListCreateView",
     "LoginView",
     "LogoutView",
     "MeView",
