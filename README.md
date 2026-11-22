@@ -85,7 +85,7 @@ POSTGRES_DB=desafiox
 POSTGRES_USER=desafiox
 POSTGRES_PASSWORD=dev_password
 POSTGRES_HOST=127.0.0.1
-POSTGRES_PORT=5432
+POSTGRES_PORT=5433
 ```
 
 Substitua `cole_sua_chave_gerada_aqui` pela chave gerada no comando anterior.
@@ -138,7 +138,7 @@ Crie um usuário administrador para acessar o **Django Admin**:
 uv run python manage.py createsuperuser
 ```
 
-Informe o nome de usuário (ex: admin), o e-mail (ex: admin@exemplo.com) e a senha conforme solicitado no terminal.
+Informe o e-mail (ex: admin@exemplo.com), que é o login, e a senha conforme solicitado no terminal.
 ---
 
 ### Passo 7: Iniciar o Servidor de Desenvolvimento

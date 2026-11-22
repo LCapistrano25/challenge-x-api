@@ -5,15 +5,29 @@ from django.utils import timezone
 
 from apps.accounts.factories import StudentFactory
 from apps.core.factories import CourseFactory
-from apps.editions.factories import CategoryFactory, ChallengeFactory, EditionFactory
+from apps.editions.factories import (
+    CategoryFactory,
+    ChallengeFactory,
+    EditionFactory,
+    StageFactory,
+    StageSubmissionFieldFactory,
+)
+from apps.projects.enums import DeliveryStatus, PhaseStatus
 from apps.projects.factories import (
     DeadlineExtensionFactory,
+    ProjectFactory,
     SubmissionFactory,
+    SubmissionReceiptFactory,
     SubmissionVersionFactory,
 )
 from apps.projects.selectors import (
     get_active_categories,
+    get_delivery_status,
     get_eligible_challenges,
+    get_official_version,
+    get_phase_status,
+    get_project_deliverables,
+    get_receipt_by_version,
     get_team_courses,
     get_valid_version,
 )
@@ -175,3 +189,125 @@ def test_categorias_so_ativas_da_edicao(team):
     CategoryFactory(edition=EditionFactory())
 
     assert list(get_active_categories(team.edition)) == [ativa]
+
+
+# Status da entrega e consulta por etapa (RF31, P-27)
+
+
+def stage_between(project, start, end, **fields):
+    now = timezone.now()
+    return StageFactory(
+        edition=project.edition,
+        starts_at=now + start,
+        ends_at=now + end,
+        **fields,
+    )
+
+
+def test_status_nao_enviada_com_prazo_aberto():
+    project = ProjectFactory()
+    stage = stage_between(project, -timedelta(days=1), timedelta(days=1))
+    assert get_delivery_status(project, stage) == DeliveryStatus.NOT_SUBMITTED
+
+
+def test_status_enviada_com_versao_no_prazo():
+    submission = SubmissionFactory()
+    SubmissionVersionFactory(
+        submission=submission,
+        number=1,
+        submitted_at=at(submission, -timedelta(hours=1)),
+    )
+    status = get_delivery_status(submission.project, submission.stage)
+    assert status == DeliveryStatus.SUBMITTED
+
+
+def test_status_nao_entregue_com_prazo_encerrado_sem_versao():
+    project = ProjectFactory()
+    stage = stage_between(project, -timedelta(days=5), -timedelta(days=1))
+    assert get_delivery_status(project, stage) == DeliveryStatus.NOT_DELIVERED
+
+
+def test_prorrogacao_muda_nao_entregue_para_nao_enviada():
+    project = ProjectFactory()
+    stage = stage_between(project, -timedelta(days=5), -timedelta(days=1))
+    DeadlineExtensionFactory(
+        project=project, stage=stage, ends_at=timezone.now() + timedelta(days=1)
+    )
+    assert get_delivery_status(project, stage) == DeliveryStatus.NOT_SUBMITTED
+
+
+def test_versao_oficial_nula_com_prazo_aberto():
+    submission = SubmissionFactory()
+    SubmissionVersionFactory(
+        submission=submission,
+        number=1,
+        submitted_at=at(submission, -timedelta(hours=1)),
+    )
+    assert get_official_version(submission.project, submission.stage) is None
+
+
+def test_versao_oficial_depois_do_prazo_e_a_de_maior_numero_no_prazo():
+    project = ProjectFactory()
+    stage = stage_between(project, -timedelta(days=5), -timedelta(days=1))
+    submission = SubmissionFactory(project=project, stage=stage)
+    SubmissionVersionFactory(
+        submission=submission, number=1, submitted_at=at(submission, -timedelta(days=3))
+    )
+    last = SubmissionVersionFactory(
+        submission=submission, number=2, submitted_at=at(submission, -timedelta(days=2))
+    )
+    assert get_official_version(project, stage) == last
+
+
+def test_versao_oficial_nula_sem_envio():
+    project = ProjectFactory()
+    stage = stage_between(project, -timedelta(days=5), -timedelta(days=1))
+    assert get_official_version(project, stage) is None
+
+
+@pytest.mark.parametrize(
+    ("start", "end", "expected"),
+    [
+        (timedelta(days=1), timedelta(days=2), PhaseStatus.UPCOMING),
+        (-timedelta(days=1), timedelta(days=1), PhaseStatus.OPEN),
+        (-timedelta(days=2), -timedelta(days=1), PhaseStatus.FINISHED),
+    ],
+)
+def test_fase_da_etapa(start, end, expected):
+    stage = stage_between(ProjectFactory(), start, end)
+    assert get_phase_status(stage) == expected
+
+
+def test_entregas_listam_so_etapas_de_entrega_com_campos_em_ordem():
+    project = ProjectFactory()
+    second = StageFactory(edition=project.edition, order=2)
+    first = StageFactory(edition=project.edition, order=1)
+    no_fields = StageFactory(edition=project.edition, order=3)
+    formation = StageFactory(formation=True, edition=project.edition, order=4)
+    for stage in (second, first, formation):
+        StageSubmissionFieldFactory(stage=stage)
+    assert no_fields.submission_fields.count() == 0
+
+    assert list(get_project_deliverables(project)) == [first, second]
+
+
+def test_comprovante_da_versao_vem_com_equipe_projeto_e_etapa(
+    django_assert_num_queries,
+):
+    receipt = SubmissionReceiptFactory()
+
+    found = get_receipt_by_version(receipt.version_id)
+
+    with django_assert_num_queries(0):
+        assert found == receipt
+        assert found.version.submission.project.team.code
+        assert found.version.submission.stage.name
+
+
+def test_comprovante_nulo_para_versao_inexistente():
+    assert get_receipt_by_version(999999) is None
+
+
+def test_comprovante_nulo_para_versao_sem_comprovante():
+    version = SubmissionVersionFactory()
+    assert get_receipt_by_version(version.pk) is None

@@ -28,6 +28,7 @@ INSTALLED_APPS = [
     "apps.evaluations.apps.EvaluationsConfig",
     "apps.results.apps.ResultsConfig",
     "apps.notifications",
+    "apps.public",
 ]
 
 MIDDLEWARE = [
@@ -94,6 +95,24 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 
+# Arquivos das entregas (RF31): armazenamento privado, sem URL. O download passa pela
+# API, que checa quem pode ver o projeto. Para trocar de backend (ex.: nuvem), mude
+# só o alias "deliveries".
+DELIVERY_STORAGE_ROOT = env(
+    "DELIVERY_STORAGE_ROOT", default=str(BASE_DIR / "private_media")
+)
+# Teto de tamanho de um arquivo de entrega; vale mesmo que o campo da etapa peça mais.
+DELIVERY_MAX_FILE_MB = env.int("DELIVERY_MAX_FILE_MB", default=50)
+
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+    "deliveries": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+        "OPTIONS": {"location": DELIVERY_STORAGE_ROOT},
+    },
+}
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 AUTH_USER_MODEL = "accounts.User"
@@ -112,7 +131,7 @@ SESSION_SAVE_EVERY_REQUEST = True
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework.authentication.SessionAuthentication",
+        "apps.core.authentication.SessionAuthentication",
     ],
     # Esquecer permission_classes exige login em vez de deixar a rota aberta.
     # Cada view declara o papel (IsAdmin, IsStudent...) ou AllowAny se pública.

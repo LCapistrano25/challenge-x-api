@@ -88,7 +88,7 @@ def test_edicao_inexistente_recebe_404(admin):
 def test_sem_login_e_recusado():
     resposta = get(None, EditionFactory().pk)
 
-    assert resposta.status_code == 403
+    assert resposta.status_code == 401
     assert resposta.data["error"]["code"] == "not_authenticated"
 
 

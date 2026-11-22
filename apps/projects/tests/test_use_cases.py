@@ -2,34 +2,55 @@ from datetime import timedelta
 
 import pytest
 from django.core.exceptions import ValidationError
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import IntegrityError
 from django.utils import timezone
 
 from apps.accounts.enums import UserRole
 from apps.accounts.factories import UserFactory
+from apps.editions.enums import FieldKind
+from apps.editions.exceptions import EditionClosed
 from apps.editions.factories import (
     CategoryFactory,
     ChallengeFactory,
     EditionFactory,
     StageFactory,
+    StageSubmissionFieldFactory,
 )
 from apps.projects.exceptions import (
     CategoryNotAvailable,
     ChallengeNotEligible,
     ChallengeNotSelected,
+    FileFormatNotAllowed,
+    FileTooLarge,
     FormationClosed,
     NotTeamLeader,
     ProjectNotFound,
     ProjectTitleTaken,
+    StageDeadlineClosed,
+    StageNotFound,
+    StageNotOpen,
+    StorageUnavailable,
+    TeamDisqualified,
+    TeamIncomplete,
 )
-from apps.projects.factories import ProjectFactory
-from apps.projects.models import Project
+from apps.projects.factories import DeadlineExtensionFactory, ProjectFactory
+from apps.projects.files import get_delivery_storage
+from apps.projects.models import (
+    Project,
+    Submission,
+    SubmissionItem,
+    SubmissionReceipt,
+    SubmissionVersion,
+)
+from apps.projects.tests.conftest import stored_keys, valid_canvas, valid_swot
 from apps.projects.use_cases import save_project_details as save_module
 from apps.projects.use_cases.invalidate_challenge import invalidate_challenge
 from apps.projects.use_cases.save_project_details import save_project_details
 from apps.projects.use_cases.select_category import select_category
 from apps.projects.use_cases.select_challenge import select_challenge
-from apps.teams.enums import MemberRole
+from apps.projects.use_cases.submit_stage_delivery import submit_stage_delivery
+from apps.teams.enums import MemberRole, TeamSituation
 from apps.teams.factories import TeamFactory, TeamMemberFactory
 
 pytestmark = pytest.mark.django_db
@@ -428,3 +449,509 @@ def test_falha_nao_grava_a_categoria(team, leader, challenge, category):
 
     project.refresh_from_db()
     assert project.category == category
+
+
+# Enviar a entrega da etapa (UC34, RF31)
+
+
+@pytest.fixture
+def delivery_project():
+    return ProjectFactory()
+
+
+@pytest.fixture
+def delivery_leader(delivery_project):
+    return delivery_project.team.members.get(role=MemberRole.LEADER).student.user
+
+
+@pytest.fixture
+def delivery_stage(delivery_project):
+    now = timezone.now()
+    return StageFactory(
+        edition=delivery_project.edition,
+        starts_at=now - timedelta(days=1),
+        ends_at=now + timedelta(days=1),
+    )
+
+
+@pytest.fixture
+def link_field(delivery_stage):
+    return StageSubmissionFieldFactory(stage=delivery_stage)
+
+
+def send(actor, project, stage, field, link="https://github.com/equipe/p", **extra):
+    return submit_stage_delivery(
+        actor=actor,
+        project=project,
+        stage=stage,
+        items=[{"field": field, "link": link}],
+        **extra,
+    )
+
+
+def test_envio_cria_entrega_versao_item_e_comprovante(
+    delivery_project, delivery_leader, delivery_stage, link_field
+):
+    version = send(
+        delivery_leader, delivery_project, delivery_stage, link_field, notes="Primeira"
+    )
+
+    assert version.number == 1
+    assert version.notes == "Primeira"
+    assert version.submitted_by == delivery_leader.student
+    assert version.submission.project == delivery_project
+    assert version.submission.stage == delivery_stage
+    item = version.items.get()
+    assert (item.field, item.kind, item.link) == (
+        link_field,
+        "LINK",
+        "https://github.com/equipe/p",
+    )
+    assert version.receipt.file_url == ""
+    assert version.receipt.verification_code
+
+
+def test_envio_cria_um_comprovante_com_codigo_hexadecimal(
+    delivery_project, delivery_leader, delivery_stage, link_field
+):
+    version = send(delivery_leader, delivery_project, delivery_stage, link_field)
+
+    assert SubmissionReceipt.objects.filter(version=version).count() == 1
+    code = version.receipt.verification_code
+    assert len(code) == 32
+    assert int(code, 16) >= 0
+    assert version.receipt.file_url == ""
+
+
+def test_dois_envios_geram_codigos_diferentes_e_preservam_o_primeiro(
+    delivery_project, delivery_leader, delivery_stage, link_field
+):
+    first = send(delivery_leader, delivery_project, delivery_stage, link_field)
+    original = (
+        first.receipt.pk,
+        first.receipt.verification_code,
+        first.receipt.generated_at,
+    )
+
+    second = send(delivery_leader, delivery_project, delivery_stage, link_field)
+
+    assert SubmissionReceipt.objects.count() == 2
+    assert second.receipt.verification_code != original[1]
+    first.receipt.refresh_from_db()
+    assert (
+        first.receipt.pk,
+        first.receipt.verification_code,
+        first.receipt.generated_at,
+    ) == original
+
+
+def test_segundo_envio_cria_versao_2_e_preserva_a_1(
+    delivery_project, delivery_leader, delivery_stage, link_field
+):
+    first = send(delivery_leader, delivery_project, delivery_stage, link_field)
+    second = send(
+        delivery_leader,
+        delivery_project,
+        delivery_stage,
+        link_field,
+        link="https://x.dev/2",
+    )
+
+    assert (first.number, second.number) == (1, 2)
+    assert first.submission == second.submission
+    assert first.items.get().link == "https://github.com/equipe/p"
+    assert Submission.objects.count() == 1
+
+
+def test_reenvio_igual_cria_outra_versao(
+    delivery_project, delivery_leader, delivery_stage, link_field
+):
+    send(delivery_leader, delivery_project, delivery_stage, link_field)
+    send(delivery_leader, delivery_project, delivery_stage, link_field)
+    assert SubmissionVersion.objects.count() == 2
+
+
+def test_envio_recusa_membro_comum(delivery_project, delivery_stage, link_field):
+    member = TeamMemberFactory(team=delivery_project.team).student.user
+    with pytest.raises(NotTeamLeader):
+        send(member, delivery_project, delivery_stage, link_field)
+    assert SubmissionReceipt.objects.count() == 0
+
+
+def test_envio_recusa_admin(delivery_project, delivery_stage, link_field):
+    admin = UserFactory(role=UserRole.ADMIN)
+    with pytest.raises(NotTeamLeader):
+        send(admin, delivery_project, delivery_stage, link_field)
+
+
+def test_envio_recusa_lider_inativo(
+    delivery_project, delivery_leader, delivery_stage, link_field
+):
+    delivery_project.team.members.filter(role=MemberRole.LEADER).update(
+        active=False, left_at=timezone.now()
+    )
+    with pytest.raises(NotTeamLeader):
+        send(delivery_leader, delivery_project, delivery_stage, link_field)
+
+
+def test_envio_recusa_edicao_encerrada(
+    delivery_project, delivery_leader, delivery_stage, link_field
+):
+    edition = delivery_project.edition
+    edition.status = "CLOSED"
+    edition.save()
+    with pytest.raises(EditionClosed):
+        send(delivery_leader, delivery_project, delivery_stage, link_field)
+
+
+def test_envio_recusa_equipe_desclassificada(delivery_stage, link_field):
+    team = TeamFactory(edition=delivery_stage.edition, disqualified=True)
+    project = ProjectFactory(team=team)
+    leader = team.members.get(role=MemberRole.LEADER).student.user
+    with pytest.raises(TeamDisqualified):
+        send(leader, project, delivery_stage, link_field)
+    assert SubmissionReceipt.objects.count() == 0
+
+
+@pytest.mark.parametrize(
+    "situation", [TeamSituation.INCOMPLETE, TeamSituation.REQUIREMENTS_NOT_MET]
+)
+def test_envio_recusa_equipe_incompleta(
+    situation, delivery_project, delivery_leader, delivery_stage, link_field
+):
+    delivery_project.team.situation = situation
+    delivery_project.team.save()
+    with pytest.raises(TeamIncomplete):
+        send(delivery_leader, delivery_project, delivery_stage, link_field)
+
+
+@pytest.mark.parametrize("missing", ["challenge", "title", "summary"])
+def test_envio_recusa_projeto_incompleto(
+    missing, delivery_project, delivery_leader, delivery_stage, link_field
+):
+    setattr(delivery_project, missing, None if missing == "challenge" else "")
+    delivery_project.save()
+    with pytest.raises(ValidationError):
+        send(delivery_leader, delivery_project, delivery_stage, link_field)
+
+
+def test_envio_recusa_etapa_de_formacao(delivery_project, delivery_leader):
+    stage = StageFactory(formation=True, edition=delivery_project.edition)
+    field = StageSubmissionFieldFactory(stage=stage)
+    with pytest.raises(StageNotFound):
+        send(delivery_leader, delivery_project, stage, field)
+
+
+def test_envio_recusa_etapa_de_outra_edicao(delivery_project, delivery_leader):
+    stage = StageFactory()
+    field = StageSubmissionFieldFactory(stage=stage)
+    with pytest.raises(StageNotFound):
+        send(delivery_leader, delivery_project, stage, field)
+
+
+def closed_delivery_stage(project):
+    now = timezone.now()
+    stage = StageFactory(
+        edition=project.edition,
+        starts_at=now - timedelta(days=5),
+        ends_at=now - timedelta(days=1),
+    )
+    return stage, StageSubmissionFieldFactory(stage=stage)
+
+
+def test_envio_recusa_prazo_encerrado(delivery_project, delivery_leader):
+    stage, field = closed_delivery_stage(delivery_project)
+    with pytest.raises(StageDeadlineClosed):
+        send(delivery_leader, delivery_project, stage, field)
+
+
+def test_envio_com_prorrogacao_funciona(delivery_project, delivery_leader):
+    stage, field = closed_delivery_stage(delivery_project)
+    DeadlineExtensionFactory(
+        project=delivery_project,
+        stage=stage,
+        ends_at=timezone.now() + timedelta(days=1),
+    )
+    assert send(delivery_leader, delivery_project, stage, field).number == 1
+
+
+def test_envio_recusa_antes_do_inicio(delivery_project, delivery_leader):
+    now = timezone.now()
+    stage = StageFactory(
+        edition=delivery_project.edition,
+        starts_at=now + timedelta(days=1),
+        ends_at=now + timedelta(days=5),
+    )
+    field = StageSubmissionFieldFactory(stage=stage)
+    with pytest.raises(StageNotOpen):
+        send(delivery_leader, delivery_project, stage, field)
+
+
+def test_envio_recusa_itens_invalidos(
+    delivery_project, delivery_leader, delivery_stage, link_field
+):
+    with pytest.raises(ValidationError):
+        submit_stage_delivery(
+            actor=delivery_leader,
+            project=delivery_project,
+            stage=delivery_stage,
+            items=[],
+        )
+
+
+def test_falha_nao_grava_nada(delivery_project, delivery_leader):
+    stage, field = closed_delivery_stage(delivery_project)
+    with pytest.raises(StageDeadlineClosed):
+        send(delivery_leader, delivery_project, stage, field)
+
+    assert Submission.objects.count() == 0
+    assert SubmissionVersion.objects.count() == 0
+    assert SubmissionItem.objects.count() == 0
+    assert SubmissionReceipt.objects.count() == 0
+
+
+# Enviar a entrega da etapa com arquivos (UC34, RF31)
+
+
+@pytest.fixture
+def file_field(delivery_stage):
+    return StageSubmissionFieldFactory(
+        stage=delivery_stage, kind=FieldKind.FILE, formats="pdf", max_size_mb=1
+    )
+
+
+def pdf(name="relatorio.pdf", content=b"%PDF-1.7 conteudo"):
+    return SimpleUploadedFile(name, content)
+
+
+def send_file(actor, project, stage, field, upload=None, **extra):
+    return submit_stage_delivery(
+        actor=actor,
+        project=project,
+        stage=stage,
+        items=[{"field": field, "file": upload or pdf()}],
+        **extra,
+    )
+
+
+def test_envio_com_arquivo_cria_item_e_grava_no_armazenamento(
+    delivery_project,
+    delivery_leader,
+    delivery_stage,
+    file_field,
+    delivery_storage_root,
+):
+    version = send_file(
+        delivery_leader,
+        delivery_project,
+        delivery_stage,
+        file_field,
+        pdf("Meu Relatório.pdf"),
+    )
+
+    item = version.items.get()
+    assert (item.field, item.kind, item.link) == (file_field, "FILE", "")
+    assert item.file_name == "Meu_Relatório.pdf"
+    assert item.size_bytes == len(b"%PDF-1.7 conteudo")
+    assert item.file_url.startswith(
+        f"deliveries/{delivery_project.pk}/{delivery_stage.pk}/v1/"
+    )
+    assert item.file_url.endswith(".pdf")
+    assert "Relat" not in item.file_url
+    assert stored_keys(delivery_storage_root) == [item.file_url]
+
+
+def test_envio_com_link_e_arquivo_na_mesma_versao(
+    delivery_project, delivery_leader, delivery_stage, link_field, file_field
+):
+    version = submit_stage_delivery(
+        actor=delivery_leader,
+        project=delivery_project,
+        stage=delivery_stage,
+        items=[
+            {"field": link_field, "link": "https://github.com/equipe/p"},
+            {"field": file_field, "file": pdf()},
+        ],
+    )
+    assert sorted(version.items.values_list("kind", flat=True)) == ["FILE", "LINK"]
+
+
+def test_segundo_envio_preserva_o_arquivo_da_versao_1(
+    delivery_project,
+    delivery_leader,
+    delivery_stage,
+    file_field,
+    delivery_storage_root,
+):
+    first = send_file(delivery_leader, delivery_project, delivery_stage, file_field)
+    second = send_file(delivery_leader, delivery_project, delivery_stage, file_field)
+
+    first_item, second_item = first.items.get(), second.items.get()
+    assert (first.number, second.number) == (1, 2)
+    assert first_item.file_url != second_item.file_url
+    assert stored_keys(delivery_storage_root) == sorted(
+        [first_item.file_url, second_item.file_url]
+    )
+
+
+@pytest.mark.parametrize(
+    "violation",
+    ["not_leader", "closed_edition", "disqualified", "incomplete", "deadline"],
+)
+def test_regra_violada_nao_grava_arquivo(
+    violation,
+    delivery_project,
+    delivery_leader,
+    delivery_stage,
+    file_field,
+    delivery_storage_root,
+):
+    actor = delivery_leader
+    stage, field = delivery_stage, file_field
+    expected = {
+        "not_leader": NotTeamLeader,
+        "closed_edition": EditionClosed,
+        "disqualified": TeamDisqualified,
+        "incomplete": TeamIncomplete,
+        "deadline": StageDeadlineClosed,
+    }[violation]
+    if violation == "not_leader":
+        actor = TeamMemberFactory(team=delivery_project.team).student.user
+    elif violation == "closed_edition":
+        delivery_project.edition.status = "CLOSED"
+        delivery_project.edition.save()
+    elif violation == "disqualified":
+        team = TeamFactory(edition=delivery_stage.edition, disqualified=True)
+        delivery_project = ProjectFactory(team=team)
+        actor = team.members.get(role=MemberRole.LEADER).student.user
+    elif violation == "incomplete":
+        delivery_project.team.situation = TeamSituation.INCOMPLETE
+        delivery_project.team.save()
+    else:
+        stage, _ = closed_delivery_stage(delivery_project)
+        field = StageSubmissionFieldFactory(stage=stage, kind=FieldKind.FILE)
+
+    with pytest.raises(expected):
+        send_file(actor, delivery_project, stage, field)
+
+    assert stored_keys(delivery_storage_root) == []
+    assert SubmissionVersion.objects.count() == 0
+
+
+@pytest.mark.parametrize(
+    ("upload", "error"),
+    [
+        (pdf("a.txt", b"texto"), FileFormatNotAllowed),
+        (pdf("a.pdf", b"%PDF" + b"0" * (1024 * 1024 + 1)), FileTooLarge),
+        (pdf("a.pdf", b"texto que nao e pdf"), FileFormatNotAllowed),
+        (pdf("a.pdf", b""), ValidationError),
+    ],
+)
+def test_arquivo_invalido_nao_deixa_arquivo_versao_nem_item(
+    upload,
+    error,
+    delivery_project,
+    delivery_leader,
+    delivery_stage,
+    file_field,
+    delivery_storage_root,
+):
+    with pytest.raises(error):
+        send_file(delivery_leader, delivery_project, delivery_stage, file_field, upload)
+
+    assert stored_keys(delivery_storage_root) == []
+    assert SubmissionVersion.objects.count() == 0
+    assert SubmissionItem.objects.count() == 0
+
+
+def test_campo_de_arquivo_obrigatorio_sem_item_e_recusado(
+    delivery_project, delivery_leader, delivery_stage, link_field, file_field
+):
+    with pytest.raises(ValidationError):
+        send(delivery_leader, delivery_project, delivery_stage, link_field)
+    assert SubmissionVersion.objects.count() == 0
+
+
+def test_falha_depois_de_gravar_apaga_o_arquivo_e_as_linhas(
+    delivery_project,
+    delivery_leader,
+    delivery_stage,
+    file_field,
+    delivery_storage_root,
+    monkeypatch,
+):
+    def broken(*args, **kwargs):
+        raise RuntimeError("falha no comprovante")
+
+    monkeypatch.setattr(SubmissionReceipt.objects, "create", broken)
+
+    with pytest.raises(RuntimeError):
+        send_file(delivery_leader, delivery_project, delivery_stage, file_field)
+
+    assert stored_keys(delivery_storage_root) == []
+    assert Submission.objects.count() == 0
+    assert SubmissionVersion.objects.count() == 0
+    assert SubmissionItem.objects.count() == 0
+
+
+def test_falha_do_armazenamento_vira_storage_unavailable_sem_linhas(
+    delivery_project,
+    delivery_leader,
+    delivery_stage,
+    file_field,
+    delivery_storage_root,
+    monkeypatch,
+):
+    def broken(*args, **kwargs):
+        raise OSError("disco cheio")
+
+    monkeypatch.setattr(get_delivery_storage().__class__, "save", broken)
+
+    with pytest.raises(StorageUnavailable):
+        send_file(delivery_leader, delivery_project, delivery_stage, file_field)
+
+    assert SubmissionVersion.objects.count() == 0
+    assert SubmissionItem.objects.count() == 0
+    assert stored_keys(delivery_storage_root) == []
+
+
+def test_envio_com_canvas_e_swot_grava_o_conteudo(
+    delivery_project, delivery_leader, delivery_stage
+):
+    canvas = StageSubmissionFieldFactory(stage=delivery_stage, kind=FieldKind.CANVAS)
+    swot = StageSubmissionFieldFactory(stage=delivery_stage, kind=FieldKind.SWOT)
+
+    version = submit_stage_delivery(
+        actor=delivery_leader,
+        project=delivery_project,
+        stage=delivery_stage,
+        items=[
+            {"field": canvas, "content": valid_canvas()},
+            {"field": swot, "content": valid_swot()},
+        ],
+    )
+
+    items = {item.field_id: item for item in version.items.all()}
+    assert items[canvas.pk].kind == FieldKind.CANVAS
+    assert items[canvas.pk].content == valid_canvas()
+    assert items[swot.pk].kind == FieldKind.SWOT
+    assert items[swot.pk].content == valid_swot()
+    assert version.receipt.verification_code
+
+
+def test_canvas_incompleto_nao_grava_nada(
+    delivery_project, delivery_leader, delivery_stage
+):
+    canvas = StageSubmissionFieldFactory(stage=delivery_stage, kind=FieldKind.CANVAS)
+
+    with pytest.raises(ValidationError):
+        submit_stage_delivery(
+            actor=delivery_leader,
+            project=delivery_project,
+            stage=delivery_stage,
+            items=[{"field": canvas, "content": {"channels": "só um bloco"}}],
+        )
+
+    assert not SubmissionVersion.objects.filter(
+        submission__project=delivery_project
+    ).exists()

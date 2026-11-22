@@ -434,7 +434,7 @@ def test_autocadastro_sem_login_e_recusado(post, client):
 
     resposta = post()
 
-    assert resposta.status_code == 403
+    assert resposta.status_code == 401
     assert resposta.data["error"]["code"] == "not_authenticated"
 
 
@@ -530,7 +530,7 @@ def test_admin_cadastra_avaliador_sem_instituicao():
 def test_cadastro_de_avaliador_sem_login_e_recusado():
     resposta = post_evaluator(None)
 
-    assert resposta.status_code == 403
+    assert resposta.status_code == 401
     assert resposta.data["error"]["code"] == "not_authenticated"
 
 

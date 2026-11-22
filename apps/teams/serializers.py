@@ -1,11 +1,18 @@
 from rest_framework import serializers
 
 from apps.teams.enums import InvitationStatus, RequestStatus
-from apps.teams.models import Invitation, JoinRequest, Team, TeamMember
+from apps.teams.models import (
+    Invitation,
+    JoinRequest,
+    LeadershipRequest,
+    Team,
+    TeamMember,
+)
 
 
-class TeamCreateSerializer(serializers.Serializer):
-    name = serializers.CharField(max_length=150)
+class TeamLeaveSerializer(serializers.Serializer):
+    # Confirma a saída que deixa a equipe abaixo do mínimo de integrantes.
+    confirm = serializers.BooleanField(default=False)
 
 
 class TeamMemberSerializer(serializers.ModelSerializer):
@@ -41,6 +48,7 @@ class TeamSerializer(serializers.ModelSerializer):
             "status",
             "qualification",
             "disqualification_reason",
+            "formation_extended_until",
             "members",
             "created_at",
             "updated_at",
@@ -71,6 +79,12 @@ class InvitationCreateSerializer(serializers.Serializer):
             )
 
         return attrs
+
+
+class TeamCreateSerializer(serializers.Serializer):
+    name = serializers.CharField(max_length=150)
+    # A quantidade exigida depende da edição; o caso de uso confere e explica.
+    invitations = InvitationCreateSerializer(many=True, required=False)
 
 
 class InvitationSerializer(serializers.ModelSerializer):
@@ -179,3 +193,58 @@ class TeamAvailabilitySerializer(serializers.ModelSerializer):
 
     def get_available_vacancies(self, obj):
         return obj.edition.max_members - obj.active_members_count
+
+
+class LeadershipTransferSerializer(serializers.Serializer):
+    student_id = serializers.IntegerField()
+
+
+class LeadershipRequestCreateSerializer(serializers.Serializer):
+    justification = serializers.CharField()
+
+
+class LeadershipRequestDecisionSerializer(serializers.Serializer):
+    approve = serializers.BooleanField()
+    justification = serializers.CharField()
+
+
+class LeadershipRequestSerializer(serializers.ModelSerializer):
+    team = serializers.SerializerMethodField()
+    requester = serializers.SerializerMethodField()
+    teacher = serializers.SerializerMethodField()
+
+    class Meta:
+        model = LeadershipRequest
+        fields = [
+            "id",
+            "team",
+            "requester",
+            "justification",
+            "status",
+            "teacher",
+            "decision_justification",
+            "created_at",
+            "decided_at",
+        ]
+
+    def get_team(self, obj):
+        return {
+            "id": obj.team.id,
+            "name": obj.team.name,
+            "code": obj.team.code,
+        }
+
+    def get_requester(self, obj):
+        return {
+            "user_id": obj.requester.user_id,
+            "name": obj.requester.user.name,
+        }
+
+    def get_teacher(self, obj):
+        if obj.teacher is None:
+            return None
+
+        return {
+            "user_id": obj.teacher.user_id,
+            "name": obj.teacher.user.name,
+        }
