@@ -206,7 +206,7 @@ def test_painel_lista_o_projeto_do_curso_do_professor(ctx):
     assert linha["deliverable_status"] == "SUBMITTED"
     assert linha["my_evaluation_status"] == "NOT_STARTED"
     assert linha["evaluation_count"] == 0
-    assert linha["min_evaluators"] == 1
+    assert linha["min_evaluations"] == 1
 
 
 def test_painel_acompanha_a_avaliacao_do_professor(ctx):

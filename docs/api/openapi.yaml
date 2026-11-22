@@ -8377,18 +8377,27 @@ components:
         default: false
   responses:
     BadRequest:
-      description: Requisição inválida.
+      description: 'Requisição inválida: dados inválidos (`validation_error`) ou corpo acima de 2,5 MB, o `DATA_UPLOAD_MAX_MEMORY_SIZE`
+        (`request_too_large`).'
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
-          example:
-            error:
-              code: validation_error
-              message: Dados inválidos.
-              details:
-                title:
-                - Este campo é obrigatório.
+          examples:
+            validation_error:
+              value:
+                error:
+                  code: validation_error
+                  message: Dados inválidos.
+                  details:
+                    title:
+                    - Este campo é obrigatório.
+            request_too_large:
+              value:
+                error:
+                  code: request_too_large
+                  message: A requisição excede o tamanho permitido.
+                  details: null
     Unauthorized:
       description: Autenticação ausente, inválida ou expirada.
       content:
