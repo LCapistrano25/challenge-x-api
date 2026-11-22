@@ -28,6 +28,7 @@ INSTALLED_APPS = [
     "apps.evaluations.apps.EvaluationsConfig",
     "apps.results.apps.ResultsConfig",
     "apps.notifications",
+    "apps.public",
 ]
 
 MIDDLEWARE = [
