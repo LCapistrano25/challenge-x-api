@@ -197,6 +197,40 @@ class ReceiptSerializer(serializers.Serializer):
         return receipt.file_url or None
 
 
+class TeamRefSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    name = serializers.CharField()
+    code = serializers.CharField()
+
+
+class ProjectRefSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    title = serializers.CharField()
+
+
+class StageRefSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    name = serializers.CharField()
+    position = serializers.IntegerField(source="order")
+
+
+class ReceiptDetailSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    version_id = serializers.IntegerField()
+    number = serializers.IntegerField(source="version.number")
+    verification_code = serializers.CharField()
+    file_url = serializers.SerializerMethodField()
+    generated_at = serializers.DateTimeField()
+    team = TeamRefSerializer(source="version.submission.project.team")
+    project = ProjectRefSerializer(source="version.submission.project")
+    stage = StageRefSerializer(source="version.submission.stage")
+    submitted_at = serializers.DateTimeField(source="version.submitted_at")
+
+    # Campo vazio no banco vira nulo no contrato; o PDF ainda não é gerado.
+    def get_file_url(self, receipt):
+        return receipt.file_url or None
+
+
 class DeliverableVersionSerializer(serializers.Serializer):
     id = serializers.IntegerField()
     version_number = serializers.IntegerField(source="number")
