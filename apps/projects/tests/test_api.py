@@ -1268,7 +1268,7 @@ def test_comprovante_traz_o_mesmo_codigo_do_envio(dproject, dleader, dstage, dfi
 
 
 def test_consulta_do_comprovante_exige_login(receipt):
-    assert APIClient().get(receipt_url(receipt.version)).status_code == 403
+    assert APIClient().get(receipt_url(receipt.version)).status_code == 401
 
 
 def test_aluno_de_fora_nao_consulta_o_comprovante(receipt):
