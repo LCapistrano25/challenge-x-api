@@ -4,6 +4,8 @@ from apps.public.views import (
     ClosedEditionsListView,
     CurrentEditionView,
     EditionWinnersListView,
+    PublicProjectDetailView,
+    PublicProjectListView,
 )
 
 urlpatterns = [
@@ -13,5 +15,11 @@ urlpatterns = [
         "editions/<int:edition_id>/winners",
         EditionWinnersListView.as_view(),
         name="edition-winners",
+    ),
+    path("projects", PublicProjectListView.as_view(), name="public-projects"),
+    path(
+        "projects/<int:project_id>",
+        PublicProjectDetailView.as_view(),
+        name="public-project-detail",
     ),
 ]
