@@ -4540,13 +4540,23 @@ paths:
 
         **Perfis permitidos:** STUDENT, ADMIN
 
-        **Autorização adicional:** STUDENT: integrante ativo da equipe do projeto. ADMIN: qualquer.
+        **Autorização adicional:** STUDENT: integrante ativo da equipe do projeto. ADMIN: qualquer. TEACHER não consulta.
+
+        **Regras de negócio:**
+        - O comprovante nasce junto com a versão, no envio (RF31); o código de verificação é único e não muda.
+        - Somente leitura: o comprovante e a versão não se alteram depois de criados.
+        - A consulta continua permitida com equipe desclassificada, edição encerrada ou prazo vencido.
+        - file_url é nulo enquanto o PDF do comprovante não for gerado.
+
+        **Pendências relacionadas (api-pendencias.md):** P-43
       x-status: confirmed
       x-requirements:
       - RF31
       x-roles:
       - STUDENT
       - ADMIN
+      x-pendencias:
+      - P-43
       parameters:
       - $ref: '#/components/parameters/VersionId'
       responses:
@@ -4560,8 +4570,8 @@ paths:
                 id: 55
                 version_id: 77
                 number: 2
-                verification_code: DX-2026-1-7F3K9Q
-                file_url: https://storage.projetox.edu.br/comprovantes/DX-2026-1-7F3K9Q.pdf
+                verification_code: 3f2b8c1e9a7d4f60b5c2e1d0a9f8b7c6
+                file_url: null
                 generated_at: '2026-10-22T16:00:00Z'
                 team:
                   id: 12
@@ -5636,8 +5646,8 @@ paths:
                       key_partnerships: Texto do bloco.
                       cost_structure: Texto do bloco.
                   receipt:
-                    verification_code: DX-2026-1-7F3K9Q
-                    file_url: https://storage.projetox.edu.br/comprovantes/DX-2026-1-7F3K9Q.pdf
+                    verification_code: 3f2b8c1e9a7d4f60b5c2e1d0a9f8b7c6
+                    file_url: null
                     generated_at: '2026-10-22T16:00:00Z'
         '401':
           $ref: '#/components/responses/Unauthorized'
@@ -5975,8 +5985,8 @@ paths:
                     key_partnerships: Texto do bloco.
                     cost_structure: Texto do bloco.
                 receipt:
-                  verification_code: DX-2026-1-7F3K9Q
-                  file_url: https://storage.projetox.edu.br/comprovantes/DX-2026-1-7F3K9Q.pdf
+                  verification_code: 3f2b8c1e9a7d4f60b5c2e1d0a9f8b7c6
+                  file_url: null
                   generated_at: '2026-10-22T16:00:00Z'
         '400':
           $ref: '#/components/responses/BadRequest'
@@ -11484,14 +11494,15 @@ components:
         verification_code:
           type: string
           examples:
-          - DX-2026-1-7F3K9Q
+          - 3f2b8c1e9a7d4f60b5c2e1d0a9f8b7c6
         file_url:
           type:
           - string
           - 'null'
-          format: uri
+          description: Caminho autenticado do PDF do comprovante; nulo enquanto o PDF não for gerado. Nunca é URL pública.
+          format: uri-reference
           examples:
-          - https://storage.projetox.edu.br/comprovantes/DX-2026-1-7F3K9Q.pdf
+          - null
         generated_at:
           type: string
           format: date-time
@@ -11777,14 +11788,15 @@ components:
         verification_code:
           type: string
           examples:
-          - DX-2026-1-7F3K9Q
+          - 3f2b8c1e9a7d4f60b5c2e1d0a9f8b7c6
         file_url:
           type:
           - string
           - 'null'
-          format: uri
+          description: Caminho autenticado do PDF do comprovante; nulo enquanto o PDF não for gerado. Nunca é URL pública.
+          format: uri-reference
           examples:
-          - https://storage.projetox.edu.br/comprovantes/DX-2026-1-7F3K9Q.pdf
+          - null
         generated_at:
           type: string
           format: date-time

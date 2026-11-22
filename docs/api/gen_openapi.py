@@ -529,7 +529,7 @@ SC["DeliverableItem"] = obj({"id": INT(ex=301), "field_id": nul(INT(ex=31)), "ty
                              "content": nul({"oneOf": [ref("CanvasContent"), ref("SwotContent")],
                                              "description": "Conteúdo preenchido no sistema (campo CANVAS ou SWOT). Nulo para link e arquivo (P-47)."})},
                             ["id", "field_id", "type", "link", "file_url", "file_name", "size_bytes", "content"])
-SC["ReceiptSummary"] = obj({"verification_code": STR(ex="DX-2026-1-7F3K9Q"), "file_url": nul(URL(ex="https://storage.projetox.edu.br/comprovantes/DX-2026-1-7F3K9Q.pdf")),
+SC["ReceiptSummary"] = obj({"verification_code": STR(ex="3f2b8c1e9a7d4f60b5c2e1d0a9f8b7c6"), "file_url": nul(P("string", "Caminho autenticado do PDF do comprovante; nulo enquanto o PDF não for gerado. Nunca é URL pública.", None, format="uri-reference")),
                             "generated_at": DT()}, ["verification_code", "file_url", "generated_at"])
 SC["DeliverableVersion"] = obj({"id": INT(ex=77), "number": INT(ex=2, minimum=1), "submitted_by": ref("UserSummary"), "submitted_at": DT(),
                                 "notes": nul(TXT(ex="Correção do relatório.")), "items": arr(ref("DeliverableItem")), "receipt": nul(ref("ReceiptSummary"))},
@@ -563,8 +563,8 @@ SC["DeliverableSubmissionMultipart"] = obj({
     "files[]": arr(P("string", format="binary"), description="Arquivos da entrega; cada item de arquivo aponta para um deles por `file_index`. Sem arquivo sobrando."),
 }, ["items"], strict=True, desc="Envio com arquivos (P-43). Aceita também o nome de campo `files`.")
 SC["Receipt"] = obj({
-    "id": INT(ex=55), "version_id": INT(ex=77), "number": INT(ex=2), "verification_code": STR(ex="DX-2026-1-7F3K9Q"),
-    "file_url": nul(URL(ex="https://storage.projetox.edu.br/comprovantes/DX-2026-1-7F3K9Q.pdf")), "generated_at": DT(),
+    "id": INT(ex=55), "version_id": INT(ex=77), "number": INT(ex=2), "verification_code": STR(ex="3f2b8c1e9a7d4f60b5c2e1d0a9f8b7c6"),
+    "file_url": nul(P("string", "Caminho autenticado do PDF do comprovante; nulo enquanto o PDF não for gerado. Nunca é URL pública.", None, format="uri-reference")), "generated_at": DT(),
     "team": ref("TeamRef"), "project": ref("ProjectRef"), "stage": ref("StageRef"), "submitted_at": DT(),
 }, ["id", "version_id", "number", "verification_code", "file_url", "generated_at", "team", "project", "stage", "submitted_at"])
 
@@ -1154,7 +1154,11 @@ op("get", "/api/deliverable-items/{item_id}/file", "projectsDownloadDeliverableF
    rules=["Item inexistente, de link ou com arquivo removido do armazenamento: 404."])
 op("get", "/api/deliverable-versions/{version_id}/receipt", "projectsGetReceipt", "projects", "Consultar comprovante de envio", ["RF31"], ["STUDENT", "ADMIN"],
    "Retorna o comprovante digital da versão.", params=["VersionId"], ok=ref("Receipt"), errs=["404"],
-   authz="STUDENT: integrante ativo da equipe do projeto. ADMIN: qualquer.")
+   authz="STUDENT: integrante ativo da equipe do projeto. ADMIN: qualquer. TEACHER não consulta.",
+   rules=["O comprovante nasce junto com a versão, no envio (RF31); o código de verificação é único e não muda.",
+          "Somente leitura: o comprovante e a versão não se alteram depois de criados.",
+          "A consulta continua permitida com equipe desclassificada, edição encerrada ou prazo vencido.",
+          "file_url é nulo enquanto o PDF do comprovante não for gerado."], pend=["P-43"])
 
 # ---------- evaluations
 op("get", "/api/teacher/projects", "evaluationsListTeacherProjects", "evaluations", "Painel de acompanhamento do curso", ["RF37"], ["TEACHER"],

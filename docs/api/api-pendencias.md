@@ -328,6 +328,7 @@ Estas são convenções que a especificação adota para ficar completa. Cada um
 - **Atualização (#106):** nesta sprint a entrega aceita só links, em JSON (`{"items": [{"field_id", "link"}], "notes"}`). O `multipart` volta com os arquivos (FILE) na V5.
 - **Atualização (#107):** a entrega de etapa aceita links em JSON ou links e arquivos em `multipart/form-data` (`items` em string JSON com `file_index`, `files[]` ou `files`). Os arquivos ficam em armazenamento privado (alias `deliveries`, disco local por padrão), sem URL pública: `file_url` é o caminho autenticado `GET /api/deliverable-items/{item_id}/file`. A escolha do armazenamento definitivo (L10) segue em aberto; trocar é configuração. Edital (RF09) e modelo de certificado (RF17) continuam pendentes.
 - Também é preciso definir onde os arquivos são armazenados (ex.: Azure Blob) e se as URLs devolvidas (`notice_url`, `file_url`, `template_url`) são públicas ou assinadas e com validade. Entregas e certificados não devem ficar com URL pública permanente.
+- **Atualização (#108):** o comprovante tem consulta própria (`GET /api/deliverable-versions/{version_id}/receipt`; aluno integrante e admin). O `file_url` do comprovante segue nulo até o PDF ser gerado; quando existir, usa o armazenamento privado e o download autenticado, nunca URL pública.
 - **Pendente (21/11/2026):** a entrega de etapa está pronta. Faltam o upload do edital (RF09, #123) e do modelo de certificado (RF17, #112), e a escolha do armazenamento definitivo (#99, #102).
 
 ### P-44 — Anonimato do professor nos feedbacks · Média
@@ -404,7 +405,7 @@ Dois desvios do contrato de auth, ambos pela regra "DBML como referência":
 | RF20 | Coberto (proposto) | `GET /api/me/dashboard` |
 | RF21–RF28 | Coberto | `/api/teams`, convites, solicitações, saída, liderança |
 | RF29, RF30, RF49, RF50 | Coberto (proposto) | `PUT /api/teams/{id}/project/challenge`, `PUT .../project/details`, `PUT .../project/category`, `/project/options` |
-| RF31 | Coberto | entregas, versões e comprovante |
+| RF31 | Coberto | entregas, versões e comprovante (consulta do comprovante: #108) |
 | RF32 | Coberto | `GET /api/projects/{id}/scores` |
 | RF33, RF39 | Coberto | `/api/teams/{id}/member-notes` |
 | RF34, RF35, RF45, RF46 | Coberto | `/api/public/projects`, `/api/public/editions`, `/winners` |
