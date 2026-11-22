@@ -20,7 +20,7 @@ Convenções obrigatórias para o backend da Plataforma Desafio X. Vale para tod
 
 A razão de misturar é prática: o código é lido por quem programa e segue a convenção universal da linguagem; a mensagem é lida pelo acadêmico e pelo professor, que não falam inglês.
 
-Quem traduzir termo do domínio por conta própria cria sinônimo: `Avaliacao`, `Review`, `Assessment` e `Grade` para a mesma coisa. **O glossário da seção 7 é a única fonte** — nome que não estiver lá, discute-se antes de escrever.
+Quem traduzir termo do domínio por conta própria cria sinônimo: `Avaliacao`, `Review`, `Assessment` e `Grade` para a mesma coisa. **O glossário da seção 7 é a única fonte** dos nomes internos — nome que não estiver lá, discute-se antes de escrever. Os campos expostos na API seguem o contrato (`docs/api/`), mesmo quando diferem do nome interno.
 
 ---
 
@@ -412,8 +412,8 @@ O último caso é o do congelamento no fim do prazo de formação: ele **escreve
 disparado por `manage.py freeze_formation`. `editions` nunca importa `teams`. O mesmo vale para o zero
 automático por falta de entrega.
 
-**Mudança de model que afeta dois apps** é mudança de schema: passa pelo dono do modelo de dados, atualiza
-o DBML e o diagrama, e vai num PR só.
+**Mudança de model que afeta dois apps** é mudança de schema: passa pelo dono do modelo de dados, regenera
+o DBML (`uv run python docs/modelagem/gen_dbml.py`, nunca à mão) e vai num PR só.
 
 #### Como importar, na prática
 
@@ -474,7 +474,7 @@ Sete apps, na ordem de dependência. Nenhuma seta aponta para trás.
 | 6 | `evaluations` | Evaluation, EvaluationItem, StageScore, FinalForm, FinalQuestion, FinalEvaluation, FinalAnswer |
 | 7 | `results` | ProjectResult, StudentScore, CertificateTemplate, Certificate |
 
-São os 40 models do `banco-desafio-x.dbml`.
+São os models principais; a lista completa está no `docs/modelagem/desafio-x.dbml`, gerado das models.
 
 ---
 

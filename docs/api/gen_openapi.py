@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Gera openapi.yaml do Projeto X (scratch: o entregável é o YAML)."""
+"""Gera docs/api/openapi.yaml do Projeto X. Edite este script, nunca o YAML."""
+from pathlib import Path
+
 import yaml
 
 SC = {}
@@ -1297,8 +1299,9 @@ spec = {
                                            "description": "JWT da aplicação emitido pelas rotas de sessão."}},
         "parameters": PARAMS,
         "responses": {
-            "BadRequest": {"description": "Requisição inválida.", "content": {"application/json": {"schema": ref("Error"),
-                           "example": err_example("validation_error", "Dados inválidos.", {"title": ["Este campo é obrigatório."]})}}},
+            "BadRequest": {"description": "Requisição inválida: dados inválidos (`validation_error`) ou corpo acima de 2,5 MB, o `DATA_UPLOAD_MAX_MEMORY_SIZE` (`request_too_large`).", "content": {"application/json": {"schema": ref("Error"),
+                           "examples": {"validation_error": {"value": err_example("validation_error", "Dados inválidos.", {"title": ["Este campo é obrigatório."]})},
+                                        "request_too_large": {"value": err_example("request_too_large", "A requisição excede o tamanho permitido.")}}}}},
             "Unauthorized": {"description": "Autenticação ausente, inválida ou expirada.", "content": {"application/json": {"schema": ref("Error"),
                              "example": err_example("not_authenticated", "Credenciais de autenticação inválidas ou ausentes.")}}},
             "Forbidden": {"description": "Usuário autenticado sem permissão para a operação.", "content": {"application/json": {"schema": ref("Error"),
@@ -1318,6 +1321,7 @@ def str_presenter(dumper, data):
     return dumper.represent_scalar("tag:yaml.org,2002:str", data)
 Dumper.add_representer(str, str_presenter)
 
-with open("openapi.yaml", "w", encoding="utf-8") as f:
+# Grava ao lado deste script, de qualquer diretório em que for chamado.
+with open(Path(__file__).with_name("openapi.yaml"), "w", encoding="utf-8") as f:
     yaml.dump(spec, f, Dumper=Dumper, sort_keys=False, allow_unicode=True, width=120)
 print("operations:", len(OPIDS), "paths:", len(PATHS), "schemas:", len(SC))
