@@ -42,8 +42,18 @@ class Edition(TimeStampedModel):
         return self.name or f"Desafio X {self.year}/{self.semester}"
 
 
+class EditionSdgQuerySet(models.QuerySet):
+    def delete(self):
+        # Apagar em lote também passa pela regra, como o delete() de cada linha.
+        for edition_id, sdg_id in self.values_list("edition_id", "sdg_id"):
+            ensure_sdg_not_used_by_challenges(edition_id, sdg_id)
+        return super().delete()
+
+
 class EditionSdg(TimeStampedModel):
     """ODS aceita na edição (RN09)."""
+
+    objects = EditionSdgQuerySet.as_manager()
 
     edition = models.ForeignKey(
         Edition, on_delete=models.PROTECT, related_name="sdg_links"
@@ -63,7 +73,6 @@ class EditionSdg(TimeStampedModel):
 
     def delete(self, *args, **kwargs):
         # Challenge aponta para Sdg, não para esta linha: o banco não protege.
-        # shortcut: queryset.delete() não passa por aqui; hoje só o admin apaga.
         ensure_sdg_not_used_by_challenges(self.edition_id, self.sdg_id)
         return super().delete(*args, **kwargs)
 
