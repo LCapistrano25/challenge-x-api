@@ -16,6 +16,14 @@ TIME_ZONE = base.TIME_ZONE
 USE_I18N = base.USE_I18N
 USE_TZ = base.USE_TZ
 STATIC_URL = base.STATIC_URL
+# collectstatic grava aqui; o Caddy serve /static/ desta pasta (docker-compose.prod).
+STATIC_ROOT = base.BASE_DIR / "staticfiles"
+# Origem do frontend (https://...), exigida pelo CSRF da sessão em HTTPS. Na
+# homologação o front usa o proxy do Vite: http://localhost:5173.
+CSRF_TRUSTED_ORIGINS = base.env.list("DJANGO_CSRF_TRUSTED_ORIGINS", default=[])
+# SMTP via EMAIL_URL (ex.: smtp+tls://usuario:senha@smtp.servidor.com:587).
+# shortcut: sem EMAIL_URL o e-mail só vai para o log; configurar antes da produção.
+vars().update(base.env.email_url("EMAIL_URL", default="consolemail://"))
 STORAGES = base.STORAGES
 DELIVERY_STORAGE_ROOT = base.DELIVERY_STORAGE_ROOT
 DELIVERY_MAX_FILE_MB = base.DELIVERY_MAX_FILE_MB
