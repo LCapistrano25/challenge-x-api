@@ -22,7 +22,7 @@ def completar(equipe, integrantes=3):
 def test_equipe_completa_nao_tem_pendencias():
     projeto = ProjectFactory()
     projeto.category = CategoryFactory(edition=projeto.edition)
-    projeto.save(update_fields=['category'])
+    projeto.save(update_fields=["category"])
     completar(projeto.team)
     assert compute_unmet_requirements(projeto.team) == []
 

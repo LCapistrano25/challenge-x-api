@@ -37,8 +37,7 @@ class Command(BaseCommand):
             ).first()
 
             if formation_stage is not None and (
-                now < formation_stage.starts_at
-                or is_formation_open_for_team(team, now)
+                now < formation_stage.starts_at or is_formation_open_for_team(team, now)
             ):
                 continue
 

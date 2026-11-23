@@ -66,9 +66,7 @@ def test_listagem_inclui_equipes_desclassificadas(admin):
     assert len(response.data) == 1
     assert response.data[0]["id"] == team.id
     assert response.data[0]["status"] == TeamStatus.DISQUALIFIED
-    assert response.data[0]["disqualification_reason"] == (
-        team.disqualification_reason
-    )
+    assert response.data[0]["disqualification_reason"] == (team.disqualification_reason)
 
 
 def test_listagem_nao_inclui_equipes_de_edicoes_nao_publicadas(admin):
@@ -118,9 +116,7 @@ def test_admin_desclassifica_equipe_com_justificativa(admin):
 
 
 def test_desclassificacao_rejeita_usuario_sem_permissao():
-    team = TeamFactory(
-        edition=EditionFactory(status=EditionStatus.PUBLISHED)
-    )
+    team = TeamFactory(edition=EditionFactory(status=EditionStatus.PUBLISHED))
     student = StudentFactory()
 
     response = authenticated_client(student.user).post(
@@ -135,9 +131,7 @@ def test_desclassificacao_rejeita_usuario_sem_permissao():
 
 
 def test_desclassificacao_sem_justificativa_retorna_400(admin):
-    team = TeamFactory(
-        edition=EditionFactory(status=EditionStatus.PUBLISHED)
-    )
+    team = TeamFactory(edition=EditionFactory(status=EditionStatus.PUBLISHED))
 
     response = authenticated_client(admin).post(
         f"{TEAMS_URL}/{team.id}/disqualify",
