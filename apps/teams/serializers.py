@@ -5,6 +5,7 @@ from apps.teams.models import (
     Invitation,
     JoinRequest,
     LeadershipRequest,
+    MemberNote,
     Team,
     TeamMember,
 )
@@ -30,6 +31,36 @@ class TeamMemberSerializer(serializers.ModelSerializer):
                 "id": obj.student.course_id,
                 "name": obj.student.course.name,
             },
+        }
+
+class MemberNoteCreateSerializer(serializers.Serializer):
+    member_id = serializers.IntegerField(min_value=1)
+    stage_id = serializers.IntegerField(min_value=1)
+    text = serializers.CharField(
+        min_length=1,
+        allow_blank=False,
+        trim_whitespace=True,
+    )
+
+
+class MemberNoteSerializer(serializers.ModelSerializer):
+    member = serializers.SerializerMethodField()
+    author = serializers.SerializerMethodField()
+
+    class Meta:
+        model = MemberNote
+        fields = ["id", "member", "author", "text", "created_at"]
+
+    def get_member(self, obj):
+        return {
+            "user_id": obj.member.student.user_id,
+            "name": obj.member.student.user.name,
+        }
+
+    def get_author(self, obj):
+        return {
+            "user_id": obj.author.user_id,
+            "name": obj.author.user.name,
         }
 
 
