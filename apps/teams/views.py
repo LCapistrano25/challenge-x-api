@@ -782,6 +782,7 @@ class LeadershipRequestReviewView(APIView):
             status=status.HTTP_200_OK,
         )
 
+
 class TeamMemberNotesView(APIView):
     def get_permissions(self):
         if self.request.method == "POST":

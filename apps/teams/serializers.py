@@ -33,6 +33,7 @@ class TeamMemberSerializer(serializers.ModelSerializer):
             },
         }
 
+
 class MemberNoteCreateSerializer(serializers.Serializer):
     member_id = serializers.IntegerField(min_value=1)
     stage_id = serializers.IntegerField(min_value=1)

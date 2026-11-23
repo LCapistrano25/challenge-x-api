@@ -80,8 +80,8 @@ urlpatterns = [
         name="leadership-request-decide",
     ),
     path(
-    "teams/<int:team_id>/member-notes",
-    TeamMemberNotesView.as_view(),
-    name="team-member-notes",
+        "teams/<int:team_id>/member-notes",
+        TeamMemberNotesView.as_view(),
+        name="team-member-notes",
     ),
 ]
