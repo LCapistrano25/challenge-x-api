@@ -41,6 +41,8 @@ No `.env` de produção:
 | `DJANGO_SECRET_KEY` | `python3 -c "import secrets; print(secrets.token_urlsafe(64))"` |
 | `DJANGO_ALLOWED_HOSTS` | o mesmo valor de `DOMAIN` |
 | `POSTGRES_PASSWORD` | senha forte, nova |
+| `DJANGO_CSRF_TRUSTED_ORIGINS` | origem do frontend. Homologação: `http://localhost:5173` (o front usa o proxy do Vite) |
+| `EMAIL_URL` | SMTP, ex. `smtp+tls://usuario:senha@smtp.servidor.com:587`. Sem ele o e-mail só aparece em `logs api` |
 | `MICROSOFT_*` | do app no Entra ID; `MICROSOFT_REDIRECT_URI` com o domínio do frontend |
 
 `POSTGRES_HOST`/`POSTGRES_PORT` do `.env` são ignorados: o compose aponta para o serviço `db`.
