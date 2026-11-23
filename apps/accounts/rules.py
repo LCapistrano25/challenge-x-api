@@ -1,6 +1,7 @@
 import re
 
 from django.apps import apps
+from django.conf import settings
 from django.core.exceptions import ValidationError
 
 from apps.accounts.enums import UserRole
@@ -106,7 +107,10 @@ def ensure_password_login_allowed(user) -> None:
     user é o resultado do authenticate(): None para credencial errada ou conta
     inativa. Todo motivo sai como o mesmo InvalidCredentials, sem revelar qual.
     """
-    if user is None or user.role not in PASSWORD_ROLES:
+    allowed = PASSWORD_ROLES
+    if settings.ALLOW_PASSWORD_LOGIN_FOR_ALL_ROLES:  # só homologação (base.py)
+        allowed = PASSWORD_ROLES | MICROSOFT_ROLES
+    if user is None or user.role not in allowed:
         raise InvalidCredentials()
     if user.role == UserRole.EXTERNAL_REVIEWER:
         ensure_reviewer_in_current_edition(user)
