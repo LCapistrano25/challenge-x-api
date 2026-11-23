@@ -7584,6 +7584,7 @@ paths:
 
         **Regras de negócio:**
         - O integrante deve pertencer à equipe.
+        - A etapa deve pertencer à mesma edição da equipe.
         - O conteúdo não é retornado nem consultável pelo líder ou pelos alunos.
       x-status: confirmed
       x-requirements:
@@ -11306,9 +11307,35 @@ components:
           examples:
           - 17
         member:
-          $ref: '#/components/schemas/UserSummary'
+          type: object
+          properties:
+            user_id:
+              type: integer
+              minimum: 1
+              examples:
+              - 43
+            name:
+              type: string
+              examples:
+              - Maria Souza
+          required:
+          - user_id
+          - name
         author:
-          $ref: '#/components/schemas/UserSummary'
+          type: object
+          properties:
+            user_id:
+              type: integer
+              minimum: 1
+              examples:
+              - 42
+            name:
+              type: string
+              examples:
+              - João Silva
+          required:
+          - user_id
+          - name
         text:
           type: string
           examples:
