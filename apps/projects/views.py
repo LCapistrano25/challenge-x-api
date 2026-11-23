@@ -24,6 +24,8 @@ from apps.projects.selectors import (
 from apps.projects.serializers import (
     CategorySelectionSerializer,
     ChallengeSelectionSerializer,
+    DeadlineExtensionSerializer,
+    DeadlineExtensionWriteSerializer,
     DeliverableSubmissionSerializer,
     DeliverableVersionSerializer,
     ProjectDetailsSerializer,
@@ -32,6 +34,7 @@ from apps.projects.serializers import (
     ReceiptDetailSerializer,
     StageDeliverableSerializer,
 )
+from apps.projects.use_cases.extend_deadline import extend_deadline
 from apps.projects.use_cases.save_project_details import save_project_details
 from apps.projects.use_cases.select_category import select_category
 from apps.projects.use_cases.select_challenge import select_challenge
@@ -220,3 +223,27 @@ class VersionReceiptView(APIView):
             receipt.version.submission.project.team, request.user
         )
         return Response(ReceiptDetailSerializer(receipt).data)
+
+
+class TeamDeadlineExtensionView(APIView):
+    permission_classes = [IsAdmin]
+
+    def post(self, request, team_id):
+        team = get_team(team_id)
+        project = Project.objects.filter(team=team).select_related("edition").first()
+        if project is None:
+            raise NotFound("Projeto da equipe não encontrado.")
+        serializer = DeadlineExtensionWriteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        stage = Stage.objects.filter(pk=data["stage_id"]).first()
+        if stage is None:
+            raise NotFound("Etapa não encontrada.")
+        extension = extend_deadline(
+            actor=request.user,
+            project=project,
+            stage=stage,
+            ends_at=data["ends_at"],
+            reason=data["reason"],
+        )
+        return Response(DeadlineExtensionSerializer(extension).data, status=201)
