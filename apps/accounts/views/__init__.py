@@ -1,3 +1,14 @@
+from apps.accounts.views.admin_users import (
+    ExternalReviewerDetailView,
+    ExternalReviewerListView,
+    ExternalReviewerStatusView,
+    StudentDetailView,
+    StudentListView,
+    StudentStatusView,
+    TeacherDetailView,
+    TeacherListView,
+    TeacherStatusView,
+)
 from apps.accounts.views.email_domains import (
     EmailDomainDetailView,
     EmailDomainListCreateView,
@@ -24,4 +35,13 @@ __all__ = [
     "StudentProfileView",
     "TeacherProfileView",
     "ExternalReviewProfileView",
+    "ExternalReviewerDetailView",
+    "ExternalReviewerListView",
+    "ExternalReviewerStatusView",
+    "StudentDetailView",
+    "StudentListView",
+    "StudentStatusView",
+    "TeacherDetailView",
+    "TeacherListView",
+    "TeacherStatusView",
 ]
