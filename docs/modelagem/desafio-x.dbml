@@ -267,6 +267,7 @@ Table teams_membernote [headercolor: #6b2d7a] {
 	updated_at timestamptz [ not null ]
 	member_id bigint [ not null ]
 	author_id bigint [ not null ]
+	stage_id bigint
 	text text [ not null ]
 
 	Note: 'observação sobre integrante (teams.MemberNote)'
@@ -827,6 +828,7 @@ Ref: editions_stagecriterion.stage_id > editions_stage.id [ delete: cascade ]
 Ref: editions_stagecriterion.criterion_id > editions_criterion.id [ delete: restrict ]
 Ref: teams_membernote.member_id > teams_teammember.id [ delete: restrict ]
 Ref: teams_membernote.author_id > accounts_student.user_id [ delete: restrict ]
+Ref: teams_membernote.stage_id > editions_stage.id [ delete: restrict ]
 Ref: teams_invitation.team_id > teams_team.id [ delete: restrict ]
 Ref: teams_invitation.student_id > accounts_student.user_id [ delete: restrict ]
 Ref: teams_joinrequest.team_id > teams_team.id [ delete: restrict ]
