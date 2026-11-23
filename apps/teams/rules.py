@@ -60,4 +60,6 @@ def compute_unmet_requirements(team) -> list[str]:
         unmet.append("Projeto sem título.")
     if project is None or not project.summary:
         unmet.append("Projeto sem resumo.")
+    if project is None or not project.category_id:
+        unmet.append("Projeto sem categoria.")
     return unmet
