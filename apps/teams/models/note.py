@@ -9,9 +9,15 @@ class MemberNote(TimeStampedModel):
     member = models.ForeignKey(
         "teams.TeamMember", on_delete=models.PROTECT, related_name="notes"
     )
-    # O líder que registrou; a checagem de liderança fica no caso de uso.
     author = models.ForeignKey(
         "accounts.Student", on_delete=models.PROTECT, related_name="member_notes"
+    )
+    stage = models.ForeignKey(
+        "editions.Stage",
+        on_delete=models.PROTECT,
+        related_name="member_notes",
+        null=True,
+        blank=True,
     )
     text = models.TextField()
 
