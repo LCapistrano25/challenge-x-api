@@ -280,3 +280,40 @@ class LeadershipRequestSerializer(serializers.ModelSerializer):
             "user_id": obj.teacher.user_id,
             "name": obj.teacher.user.name,
         }
+
+
+class AdminTeamSerializer(serializers.ModelSerializer):
+    edition_id = serializers.IntegerField(read_only=True)
+    active_members_count = serializers.IntegerField(read_only=True)
+    disqualified_by_id = serializers.IntegerField(read_only=True)
+    disqualified_by_name = serializers.CharField(
+        source="disqualified_by.name",
+        read_only=True,
+        allow_null=True,
+    )
+
+    class Meta:
+        model = Team
+        fields = [
+            "id",
+            "edition_id",
+            "name",
+            "code",
+            "status",
+            "situation",
+            "active_members_count",
+            "disqualification_reason",
+            "disqualified_at",
+            "disqualified_by_id",
+            "disqualified_by_name",
+            "created_at",
+            "updated_at",
+        ]
+
+
+class DisqualifyTeamSerializer(serializers.Serializer):
+    reason = serializers.CharField(
+        min_length=1,
+        allow_blank=False,
+        trim_whitespace=True,
+    )

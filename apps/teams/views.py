@@ -23,6 +23,8 @@ from apps.teams.models import (
     TeamMember,
 )
 from apps.teams.serializers import (
+    AdminTeamSerializer,
+    DisqualifyTeamSerializer,
     InvitationCreateSerializer,
     InvitationResponseSerializer,
     InvitationSerializer,
@@ -47,6 +49,11 @@ from apps.teams.use_cases.add_member_note import (
     add_member_note,
 )
 from apps.teams.use_cases.create_team import create_team
+from apps.teams.use_cases.disqualify_team import (
+    DisqualifyTeamRejected,
+    TeamNotFound,
+    disqualify_team,
+)
 from apps.teams.use_cases.invite_member import invite_member
 from apps.teams.use_cases.leave_team import (
     LeaveTeamRejected,
@@ -892,5 +899,81 @@ class TeamMemberNotesView(APIView):
 
         return Response(
             MemberNoteSerializer(notes, many=True).data,
+            status=status.HTTP_200_OK,
+        )
+
+
+class AdminTeamListView(APIView):
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    def get(self, request):
+        teams = (
+            Team.objects.filter(edition__status=EditionStatus.PUBLISHED)
+            .select_related("edition", "disqualified_by")
+            .annotate(
+                active_members_count=Count(
+                    "members",
+                    filter=Q(members__active=True),
+                )
+            )
+            .order_by("name")
+        )
+
+        return Response(
+            AdminTeamSerializer(teams, many=True).data,
+            status=status.HTTP_200_OK,
+        )
+
+
+class AdminTeamDisqualifyView(APIView):
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    def post(self, request, team_id):
+        serializer = DisqualifyTeamSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            team = disqualify_team(
+                actor=request.user,
+                team_id=team_id,
+                reason=serializer.validated_data["reason"],
+            )
+        except TeamNotFound as error:
+            return Response(
+                {
+                    "error": {
+                        "code": "not_found",
+                        "message": str(error),
+                        "details": None,
+                    }
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except DisqualifyTeamRejected as error:
+            return Response(
+                {
+                    "error": {
+                        "code": "disqualify_team_rejected",
+                        "message": str(error),
+                        "details": None,
+                    }
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        team = (
+            Team.objects.filter(pk=team.pk)
+            .select_related("edition", "disqualified_by")
+            .annotate(
+                active_members_count=Count(
+                    "members",
+                    filter=Q(members__active=True),
+                )
+            )
+            .get()
+        )
+
+        return Response(
+            AdminTeamSerializer(team).data,
             status=status.HTTP_200_OK,
         )
