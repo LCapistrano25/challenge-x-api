@@ -8,17 +8,24 @@ from apps.accounts.exceptions import NotAdminActor
 from apps.accounts.factories import StudentFactory
 from apps.editions.enums import EditionStatus
 from apps.editions.exceptions import EditionClosed
+from apps.evaluations.factories import FinalEvaluationFactory
 from apps.evaluations.models import StageScore
 from apps.projects.enums import ProjectStatus
+from apps.projects.models import Project
 from apps.results.exceptions import (
+    FinalistAlreadyEvaluated,
+    NoFinalists,
     NoScoredStages,
     ResultsAlreadyApproved,
     ResultsNotCalculated,
+    ResultsOutdated,
 )
 from apps.results.factories import ProjectResultFactory
 from apps.results.models import ProjectResult, StudentScore
+from apps.results.use_cases.approve_finalists import approve_finalists
 from apps.results.use_cases.calculate_results import calculate_results
 from apps.results.use_cases.compute_student_points import compute_student_points
+from apps.results.use_cases.select_finalists import select_finalists
 from apps.teams.enums import MemberRole, TeamStatus
 from apps.teams.factories import TeamMemberFactory
 from apps.teams.models import Team
@@ -264,3 +271,156 @@ def test_calculo_e_atomico(admin, edition, make_project):
         calculate_results(actor=admin, edition=edition)
     assert not ProjectResult.objects.exists()
     assert not StudentScore.objects.exists()
+
+
+# select_finalists e approve_finalists (RF15, UC15)
+
+
+@pytest.fixture
+def calculated(admin, edition, make_project):
+    """Dois classificados (o primeiro com a maior nota) e um pendente."""
+    first = make_project("3.00", "3.00")
+    second = make_project("1.00", "1.00")
+    pending = make_project("3.00")
+    calculate_results(actor=admin, edition=edition)
+    return first, second, pending
+
+
+def finalists(edition):
+    return set(
+        ProjectResult.objects.filter(
+            project__edition=edition, finalist=True
+        ).values_list("project_id", flat=True)
+    )
+
+
+def test_finalistas_marca_exatamente_a_lista(admin, edition, calculated):
+    _, second, _ = calculated
+
+    select_finalists(actor=admin, edition=edition, project_ids=[second.pk])
+
+    assert finalists(edition) == {second.pk}
+
+
+def test_nova_lista_substitui_a_anterior(admin, edition, calculated):
+    first, second, _ = calculated
+    select_finalists(actor=admin, edition=edition, project_ids=[first.pk])
+
+    select_finalists(actor=admin, edition=edition, project_ids=[second.pk])
+
+    assert finalists(edition) == {second.pk}
+
+
+@pytest.mark.parametrize("case", ["pendente", "outra_edicao"])
+def test_finalista_fora_do_ranking_e_barrado_sem_mudar_nada(
+    admin, edition, calculated, case
+):
+    first, second, pending = calculated
+    select_finalists(actor=admin, edition=edition, project_ids=[first.pk])
+    other = pending.pk if case == "pendente" else ProjectResultFactory().project_id
+
+    with pytest.raises(ValidationError):
+        select_finalists(actor=admin, edition=edition, project_ids=[second.pk, other])
+
+    assert finalists(edition) == {first.pk}
+
+
+def test_retirar_finalista_avaliado_e_barrado(admin, edition, calculated):
+    first, second, _ = calculated
+    select_finalists(actor=admin, edition=edition, project_ids=[first.pk])
+    FinalEvaluationFactory(project=first)
+
+    with pytest.raises(FinalistAlreadyEvaluated):
+        select_finalists(actor=admin, edition=edition, project_ids=[second.pk])
+
+    select_finalists(actor=admin, edition=edition, project_ids=[first.pk, second.pk])
+    assert finalists(edition) == {first.pk, second.pk}
+
+
+def test_finalistas_exigem_calculo(admin, edition, make_project):
+    project = make_project("3.00", "3.00")
+
+    with pytest.raises(ResultsNotCalculated):
+        select_finalists(actor=admin, edition=edition, project_ids=[project.pk])
+
+
+def test_homologacao_grava_o_mesmo_instante_em_todos_os_classificados(
+    admin, edition, calculated
+):
+    first, second, _ = calculated
+    select_finalists(actor=admin, edition=edition, project_ids=[first.pk])
+
+    approve_finalists(actor=admin, edition=edition)
+
+    instants = {result_of(p).approved_at for p in (first, second)}
+    assert len(instants) == 1
+    assert None not in instants
+
+
+def test_homologacao_exige_finalista(admin, edition, calculated):
+    with pytest.raises(NoFinalists):
+        approve_finalists(actor=admin, edition=edition)
+
+
+def test_homologacao_exige_calculo(admin, edition):
+    with pytest.raises(ResultsNotCalculated):
+        approve_finalists(actor=admin, edition=edition)
+
+
+@pytest.mark.parametrize("change", ["nota", "desclassificacao"])
+def test_homologacao_barra_resultado_defasado(admin, edition, calculated, change):
+    first, second, _ = calculated
+    select_finalists(actor=admin, edition=edition, project_ids=[first.pk])
+    if change == "nota":
+        StageScore.objects.filter(project=second).update(value=Decimal("2.00"))
+    else:
+        Project.objects.filter(pk=second.pk).update(status=ProjectStatus.DISQUALIFIED)
+
+    with pytest.raises(ResultsOutdated):
+        approve_finalists(actor=admin, edition=edition)
+
+    assert not ProjectResult.objects.filter(approved_at__isnull=False).exists()
+
+
+def run_select(actor, edition, project):
+    select_finalists(actor=actor, edition=edition, project_ids=[project.pk])
+
+
+def run_approve(actor, edition, project):
+    approve_finalists(actor=actor, edition=edition)
+
+
+@pytest.mark.parametrize("run", [run_select, run_approve])
+@pytest.mark.parametrize(
+    "case, error",
+    [
+        ("nao_admin", NotAdminActor),
+        ("encerrada", EditionClosed),
+        ("homologado", ResultsAlreadyApproved),
+    ],
+)
+def test_finalistas_e_homologacao_barram(admin, edition, calculated, run, case, error):
+    first, second, _ = calculated
+    select_finalists(actor=admin, edition=edition, project_ids=[first.pk])
+    actor = admin
+    if case == "nao_admin":
+        actor = leader_of(first).student.user
+    elif case == "encerrada":
+        close(edition)
+    else:
+        approve_finalists(actor=admin, edition=edition)
+    before = list(ProjectResult.objects.values_list("finalist", "approved_at"))
+
+    with pytest.raises(error):
+        run(actor, edition, second)
+
+    assert list(ProjectResult.objects.values_list("finalist", "approved_at")) == before
+
+
+def test_nada_muda_depois_de_homologar(admin, edition, calculated):
+    first, *_ = calculated
+    select_finalists(actor=admin, edition=edition, project_ids=[first.pk])
+    approve_finalists(actor=admin, edition=edition)
+
+    with pytest.raises(ResultsAlreadyApproved):
+        calculate_results(actor=admin, edition=edition)
