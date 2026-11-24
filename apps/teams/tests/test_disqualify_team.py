@@ -5,10 +5,14 @@ from apps.accounts.exceptions import NotAdminActor
 from apps.accounts.factories import UserFactory
 from apps.editions.enums import EditionStatus
 from apps.editions.factories import EditionFactory
+from apps.projects.enums import ProjectStatus
+from apps.projects.factories import ProjectFactory
+from apps.projects.models import Project
 from apps.teams.enums import TeamStatus
 from apps.teams.factories import TeamFactory
 from apps.teams.use_cases.disqualify_team import (
     DisqualifyTeamRejected,
+    EditionClosed,
     disqualify_team,
 )
 
@@ -99,11 +103,50 @@ def test_equipe_de_edicao_nao_publicada_nao_pode_ser_desclassificada(admin):
     equipe = TeamFactory(edition=edition)
 
     with pytest.raises(
-        DisqualifyTeamRejected,
-        match="A equipe não pertence à edição vigente.",
+        EditionClosed,
+        match="A edição está encerrada e não pode ser alterada.",
     ):
         disqualify_team(
             actor=admin,
             team_id=equipe.pk,
             reason="Descumprimento das regras.",
         )
+
+def test_desclassifica_projeto_vinculado_a_equipe(admin, equipe):
+    project = ProjectFactory(team=equipe)
+
+    disqualify_team(
+        actor=admin,
+        team_id=equipe.pk,
+        reason="Descumprimento das regras.",
+    )
+
+    equipe.refresh_from_db()
+    project.refresh_from_db()
+
+    assert equipe.status == TeamStatus.DISQUALIFIED
+    assert project.status == ProjectStatus.DISQUALIFIED
+
+
+def test_falha_ao_desclassificar_projeto_reverte_equipe(
+    admin, equipe, monkeypatch
+):
+    project = ProjectFactory(team=equipe)
+
+    def fail_save(*args, **kwargs):
+        raise RuntimeError("Falha ao salvar projeto.")
+
+    monkeypatch.setattr(Project, "save", fail_save)
+
+    with pytest.raises(RuntimeError, match="Falha ao salvar projeto."):
+        disqualify_team(
+            actor=admin,
+            team_id=equipe.pk,
+            reason="Descumprimento das regras.",
+        )
+
+    equipe.refresh_from_db()
+    project.refresh_from_db()
+
+    assert equipe.status == TeamStatus.ACTIVE
+    assert project.status == ProjectStatus.IN_PROGRESS
