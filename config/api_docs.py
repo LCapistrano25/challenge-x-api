@@ -41,7 +41,10 @@ SwaggerUIBundle({{
       req.url = location.origin + u.pathname + u.search;
     }}
     req.credentials = "same-origin";
-    if (!["GET", "HEAD", "OPTIONS"].includes(req.method.toUpperCase())) {{
+    // A busca do próprio openapi.yaml chega sem method nem headers.
+    req.headers = req.headers || {{}};
+    const method = (req.method || "GET").toUpperCase();
+    if (!["GET", "HEAD", "OPTIONS"].includes(method)) {{
       if (!cookie("csrftoken")) {{
         await fetch("/api/auth/csrf", {{credentials: "same-origin"}});
       }}
