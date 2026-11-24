@@ -43,6 +43,7 @@ No `.env` de produção:
 | `POSTGRES_PASSWORD` | senha forte, nova |
 | `DJANGO_CSRF_TRUSTED_ORIGINS` | origem do frontend. Homologação: `http://localhost:5173` (o front usa o proxy do Vite) |
 | `EMAIL_URL` | SMTP, ex. `smtp+tls://usuario:senha@smtp.servidor.com:587`. Sem ele o e-mail só aparece em `logs api` |
+| `ALLOW_PASSWORD_LOGIN_FOR_ALL_ROLES` | **só homologação**: `True` deixa aluno e professor entrarem com senha (usuários criados no admin). Em produção, não definir |
 | `ENABLE_API_DOCS` | `True` na homologação: Swagger em `https://$DOMAIN/api/docs/`. Em produção, não definir |
 | `MICROSOFT_*` | do app no Entra ID; `MICROSOFT_REDIRECT_URI` com o domínio do frontend |
 
