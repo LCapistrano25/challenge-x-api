@@ -3,13 +3,19 @@ from django.urls import path
 from apps.editions import views
 
 urlpatterns = [
+    path("editions", views.EditionListView.as_view(), name="edition-list"),
     path(
-        "<int:edition_id>/evaluators",
+        "editions/<int:edition_id>",
+        views.EditionDetailView.as_view(),
+        name="edition-detail",
+    ),
+    path(
+        "editions/<int:edition_id>/evaluators",
         views.EditionReviewView.as_view(),
         name="edition-evaluators",
     ),
     path(
-        "<int:edition_id>/evaluators/<int:evaluator_id>",
+        "editions/<int:edition_id>/evaluators/<int:evaluator_id>",
         views.EditionReviewDetailView.as_view(),
         name="edition-evaluator",
     ),
