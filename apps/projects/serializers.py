@@ -299,3 +299,20 @@ class StageDeliverableSerializer(serializers.Serializer):
             .order_by("-number")
         )
         return DeliverableVersionSerializer(versions, many=True).data
+
+
+class DeadlineExtensionWriteSerializer(serializers.Serializer):
+    stage_id = serializers.IntegerField()
+    ends_at = serializers.DateTimeField()
+    reason = serializers.CharField()
+
+
+class DeadlineExtensionSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    team_id = serializers.IntegerField(source="project.team_id")
+    project_id = serializers.IntegerField()
+    stage_id = serializers.IntegerField()
+    ends_at = serializers.DateTimeField()
+    reason = serializers.CharField()
+    granted_by = serializers.IntegerField(source="granted_by_id")
+    granted_at = serializers.DateTimeField()

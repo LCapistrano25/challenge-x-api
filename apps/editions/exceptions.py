@@ -20,8 +20,13 @@ class TeamLimitsLocked(EditionError):
     default_message = "Os limites da equipe não podem ser alterados nesta edição."
 
 
+class EditionPublished(TeamLimitsLocked):
+    code = "edition_published"
+    default_message = "A configuração está congelada após a publicação do edital."
+
+
 class InvalidTeamLimits(EditionError):
-    code = "invalid_team_limits"
+    code = "validation_error"
     default_message = (
         "Os limites devem ser maiores que zero e o mínimo não pode passar do máximo."
     )
