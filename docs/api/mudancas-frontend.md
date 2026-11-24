@@ -6,23 +6,15 @@ Fonte de verdade: `docs/api/openapi.yaml`. Em caso de dúvida, vale o contrato.
 Formato de erro de todas as rotas: `{"error": {"code", "message", "details"}}`.
 `details` é `null` ou `{campo: [mensagens]}` (erro sem campo vai em `non_field_errors`).
 
-### Edições e JSON malformado (#122)
+### Edições e JSON malformado (#122 e #71)
 
-- JSON malformado enviado à API retorna **400 `validation_error`**. Exiba
-  `error.details.non_field_errors` como erro do corpo da requisição. A resposta
-  de corpo acima do limite continua sendo `400 request_too_large`.
-- O POST administrativo aceita `year` de −2147483648 a 2147483647, incluindo
-  zero e negativos, como decorrência do tipo inteiro sem mínimo no schema. O
-  PATCH aceita limites de 1 a 2147483647 e preserva a relação mínimo ≤ máximo.
-  Valores fora da capacidade do banco retornam `400 validation_error`.
-- A migration `editions.0004_amplia_faixa_numerica_edicao` amplia as colunas
-  sem apagar registros. Aplique-a antes de disponibilizar a API atualizada.
-  A mudança de tipo pode bloquear acessos à tabela durante a execução.
-  Para reverter depois de gravar valores novos, verifique antes se todos cabem
-  na faixa anterior: ano 0–32767 e limites 1–32767.
-- Os extremos de 32 bits são limites técnicos. O OpenAPI vigente segue sem
-  expressá-los. Para publicá-los como restrições do schema, registre a decisão
-  em issue e atualize o gerador pelo fluxo do projeto.
+- O POST administrativo aceita `year` de **2000 a 2100**. O PATCH aceita
+  **1 ≤ min_members ≤ max_members ≤ 20**. Valores fora dessas faixas retornam
+  `400 validation_error`. As colunas existentes comportam os valores aceitos.
+- JSON malformado retorna `400 parse_error`, com `error.details: null`.
+  Trate-o como falha na montagem do corpo da requisição. Dados inválidos
+  retornam `validation_error` e corpos acima do limite retornam
+  `request_too_large`.
 
 ---
 

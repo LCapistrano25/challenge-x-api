@@ -376,9 +376,9 @@ CREATE_CASES = [
     pytest.param({"name": ""}, id="nome_vazio"),
     pytest.param({"name": "x" * 100}, id="nome_100"),
     pytest.param({"semester": 2}, id="semestre_2"),
-    pytest.param({"year": 2101.0}, id="ano_com_ponto_zero"),
-    pytest.param({"year": "2101"}, id="ano_texto"),
-    pytest.param({"year": 2101.5}, id="ano_fracionario"),
+    pytest.param({"year": 2026.0}, id="ano_com_ponto_zero"),
+    pytest.param({"year": "2026"}, id="ano_texto"),
+    pytest.param({"year": 2026.5}, id="ano_fracionario"),
     pytest.param({"year": True}, id="ano_booleano"),
     pytest.param({"year": None}, id="ano_null"),
     pytest.param({"year": DROP}, id="sem_ano"),
@@ -400,10 +400,24 @@ CREATE_CASES = [
     pytest.param({"qualquer": 1}, id="campo_desconhecido"),
     pytest.param({"year": -1}, id="ano_negativo"),
     pytest.param({"year": 0}, id="ano_zero"),
-    pytest.param({"year": 32768}, id="ano_acima_de_smallint"),
-    pytest.param({"year": -(2**31)}, id="ano_minimo_int32"),
-    pytest.param({"year": 2**31 - 1}, id="ano_maximo_int32"),
+    pytest.param({"year": 1999}, id="ano_abaixo_da_faixa"),
+    pytest.param({"year": 2101}, id="ano_acima_da_faixa"),
+    pytest.param({"year": 2000}, id="ano_minimo"),
+    pytest.param({"year": 2100}, id="ano_maximo"),
 ]
+
+
+@pytest.mark.parametrize(
+    ("method", "path", "field", "minimum", "maximum"),
+    [
+        ("post", LIST_PATH, "year", 2000, 2100),
+        ("patch", DETAIL_PATH, "min_members", 1, 20),
+        ("patch", DETAIL_PATH, "max_members", 1, 20),
+    ],
+)
+def test_faixas_numericas_documentadas(method, path, field, minimum, maximum):
+    prop = deref(request_schema(method, path))["properties"][field]
+    assert (prop.get("minimum"), prop.get("maximum")) == (minimum, maximum)
 
 
 def apply(base, overrides):
@@ -413,7 +427,7 @@ def apply(base, overrides):
 
 @pytest.mark.parametrize("overrides", CREATE_CASES)
 def test_cadastro_aceita_exatamente_o_que_o_schema_aceita(db, overrides):
-    payload = apply({"year": 2101, "semester": 1}, overrides)
+    payload = apply({"year": 2026, "semester": 1}, overrides)
     errors = validate(request_schema("post", LIST_PATH), payload)
 
     resposta = send(admin_client(), "post", LIST_URL, payload, raw=True)
@@ -480,13 +494,15 @@ PATCH_CASES = [
         {"regulation_url": "https://x.edu.br/a.pdf"}, id="campo_regulation_url"
     ),
     pytest.param({"name": "Novo", "qualquer": 1}, id="nome_com_campo_desconhecido"),
+    pytest.param({"min_members": 21}, id="minimo_acima_do_teto"),
+    pytest.param({"max_members": 21}, id="maximo_acima_do_teto"),
     pytest.param([], id="corpo_lista"),
     pytest.param("texto", id="corpo_texto"),
     pytest.param(1, id="corpo_numero"),
     pytest.param(None, id="corpo_null"),
     pytest.param(
-        {"min_members": 32768, "max_members": 2**31 - 1},
-        id="limites_acima_de_smallint",
+        {"min_members": 20, "max_members": 20},
+        id="limites_no_teto",
     ),
 ]
 
@@ -519,7 +535,7 @@ def test_so_aceita_o_formato_json_do_contrato(db, method, media):
     # (400 é o documentado; 415 é o do HTTP): o que não pode é gravar o dado.
     edition = make_edition()
     url = LIST_URL if method == "post" else detail_url(edition)
-    data = {"year": 2101, "semester": 1} if method == "post" else {"name": "Via form"}
+    data = {"year": 2026, "semester": 1} if method == "post" else {"name": "Via form"}
     kwargs = (
         {"format": "multipart"}
         if media == "multipart"
@@ -549,10 +565,9 @@ def test_json_malformado_retorna_400_sem_gravar(db, method, path):
 
     assert resposta.status_code == 400
     assert_matches_contract(resposta, method, path)
-    assert error_code(resposta) == "validation_error"
-    assert body_of(resposta)["error"]["details"] == {
-        "non_field_errors": ["O corpo da requisição está malformado."]
-    }
+    assert error_code(resposta) == "parse_error"
+    assert "parse_error" in documented_codes(method, path, 400)
+    assert body_of(resposta)["error"]["details"] is None
     assert Edition.objects.count() == 1
     assert state(edition) == before
 
@@ -574,7 +589,7 @@ def s_detail_404():
 
 
 def s_post_created():
-    return "post", LIST_PATH, LIST_URL, {"year": 2101, "semester": 1}
+    return "post", LIST_PATH, LIST_URL, {"year": 2026, "semester": 1}
 
 
 def s_post_invalid():
@@ -582,8 +597,8 @@ def s_post_invalid():
 
 
 def s_post_duplicate():
-    EditionFactory(year=2101, semester=1)
-    return "post", LIST_PATH, LIST_URL, {"year": 2101, "semester": 1}
+    EditionFactory(year=2026, semester=1)
+    return "post", LIST_PATH, LIST_URL, {"year": 2026, "semester": 1}
 
 
 def patch_of(edition, payload):
@@ -693,7 +708,7 @@ def test_codigos_de_conflito_do_contrato_sao_os_cobertos_pelos_cenarios():
 
 def test_cadastro_persiste_em_configuracao_com_limites_3_a_5(db):
     resposta = send(
-        admin_client(), "post", LIST_URL, {"year": 2101, "semester": 1}, raw=True
+        admin_client(), "post", LIST_URL, {"year": 2026, "semester": 1}, raw=True
     )
 
     corpo = body_of(resposta)
@@ -703,7 +718,7 @@ def test_cadastro_persiste_em_configuracao_com_limites_3_a_5(db):
         3,
         5,
     )
-    assert (edition.year, edition.semester) == (2101, 1)
+    assert (edition.year, edition.semester) == (2026, 1)
     assert (corpo["published_at"], corpo["closed_at"], corpo["regulation_url"]) == (
         None,
         None,
@@ -718,7 +733,7 @@ def test_cadastro_e_consulta_devolvem_a_mesma_edicao(db):
             client,
             "post",
             LIST_URL,
-            {"year": 2101, "semester": 2, "name": "A"},
+            {"year": 2026, "semester": 2, "name": "A"},
             raw=True,
         )
     )
@@ -774,7 +789,7 @@ def test_atualizacao_recusada_nao_grava_nem_o_nome(db, payload):
 )
 def test_cadastro_pre_carrega_categorias_e_criterios_padrao(db):
     resposta = send(
-        admin_client(), "post", LIST_URL, {"year": 2101, "semester": 1}, raw=True
+        admin_client(), "post", LIST_URL, {"year": 2026, "semester": 1}, raw=True
     )
 
     edition = Edition.objects.get(pk=body_of(resposta)["id"])
@@ -796,7 +811,7 @@ def test_so_o_administrador_acessa(db, method, path, role):
     url = LIST_URL if path == LIST_PATH else detail_url(edition)
     payload = {
         "get": None,
-        "post": {"year": 2101, "semester": 1},
+        "post": {"year": 2026, "semester": 1},
         "patch": {"name": "x"},
     }[method]
 
@@ -815,7 +830,7 @@ def test_sem_autenticacao_responde_401_no_formato_do_contrato(db, method, path):
     url = LIST_URL if path == LIST_PATH else detail_url(edition)
     payload = {
         "get": None,
-        "post": {"year": 2101, "semester": 1},
+        "post": {"year": 2026, "semester": 1},
         "patch": {"name": "x"},
     }[method]
 
@@ -864,7 +879,7 @@ def test_sessao_real_consulta_sem_csrf(session_client):
 def test_sessao_real_cadastra_com_csrf(session_client):
     resposta = session_client.post(
         LIST_URL,
-        {"year": 2101, "semester": 1},
+        {"year": 2026, "semester": 1},
         format="json",
         HTTP_X_CSRFTOKEN=session_client.csrf_token,
     )
@@ -889,7 +904,7 @@ def test_sessao_real_atualiza_com_csrf(session_client):
 
 def test_sessao_real_sem_csrf_nao_cadastra(session_client):
     resposta = session_client.post(
-        LIST_URL, {"year": 2101, "semester": 1}, format="json"
+        LIST_URL, {"year": 2026, "semester": 1}, format="json"
     )
 
     assert resposta.status_code == 403

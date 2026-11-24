@@ -4,9 +4,6 @@ from rest_framework import serializers
 
 from apps.editions.models import Edition, EditionReviewer
 
-INT32_MIN = -(2**31)
-INT32_MAX = 2**31 - 1
-
 
 class EvaluatorSummarySerializer(serializers.Serializer):
     user_id = serializers.IntegerField(source="user.pk")
@@ -103,7 +100,7 @@ class RejectUnknownFieldsMixin:
 class EditionCreateSerializer(RejectUnknownFieldsMixin, serializers.Serializer):
     """Entrada do cadastro de edição (EditionCreate): só ano, semestre e nome."""
 
-    year = StrictIntegerField(min_value=INT32_MIN, max_value=INT32_MAX)
+    year = StrictIntegerField(min_value=2000, max_value=2100)
     semester = StrictIntegerField(min_value=1, max_value=2)
     name = StrictCharField(
         max_length=100,
@@ -127,8 +124,8 @@ class EditionUpdateSerializer(RejectUnknownFieldsMixin, serializers.Serializer):
         allow_blank=True,
         trim_whitespace=False,
     )
-    min_members = StrictIntegerField(min_value=1, max_value=INT32_MAX, required=False)
-    max_members = StrictIntegerField(min_value=1, max_value=INT32_MAX, required=False)
+    min_members = StrictIntegerField(min_value=1, max_value=20, required=False)
+    max_members = StrictIntegerField(min_value=1, max_value=20, required=False)
 
     def validate(self, attrs):
         if not attrs:

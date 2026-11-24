@@ -7,12 +7,7 @@ from django.core.exceptions import (
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.http import Http404, JsonResponse
 from django.views.defaults import page_not_found
-from rest_framework.exceptions import (
-    NotFound,
-    ParseError,
-    PermissionDenied,
-    ValidationError,
-)
+from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 from rest_framework.response import Response
 from rest_framework.views import exception_handler
 
@@ -33,10 +28,6 @@ def custom_exception_handler(exc, context):
             else {"non_field_errors": exc.messages}
         )
         exc = ValidationError(details)
-    elif isinstance(exc, ParseError):
-        exc = ValidationError(
-            {"non_field_errors": ["O corpo da requisição está malformado."]}
-        )
     # Http404 (get_object_or_404) e PermissionDenied do Django não têm default_code.
     elif isinstance(exc, Http404):
         exc = NotFound()

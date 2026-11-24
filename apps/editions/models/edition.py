@@ -9,15 +9,15 @@ from apps.editions.rules import ensure_sdg_not_used_by_challenges
 class Edition(TimeStampedModel):
     """Edição do Desafio X, identificada por ano e semestre (RF09, RF47, RF48)."""
 
-    year = models.IntegerField()
+    year = models.PositiveSmallIntegerField()
     semester = models.PositiveSmallIntegerField()
     name = models.CharField(max_length=100, blank=True)
     status = models.CharField(
         max_length=20, choices=EditionStatus, default=EditionStatus.SETUP
     )
     regulation_url = models.URLField(max_length=500, blank=True)
-    min_members = models.PositiveIntegerField(default=3)
-    max_members = models.PositiveIntegerField(default=5)
+    min_members = models.PositiveSmallIntegerField(default=3)
+    max_members = models.PositiveSmallIntegerField(default=5)
     published_at = models.DateTimeField(null=True, blank=True)
     closed_at = models.DateTimeField(null=True, blank=True)
 

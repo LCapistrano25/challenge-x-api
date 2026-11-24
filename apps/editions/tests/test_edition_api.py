@@ -298,7 +298,7 @@ def test_cadastro_recusa_semestre_invalido(client, payload, semester):
     assert not Edition.objects.exists()
 
 
-@pytest.mark.parametrize("year", [-(2**31) - 1, 2**31, "abc", None])
+@pytest.mark.parametrize("year", [0, 1999, 2101, "abc", None])
 def test_cadastro_recusa_ano_invalido(client, payload, year):
     payload["year"] = year
 
@@ -466,7 +466,7 @@ def test_atualizacao_parcial_de_limites_preserva_o_outro(
 
 
 @pytest.mark.parametrize("campo", ["min_members", "max_members"])
-@pytest.mark.parametrize("valor", ["abc", "3.5", 3.5, None, [], {}, True, 0, -1, 2**31])
+@pytest.mark.parametrize("valor", ["abc", "3.5", 3.5, None, [], {}, True, 0, -1, 21])
 def test_atualizacao_recusa_limite_que_nao_e_inteiro_valido(
     client, edicao, campo, valor
 ):
