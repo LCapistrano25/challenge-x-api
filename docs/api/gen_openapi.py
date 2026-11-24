@@ -497,20 +497,13 @@ SC["LeadershipDecision"] = obj({"status": STR(ex="APPROVED", enum=["APPROVED", "
                                ["status", "decision_justification"], strict=True)
 SC["MemberNoteCreate"] = obj({
     "member_id": INT("Vínculo (team_member) observado.", 103),
-    "stage_id": INT("Etapa da edição à qual a observação está associada.", 12),
     "text": TXT(ex="Não participou das duas últimas reuniões.", minLength=1),
-}, ["member_id", "stage_id", "text"], strict=True)
+}, ["member_id", "text"], strict=True)
 SC["MemberNoteCreated"] = obj({"id": INT(ex=17), "created_at": DT()}, ["id", "created_at"], desc="Não retorna o conteúdo: o líder não pode visualizá-lo (RF33).")
 SC["MemberNote"] = obj({
     "id": INT(ex=17),
-    "member": obj({
-        "user_id": USER_ID(ex=43),
-        "name": STR(ex="Maria Souza"),
-    }, ["user_id", "name"]),
-    "author": obj({
-        "user_id": USER_ID(ex=42),
-        "name": STR(ex="João Silva"),
-    }, ["user_id", "name"]),
+    "member": ref("UserSummary"),
+    "author": ref("UserSummary"),
     "text": TXT(ex="Não participou das duas últimas reuniões."),
     "created_at": DT(),
 }, ["id", "member", "author", "text", "created_at"])

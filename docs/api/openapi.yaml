@@ -7584,6 +7584,7 @@ paths:
 
         **Regras de negócio:**
         - O integrante deve pertencer à equipe.
+        - A etapa deve pertencer à mesma edição da equipe.
         - O conteúdo não é retornado nem consultável pelo líder ou pelos alunos.
       x-status: confirmed
       x-requirements:
@@ -7625,7 +7626,7 @@ paths:
       operationId: teamsListMemberNotes
       summary: Consultar observações sobre integrantes
       description: |-
-        Lista as observações registradas pelo líder.
+        Lista as observações confidenciais registradas pelos líderes da equipe.
 
         **Requisitos:** RF39
 
