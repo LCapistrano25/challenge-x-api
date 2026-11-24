@@ -112,6 +112,7 @@ def test_equipe_de_edicao_nao_publicada_nao_pode_ser_desclassificada(admin):
             reason="Descumprimento das regras.",
         )
 
+
 def test_desclassifica_projeto_vinculado_a_equipe(admin, equipe):
     project = ProjectFactory(team=equipe)
 
@@ -128,9 +129,7 @@ def test_desclassifica_projeto_vinculado_a_equipe(admin, equipe):
     assert project.status == ProjectStatus.DISQUALIFIED
 
 
-def test_falha_ao_desclassificar_projeto_reverte_equipe(
-    admin, equipe, monkeypatch
-):
+def test_falha_ao_desclassificar_projeto_reverte_equipe(admin, equipe, monkeypatch):
     project = ProjectFactory(team=equipe)
 
     def fail_save(*args, **kwargs):

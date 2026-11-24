@@ -67,6 +67,7 @@ def test_comando_tenta_novamente_equipe_que_falhou(monkeypatch, caplog):
     assert team.situation == TeamSituation.INCOMPLETE
     assert tentativas == 2
 
+
 def test_comando_ignora_equipe_com_formacao_aberta(caplog):
     edition = EditionFactory(status=EditionStatus.PUBLISHED)
     team = TeamFactory(edition=edition)
