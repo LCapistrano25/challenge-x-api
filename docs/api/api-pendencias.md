@@ -191,7 +191,7 @@
 - **Resolvida (20/11/2026):** uma tabela por tipo de ajuste, cada uma sendo o próprio histórico imutável. A prorrogação por equipe é `DeadlineExtension` (projeto, etapa, novo prazo, justificativa, admin), e `get_valid_version` usa esse prazo. A retificação de nota é `ScoreRectification` (item, pontos anteriores e novos, justificativa, admin), gravada pelo caso de uso `rectify_score`, que troca os pontos do item mesmo com a avaliação finalizada. O prazo do professor (`ensure_within_evaluation_deadline`) não vale para a retificação.
 - **Decisões da #67:** (1) o prazo de avaliação é um campo próprio da etapa, `evaluation_ends_at` (P-19); (2) os ajustes ficam em uma tabela por tipo, não em uma tabela genérica de auditoria; (3) a avaliação finalizada só muda pelo admin, por retificação de um item, e cada retificação fica registrada; o professor não altera depois de finalizar. A imutabilidade é garantida no admin do Django, que não tem permissão de alterar nem apagar `DeadlineExtension` e `ScoreRectification`; a retificação só é gravada por `rectify_score`.
 - **Fora desta decisão:** a rota para o admin conceder a prorrogação (hoje só pelo admin do Django, que grava `granted_by`) e a consulta do histórico de ajustes (RF16). Seguem em tasks próprias.
-- **Atualização (21/11/2026):** a retificação tem endpoint (`POST /api/admin/evaluations/{id}/rectifications`, #98), exige admin antes de travar o item (BUG-05). A prorrogação por equipe ainda não tem endpoint (#109).
+- **Atualização (21/11/2026):** a retificação tem endpoint (`POST /api/admin/evaluations/{id}/rectifications`, #98), exige admin antes de travar o item (BUG-05). A prorrogação por equipe tem endpoint (`POST /api/admin/teams/{id}/deadline-extensions`, #109): só o admin, uma por projeto e etapa, 409 `deadline_extension_already_granted` na segunda; a consulta do histórico (RF16) segue em task própria.
 
 ---
 
@@ -343,7 +343,8 @@ Estas são convenções que a especificação adota para ficar completa. Cada um
   - Emissão de certificados pelo Admin (RF17): a elegibilidade de Finalista e Premiado depende de P-29/P-30, e não existem tipos para professor e avaliador (P-34).
   - Seleção e homologação de finalistas, cálculo da nota final, ranking, premiação e pontuação individual (P-29, P-30, P-31).
   - Ajustes pontuais (RF14), sem persistência no modelo (P-21).
-- **Rotas candidatas, ainda não especificadas:** `POST /api/admin/editions/{id}/results/calculate`, `POST /api/admin/editions/{id}/finalists`, `POST /api/admin/editions/{id}/results/homologate`, `POST /api/admin/editions/{id}/certificates/issue`, `POST /api/admin/teams/{id}/deadline-extensions`. Elas entram na especificação quando as regras forem aprovadas.
+- **Rotas candidatas, ainda não especificadas:** `POST /api/admin/editions/{id}/results/calculate`, `POST /api/admin/editions/{id}/finalists`, `POST /api/admin/editions/{id}/results/homologate`, `POST /api/admin/editions/{id}/certificates/issue`. Elas entram na especificação quando as regras forem aprovadas.
+- **Atualização (#109):** a rota `POST /api/admin/teams/{id}/deadline-extensions` foi especificada e implementada; sai da lista de candidatas.
 
 ### P-47 — Campos de entrega Canvas e SWOT: modelos fixos e escopo · Média
 - O professor pediu que o Business Model Canvas e a matriz SWOT sejam preenchidos no sistema. O admin escolhe por etapa, como qualquer campo de entrega (`type` `CANVAS` e `SWOT`, com `required`); não há nota própria, o professor avalia pelos critérios existentes.
@@ -398,7 +399,7 @@ Dois desvios do contrato de auth, ambos pela regra "DBML como referência":
 | RF11 | Coberto | `POST /api/auth/external-evaluators` + `/api/admin/editions/{id}/evaluators` |
 | RF12 | Coberto | `/api/admin/editions/{id}/final-form` |
 | RF13 | Coberto (data e responsável não persistidos, P-22) | `POST /api/admin/teams/{id}/disqualify` |
-| **RF14** | **Parcial** | Histórico por tipo de ajuste (`retificacao_nota`, `prorrogacao_prazo`, P-21); falta a rota de prorrogação |
+| **RF14** | **Parcial** | Histórico por tipo de ajuste (`retificacao_nota`, `prorrogacao_prazo`, P-21); `POST /api/admin/teams/{team_id}/deadline-extensions` cobre a prorrogação (#109); falta a consulta do histórico (RF16) |
 | **RF17** | **Parcial** | Modelos e consulta dos próprios certificados; a emissão depende de P-29, P-30, P-34 e P-46 |
 | RF18, RF36 | Coberto | `POST /api/auth/sessions/microsoft` |
 | RF19 | Coberto | `POST /api/auth/students` |
@@ -477,3 +478,4 @@ O validador oficial (`openapi-spec-validator`) **não pôde ser instalado**, por
 | 21/11/2026 | Pendências P-01, P-02, P-03, P-05, P-27, P-32, P-39, P-40 e P-42 marcadas como resolvidas; P-21 e P-43 atualizadas. | Levantamento do código da `developer` e das PRs abertas (#172) feito na #179. |
 | 21/11/2026 | A resposta `BadRequest` (400) documenta também `request_too_large`, para corpo acima de 2,5 MB (`DATA_UPLOAD_MAX_MEMORY_SIZE`), com exemplo próprio. | Comportamento entregue na #182 (P-37); registrado no contrato, que é a autoridade da interface. |
 | 21/11/2026 | Autenticação por sessão: o esquema `bearerAuth` (JWT) vira `sessionAuth` (cookie `sessionid`) e `csrfToken` (cabeçalho `X-CSRFToken`); a descrição de cada operação deixa de citar Bearer JWT; entra `GET /api/auth/csrf` (schema `CsrfToken`). | Decisão da #70 (sessão + CSRF), já implementada desde a #91; o contrato ainda descrevia JWT (I-08, I-10, I-36). |
+| 23/11/2026 | Entra `POST /api/admin/teams/{team_id}/deadline-extensions` (`projectsCreateDeadlineExtension`), com os schemas `DeadlineExtensionWrite` e `DeadlineExtension`. | Prorrogação de prazo por equipe (RF14), decidida na P-21 e entregue na #109. |

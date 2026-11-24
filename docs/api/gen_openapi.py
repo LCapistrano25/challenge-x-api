@@ -568,6 +568,18 @@ SC["Receipt"] = obj({
     "team": ref("TeamRef"), "project": ref("ProjectRef"), "stage": ref("StageRef"), "submitted_at": DT(),
 }, ["id", "version_id", "number", "verification_code", "file_url", "generated_at", "team", "project", "stage", "submitted_at"])
 
+SC["DeadlineExtensionWrite"] = obj({
+    "stage_id": INT("Etapa a prorrogar; precisa ser da edição do projeto.", 12),
+    "ends_at": DT("Novo prazo da equipe; precisa ser depois do fim da etapa.", "2026-11-25T23:59:00Z"),
+    "reason": TXT("Justificativa da prorrogação (obrigatória, sem ser só espaços).", "Atestado médico do líder."),
+}, ["stage_id", "ends_at", "reason"], strict=True)
+SC["DeadlineExtension"] = obj({
+    "id": INT(ex=3), "team_id": INT(ex=15), "project_id": INT(ex=9), "stage_id": INT(ex=12),
+    "ends_at": DT("Novo prazo da equipe na etapa.", "2026-11-25T23:59:00Z"), "reason": TXT(ex="Atestado médico do líder."),
+    "granted_by": INT("Id do administrador.", 1), "granted_at": DT(ex="2026-11-20T14:30:00Z"),
+}, ["id", "team_id", "project_id", "stage_id", "ends_at", "reason", "granted_by", "granted_at"],
+    desc="Prorrogação gravada; é o histórico do ajuste e não se altera nem se apaga (P-21).")
+
 # ---------------------------------------------------------------- dashboard
 SC["ScoreSummary"] = obj({"status": ref("ScoreStatus"), "value": nul(DEC(ex="2.40"))}, ["status", "value"])
 SC["DashboardStage"] = obj({"stage": ref("StageSchedule"), "deliverable_status": nul(ref("DeliverableStatus")), "score": nul(ref("ScoreSummary"))},
@@ -1163,6 +1175,17 @@ op("get", "/api/deliverable-versions/{version_id}/receipt", "projectsGetReceipt"
           "Somente leitura: o comprovante e a versão não se alteram depois de criados.",
           "A consulta continua permitida com equipe desclassificada, edição encerrada ou prazo vencido.",
           "file_url é nulo enquanto o PDF do comprovante não for gerado."], pend=["P-43"])
+
+op("post", "/api/admin/teams/{team_id}/deadline-extensions", "projectsCreateDeadlineExtension", "projects", "Prorrogar o prazo de uma equipe", ["RF14"], ["ADMIN"],
+   "Concede à equipe um prazo de entrega maior que o da etapa e grava a prorrogação no histórico, que não pode ser alterado nem excluído.",
+   params=["TeamId"], body=ref("DeadlineExtensionWrite"), ok=ref("DeadlineExtension"), ok_code="201", ok_desc="Prorrogação registrada.", errs=["404"],
+   rules=["Uma prorrogação por projeto e etapa; a segunda recebe 409 deadline_extension_already_granted.",
+          "O novo prazo precisa ser depois do fim da etapa e a etapa, da edição do projeto (400 validation_error).",
+          "Justificativa obrigatória.",
+          "Vale só para esta equipe; os envios e a nota zero passam a usar o novo prazo.",
+          "Equipe sem projeto, equipe ou etapa inexistente: 404. Edição encerrada não aceita (RN33).",
+          "O administrador (granted_by) e a data (granted_at) vêm da sessão e do servidor, nunca do corpo."],
+   conflicts=[("deadline_extension_already_granted", "A equipe já tem prorrogação de prazo nesta etapa."), CLOSED], pend=["P-46"])
 
 # ---------- evaluations
 op("get", "/api/teacher/projects", "evaluationsListTeacherProjects", "evaluations", "Painel de acompanhamento do curso", ["RF37"], ["TEACHER"],
