@@ -53,6 +53,16 @@ def assert_error(resposta, status, code):
     assert resposta.data["error"]["code"] == code
 
 
+@pytest.mark.parametrize("diagnostico", ["JSON parse error", "Multipart parse error"])
+def test_corpo_malformado_sai_como_erro_de_validacao_sem_campo(diagnostico):
+    resposta = respond(exceptions.ParseError(diagnostico))
+
+    assert_error(resposta, 400, "validation_error")
+    assert resposta.data["error"]["details"] == {
+        "non_field_errors": ["O corpo da requisição está malformado."]
+    }
+
+
 # Validação
 
 
