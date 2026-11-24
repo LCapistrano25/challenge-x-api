@@ -1,6 +1,6 @@
 from django.db.models import QuerySet
 
-from apps.editions.models import EditionReviewer
+from apps.editions.models import Edition, EditionReviewer
 
 
 def list_edition_reviewers(edition_id: int) -> QuerySet[EditionReviewer]:
@@ -11,3 +11,8 @@ def list_edition_reviewers(edition_id: int) -> QuerySet[EditionReviewer]:
         .select_related("reviewer__user", "course")
         .order_by("id")
     )
+
+
+def list_editions():
+    """Todas as edições, na ordem do model (ano e semestre, da mais recente)."""
+    return Edition.objects.all()

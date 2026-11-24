@@ -8475,8 +8475,8 @@ components:
         default: false
   responses:
     BadRequest:
-      description: 'Requisição inválida: dados inválidos (`validation_error`) ou corpo acima de 2,5 MB, o `DATA_UPLOAD_MAX_MEMORY_SIZE`
-        (`request_too_large`).'
+      description: 'Requisição inválida: dados inválidos (`validation_error`), JSON malformado (`parse_error`) ou corpo acima
+        de 2,5 MB, o `DATA_UPLOAD_MAX_MEMORY_SIZE` (`request_too_large`).'
       content:
         application/json:
           schema:
@@ -8490,6 +8490,12 @@ components:
                   details:
                     title:
                     - Este campo é obrigatório.
+            parse_error:
+              value:
+                error:
+                  code: parse_error
+                  message: O corpo contém JSON inválido.
+                  details: null
             request_too_large:
               value:
                 error:
@@ -9790,6 +9796,8 @@ components:
       properties:
         year:
           type: integer
+          minimum: 2000
+          maximum: 2100
           examples:
           - 2026
         semester:
@@ -9824,11 +9832,13 @@ components:
         min_members:
           type: integer
           minimum: 1
+          maximum: 20
           examples:
           - 3
         max_members:
           type: integer
           minimum: 1
+          maximum: 20
           examples:
           - 5
       additionalProperties: false

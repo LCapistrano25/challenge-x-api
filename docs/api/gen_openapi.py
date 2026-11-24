@@ -304,9 +304,9 @@ SC["Edition"] = obj({
     "min_members": INT(ex=3, minimum=1), "max_members": INT(ex=5, minimum=1),
     "published_at": nul(DT(ex=None)), "closed_at": nul(DT(ex=None)), "created_at": DT(), "updated_at": DT(),
 }, ["id", "year", "semester", "name", "status", "regulation_url", "min_members", "max_members", "published_at", "closed_at", "created_at", "updated_at"])
-SC["EditionCreate"] = obj({"year": INT(ex=2026), "semester": INT(ex=1, enum=[1, 2]), "name": nul(STR(ex="Desafio X 2026/1", maxLength=100))},
+SC["EditionCreate"] = obj({"year": INT(ex=2026, minimum=2000, maximum=2100), "semester": INT(ex=1, enum=[1, 2]), "name": nul(STR(ex="Desafio X 2026/1", maxLength=100))},
                           ["year", "semester"], strict=True)
-SC["EditionUpdate"] = obj({"name": nul(STR(ex="Desafio X 2026/1", maxLength=100)), "min_members": INT(ex=3, minimum=1), "max_members": INT(ex=5, minimum=1)},
+SC["EditionUpdate"] = obj({"name": nul(STR(ex="Desafio X 2026/1", maxLength=100)), "min_members": INT(ex=3, minimum=1, maximum=20), "max_members": INT(ex=5, minimum=1, maximum=20)},
                           desc="Ao menos um campo deve ser informado.", strict=True, minProperties=1)
 SC["EditionPublish"] = obj({"notice_file": STR("PDF do edital oficial.", contentMediaType="application/pdf", format="binary")}, ["notice_file"])
 SC["EditionClose"] = obj({"confirm": {"type": "boolean", "const": True, "description": "Confirmação explícita do encerramento irreversível (P-45).", "examples": [True]}}, ["confirm"], strict=True)
@@ -1334,8 +1334,9 @@ spec = {
         },
         "parameters": PARAMS,
         "responses": {
-            "BadRequest": {"description": "Requisição inválida: dados inválidos (`validation_error`) ou corpo acima de 2,5 MB, o `DATA_UPLOAD_MAX_MEMORY_SIZE` (`request_too_large`).", "content": {"application/json": {"schema": ref("Error"),
+            "BadRequest": {"description": "Requisição inválida: dados inválidos (`validation_error`), JSON malformado (`parse_error`) ou corpo acima de 2,5 MB, o `DATA_UPLOAD_MAX_MEMORY_SIZE` (`request_too_large`).", "content": {"application/json": {"schema": ref("Error"),
                            "examples": {"validation_error": {"value": err_example("validation_error", "Dados inválidos.", {"title": ["Este campo é obrigatório."]})},
+                                        "parse_error": {"value": err_example("parse_error", "O corpo contém JSON inválido.")},
                                         "request_too_large": {"value": err_example("request_too_large", "A requisição excede o tamanho permitido.")}}}}},
             "Unauthorized": {"description": "Autenticação ausente, inválida ou expirada.", "content": {"application/json": {"schema": ref("Error"),
                              "example": err_example("not_authenticated", "Credenciais de autenticação inválidas ou ausentes.")}}},
