@@ -1,0 +1,54 @@
+# Produção numa instância só (Lightsail): Caddy (HTTPS) -> gunicorn -> Postgres.
+# Uso: docs/deploy-lightsail.md
+services:
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    env_file: .env
+    # Ajustado para 1 GB de RAM.
+    command: postgres -c shared_buffers=128MB -c max_connections=20
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      DELIVERY_STORAGE_ROOT: /data/deliveries
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - static:/app/staticfiles
+      - deliveries:/data/deliveries
+
+  caddy:
+    image: caddy:2.10
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:?defina DOMAIN no .env}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - static:/srv/static:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
+  static:
+  deliveries:
+  caddy_data:
+  caddy_config:

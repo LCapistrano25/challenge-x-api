@@ -80,6 +80,13 @@ def test_aluno_e_professor_nao_entram_com_senha(factory):
         ensure_password_login_allowed(factory().user)
 
 
+@pytest.mark.parametrize("factory", [StudentFactory, TeacherFactory])
+def test_aluno_e_professor_entram_com_senha_na_homologacao(factory, settings):
+    settings.ALLOW_PASSWORD_LOGIN_FOR_ALL_ROLES = True
+
+    ensure_password_login_allowed(factory().user)
+
+
 def test_credencial_recusada_pelo_authenticate_nao_entra():
     with pytest.raises(InvalidCredentials):
         ensure_password_login_allowed(None)

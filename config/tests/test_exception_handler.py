@@ -9,10 +9,10 @@ from rest_framework.permissions import AllowAny
 from rest_framework.test import APIRequestFactory
 from rest_framework.views import APIView
 
+from apps.accounts.exceptions import NotAdminActor
 from apps.core.exceptions import ExternalServiceError
 from apps.editions.exceptions import (
     EditionAlreadyExists,
-    NotAdminActor,
     TeamLimitsLocked,
 )
 
@@ -127,23 +127,15 @@ def test_excecao_do_drf_sai_no_formato_padrao(error, status, code):
     assert_error(respond(error), status, code)
 
 
-# Exceções do Django (get_object_or_404, PermissionDenied): o DRF as converte, o
-# handler precisa tratá-las do mesmo jeito e no formato padrão.
-
-
-def test_http404_do_django_vira_404_not_found():
-    assert_error(respond(Http404()), 404, "not_found")
-
-
-def test_http404_com_mensagem_usa_a_mensagem():
-    resposta = respond(Http404("Edição não encontrada."))
-
-    assert_error(resposta, 404, "not_found")
-    assert resposta.data["error"]["message"] == "Edição não encontrada."
-
-
-def test_permission_denied_do_django_vira_403_permission_denied():
-    assert_error(respond(DjangoPermissionDenied()), 403, "permission_denied")
+@pytest.mark.parametrize(
+    ("error", "status", "code"),
+    [
+        (Http404(), 404, "not_found"),  # o que get_object_or_404 lança
+        (DjangoPermissionDenied(), 403, "permission_denied"),
+    ],
+)
+def test_excecao_do_django_sai_no_formato_padrao(error, status, code):
+    assert_error(respond(error), status, code)
 
 
 # Erro inesperado
@@ -153,3 +145,43 @@ def test_erro_inesperado_nao_e_engolido():
     # O handler devolve None e o DRF relança: vira 500 e aparece no log.
     with pytest.raises(RuntimeError):
         respond(RuntimeError("bug"))
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("fmt", ["json", "multipart"])
+def test_corpo_acima_do_limite_sai_em_json(fmt, settings):
+    from rest_framework.test import APIClient
+
+    settings.DATA_UPLOAD_MAX_MEMORY_SIZE = 1024
+    response = APIClient().post(
+        "/api/auth/sessions/password",
+        {"email": "x" * 2048, "password": "a"},
+        format=fmt,
+    )
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "request_too_large"
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "url",
+    ["/api/rota-que-nao-existe", "/api/admin/editions/abc/evaluators"],
+)
+def test_rota_inexistente_da_api_responde_404_em_json(url):
+    from rest_framework.test import APIClient
+
+    response = APIClient().get(url)
+    assert response.status_code == 404
+    assert response.json() == {
+        "error": {
+            "code": "not_found",
+            "message": "Recurso não encontrado.",
+            "details": None,
+        }
+    }
+
+
+def test_rota_inexistente_fora_da_api_continua_em_html(client):
+    response = client.get("/pagina-que-nao-existe")
+    assert response.status_code == 404
+    assert response["Content-Type"].startswith("text/html")

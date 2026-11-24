@@ -1,0 +1,15 @@
+# Certificado HTTPS automático (Let's Encrypt) para o DOMAIN do .env.
+# O reverse_proxy sobrescreve o X-Forwarded-Proto do cliente, como pede o
+# SECURE_PROXY_SSL_HEADER de config/settings/production.py.
+{$DOMAIN} {
+	encode gzip
+
+	handle_path /static/* {
+		root * /srv/static
+		file_server
+	}
+
+	handle {
+		reverse_proxy api:8000
+	}
+}

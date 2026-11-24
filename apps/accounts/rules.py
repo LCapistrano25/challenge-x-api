@@ -1,4 +1,7 @@
+import re
+
 from django.apps import apps
+from django.conf import settings
 from django.core.exceptions import ValidationError
 
 from apps.accounts.enums import UserRole
@@ -6,6 +9,7 @@ from apps.accounts.exceptions import (
     DomainRoleMismatch,
     InvalidCredentials,
     InvalidEmailDomain,
+    NotAdminActor,
     ReviewerNotInCurrentEdition,
 )
 
@@ -21,6 +25,7 @@ PROFILE_BY_ROLE = {
 
 # Aluno e professor entram pela Microsoft (RF18, RF36).
 PASSWORD_ROLES = {UserRole.ADMIN, UserRole.EXTERNAL_REVIEWER}
+MICROSOFT_ROLES = {UserRole.STUDENT, UserRole.TEACHER}
 
 
 def ensure_institutional_domain(email: str, role: str) -> None:
@@ -40,6 +45,23 @@ def ensure_institutional_domain(email: str, role: str) -> None:
 
     if domain.role != role:
         raise DomainRoleMismatch("Perfil não autorizado para este domínio.")
+
+
+def ensure_microsoft_domain(email: str) -> str:
+    """Devolve o papel do domínio institucional, só de aluno ou professor (RN02).
+
+    Domínio desconhecido, inativo ou de outro papel sai como DomainRoleMismatch.
+    """
+    domain_name = email.rsplit("@", 1)[-1].lower()
+    domains = apps.get_model("accounts", "EmailDomain").objects
+    role = (
+        domains.filter(name__iexact=domain_name, active=True)
+        .values_list("role", flat=True)
+        .first()
+    )
+    if role not in MICROSOFT_ROLES:
+        raise DomainRoleMismatch()
+    return role
 
 
 def has_role_profile(user) -> bool:
@@ -85,7 +107,47 @@ def ensure_password_login_allowed(user) -> None:
     user é o resultado do authenticate(): None para credencial errada ou conta
     inativa. Todo motivo sai como o mesmo InvalidCredentials, sem revelar qual.
     """
-    if user is None or user.role not in PASSWORD_ROLES:
+    allowed = PASSWORD_ROLES
+    if settings.ALLOW_PASSWORD_LOGIN_FOR_ALL_ROLES:  # só homologação (base.py)
+        allowed = PASSWORD_ROLES | MICROSOFT_ROLES
+    if user is None or user.role not in allowed:
         raise InvalidCredentials()
     if user.role == UserRole.EXTERNAL_REVIEWER:
         ensure_reviewer_in_current_edition(user)
+
+
+def ensure_actor_is_admin(actor) -> None:
+    """Exige que quem age seja administrador (RF11, RF47, RF48)."""
+    if actor is None or actor.role != UserRole.ADMIN:
+        raise NotAdminActor()
+
+
+DOMAIN_NAME_PATTERN = re.compile(
+    r"^(?=.{1,100}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$"
+)
+
+
+def normalize_email_domain(name: str) -> str:
+    """Normaliza o domínio de e-mail para minúsculas sem espaços."""
+    return name.strip().lower()
+
+
+def ensure_valid_email_domain_name(name: str) -> str:
+    """Valida e normaliza o formato do domínio institucional (RF02, RN02)."""
+    normalized = normalize_email_domain(name)
+    if not DOMAIN_NAME_PATTERN.match(normalized):
+        raise ValidationError({"name": "Domínio de e-mail inválido."})
+    return normalized
+
+
+def ensure_email_domain_role_allowed(role: str) -> None:
+    """Restringe domínios institucionais aos perfis que entram via Microsoft (RN02)."""
+    if role not in MICROSOFT_ROLES:
+        raise ValidationError(
+            {
+                "role": (
+                    "Apenas os perfis de acadêmico e professor podem ser "
+                    "associados a domínios institucionais."
+                )
+            }
+        )

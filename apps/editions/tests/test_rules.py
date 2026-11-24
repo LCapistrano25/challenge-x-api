@@ -1,21 +1,30 @@
+from decimal import Decimal
+
 import pytest
+from django.core.exceptions import ValidationError
 
 from apps.accounts.enums import UserRole
+from apps.accounts.exceptions import NotAdminActor
 from apps.accounts.factories import UserFactory
+from apps.accounts.rules import ensure_actor_is_admin
 from apps.editions.enums import EditionStatus
 from apps.editions.exceptions import (
     EditionAlreadyExists,
     EditionClosed,
     EditionError,
     InvalidTeamLimits,
-    NotAdminActor,
     TeamLimitsLocked,
 )
-from apps.editions.factories import EditionFactory
+from apps.editions.factories import (
+    EditionFactory,
+    StageCriterionFactory,
+    StageFactory,
+)
 from apps.editions.rules import (
-    ensure_actor_is_admin,
+    ensure_criterion_fits_stage,
     ensure_edition_identification_is_free,
     ensure_edition_not_closed,
+    ensure_stage_max_score_fits,
     ensure_team_limits_editable,
     ensure_team_limits_valid,
 )
@@ -33,7 +42,6 @@ pytestmark = pytest.mark.django_db
         (TeamLimitsLocked, "team_limits_locked"),
         (EditionClosed, "edition_closed"),
         (InvalidTeamLimits, "invalid_team_limits"),
-        (NotAdminActor, "not_admin_actor"),
     ],
 )
 def test_excecao_tem_codigo_proprio_e_herda_de_edition_error(exception, code):
@@ -130,3 +138,45 @@ def test_edicao_encerrada_recusa_qualquer_alteracao():
 def test_edicao_encerrada_nao_e_o_mesmo_erro_dos_limites_travados():
     assert not issubclass(EditionClosed, TeamLimitsLocked)
     assert EditionClosed.http_status == TeamLimitsLocked.http_status == 409
+
+
+# Soma das notas das etapas e dos critérios (INT-01, INT-02)
+
+
+def test_etapas_pontuadas_ate_10_passam():
+    edicao = EditionFactory()
+    StageFactory(edition=edicao, max_score=Decimal("6.00"))
+    ensure_stage_max_score_fits(
+        StageFactory.build(edition=edicao, max_score=Decimal("4.00"))
+    )
+
+
+def test_etapas_pontuadas_acima_de_10_falham():
+    edicao = EditionFactory()
+    StageFactory(edition=edicao, max_score=Decimal("6.00"))
+    StageFactory(edition=edicao, scored=False, max_score=None, kind="FINAL")
+    with pytest.raises(ValidationError, match="10 pontos"):
+        ensure_stage_max_score_fits(
+            StageFactory.build(edition=edicao, max_score=Decimal("4.01"))
+        )
+
+
+def test_etapa_nao_pode_ficar_menor_que_seus_criterios():
+    criterio = StageCriterionFactory(max_score=Decimal("3.00"))
+    etapa = criterio.stage
+    etapa.max_score = Decimal("2.00")
+    with pytest.raises(ValidationError, match="critérios"):
+        ensure_stage_max_score_fits(etapa)
+
+
+def test_criterios_ate_o_valor_da_etapa_passam_e_acima_falham():
+    etapa = StageFactory(max_score=Decimal("3.00"))
+    primeiro = StageCriterionFactory(stage=etapa, max_score=Decimal("2.00"))
+    ensure_criterion_fits_stage(primeiro)  # ele mesmo não conta duas vezes
+    ensure_criterion_fits_stage(
+        StageCriterionFactory.build(stage=etapa, max_score=Decimal("1.00"))
+    )
+    with pytest.raises(ValidationError, match="valor da etapa"):
+        ensure_criterion_fits_stage(
+            StageCriterionFactory.build(stage=etapa, max_score=Decimal("1.01"))
+        )

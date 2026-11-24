@@ -1,13 +1,14 @@
+from decimal import Decimal
+
 from django.apps import apps
 from django.core.exceptions import ValidationError
+from django.db.models import Sum
 
-from apps.accounts.enums import UserRole
 from apps.editions.enums import EditionStatus
 from apps.editions.exceptions import (
     EditionAlreadyExists,
     EditionClosed,
     InvalidTeamLimits,
-    NotAdminActor,
     TeamLimitsLocked,
 )
 
@@ -35,10 +36,49 @@ def ensure_criterion_in_stage_edition(stage, criterion) -> None:
         raise ValidationError("O critério pertence a outra edição.")
 
 
-def ensure_actor_is_admin(actor) -> None:
-    """Exige que quem age seja administrador (RF47, RF48)."""
-    if actor is None or actor.role != UserRole.ADMIN:
-        raise NotAdminActor()
+MAX_FINAL_SCORE = Decimal("10")
+
+
+def ensure_stage_max_score_fits(stage) -> None:
+    """As etapas pontuadas somam no máximo 10 e a etapa comporta seus critérios.
+
+    A igualdade (somar exatamente 10) só vale ao publicar a edição (INT-01, INT-02).
+    """
+    if not stage.scored or stage.max_score is None:
+        return
+    stages = apps.get_model("editions", "Stage").objects
+    others = (
+        stages.filter(edition_id=stage.edition_id, scored=True)
+        .exclude(pk=stage.pk)
+        .aggregate(total=Sum("max_score"))["total"]
+        or 0
+    )
+    if others + stage.max_score > MAX_FINAL_SCORE:
+        raise ValidationError(
+            {"max_score": "As etapas pontuadas da edição passariam de 10 pontos."}
+        )
+    if stage.pk and _criteria_total(stage.pk) > stage.max_score:
+        raise ValidationError(
+            {"max_score": "Os critérios da etapa somam mais que este valor."}
+        )
+
+
+def ensure_criterion_fits_stage(stage_criterion) -> None:
+    """Os critérios da etapa somam no máximo o valor da etapa (INT-02)."""
+    stage = stage_criterion.stage
+    if stage.max_score is None or stage_criterion.max_score is None:
+        return
+    others = _criteria_total(stage.pk, exclude=stage_criterion.pk) if stage.pk else 0
+    if others + stage_criterion.max_score > stage.max_score:
+        raise ValidationError(
+            {"max_score": "Os critérios passariam do valor da etapa."}
+        )
+
+
+def _criteria_total(stage_id, exclude=None):
+    criteria = apps.get_model("editions", "StageCriterion").objects
+    qs = criteria.filter(stage_id=stage_id).exclude(pk=exclude)
+    return qs.aggregate(total=Sum("max_score"))["total"] or 0
 
 
 def ensure_edition_identification_is_free(year: int, semester: int) -> None:
@@ -46,12 +86,6 @@ def ensure_edition_identification_is_free(year: int, semester: int) -> None:
     editions = apps.get_model("editions", "Edition").objects
     if editions.filter(year=year, semester=semester).exists():
         raise EditionAlreadyExists()
-
-
-def ensure_edition_not_closed(edition) -> None:
-    """Edição encerrada não aceita alteração alguma (RF47, RN33)."""
-    if edition.status == EditionStatus.CLOSED:
-        raise EditionClosed()
 
 
 def ensure_team_limits_valid(min_members: int, max_members: int) -> None:
@@ -71,3 +105,16 @@ def ensure_team_limits_editable(edition) -> None:
     """
     if edition.status != EditionStatus.SETUP:
         raise TeamLimitsLocked()
+
+
+def ensure_edition_not_closed(edition) -> None:
+    """Edição encerrada não aceita alteração (RF11: o vínculo expira com ela)."""
+    if edition.status == EditionStatus.CLOSED:
+        raise EditionClosed()
+
+
+def ensure_course_is_active(course_id: int) -> None:
+    """Exige curso existente e ativo para a abrangência do avaliador (RF11)."""
+    courses = apps.get_model("core", "Course").objects
+    if not courses.filter(pk=course_id, active=True).exists():
+        raise ValidationError({"course_id": "Curso inválido."})

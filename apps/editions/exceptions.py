@@ -20,13 +20,6 @@ class TeamLimitsLocked(EditionError):
     default_message = "Os limites da equipe não podem ser alterados nesta edição."
 
 
-class EditionClosed(EditionError):
-    """Edição encerrada: nenhum dado pode ser alterado, nem pelo administrador."""
-
-    code = "edition_closed"
-    default_message = "A edição está encerrada e não pode ser alterada."
-
-
 class InvalidTeamLimits(EditionError):
     code = "invalid_team_limits"
     default_message = (
@@ -35,7 +28,11 @@ class InvalidTeamLimits(EditionError):
     http_status = HTTPStatus.BAD_REQUEST
 
 
-class NotAdminActor(EditionError):
-    code = "not_admin_actor"
-    default_message = "Apenas o administrador pode realizar esta ação."
-    http_status = HTTPStatus.FORBIDDEN
+class EditionClosed(EditionError):
+    code = "edition_closed"
+    default_message = "A edição está encerrada e não pode ser alterada."
+
+
+class ReviewerAlreadyLinked(EditionError):
+    code = "evaluator_already_linked"
+    default_message = "O avaliador já está vinculado a esta edição."
