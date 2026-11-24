@@ -4,6 +4,9 @@ from rest_framework import serializers
 
 from apps.editions.models import Edition, EditionReviewer
 
+INT32_MIN = -(2**31)
+INT32_MAX = 2**31 - 1
+
 
 class EvaluatorSummarySerializer(serializers.Serializer):
     user_id = serializers.IntegerField(source="user.pk")
@@ -64,6 +67,26 @@ class EditionSerializer(serializers.ModelSerializer):
         return data
 
 
+class StrictIntegerField(serializers.IntegerField):
+    """Inteiro do JSON Schema: recusa texto e booleano; aceita 5.0, que é inteiro."""
+
+    def to_internal_value(self, data):
+        if isinstance(data, bool) or not isinstance(data, int | float):
+            self.fail("invalid")
+        if isinstance(data, float) and not data.is_integer():
+            self.fail("invalid")
+        return super().to_internal_value(data)
+
+
+class StrictCharField(serializers.CharField):
+    """Texto do JSON Schema: recusa número e booleano (o DRF os converte)."""
+
+    def to_internal_value(self, data):
+        if not isinstance(data, str):
+            self.fail("invalid")
+        return super().to_internal_value(data)
+
+
 class RejectUnknownFieldsMixin:
     """O contrato não aceita campos extras (additionalProperties: false)."""
 
@@ -80,11 +103,14 @@ class RejectUnknownFieldsMixin:
 class EditionCreateSerializer(RejectUnknownFieldsMixin, serializers.Serializer):
     """Entrada do cadastro de edição (EditionCreate): só ano, semestre e nome."""
 
-    # O model guarda o ano em PositiveSmallIntegerField: o teto evita erro do banco.
-    year = serializers.IntegerField(min_value=1, max_value=32767)
-    semester = serializers.ChoiceField(choices=[1, 2])
-    name = serializers.CharField(
-        max_length=100, required=False, allow_null=True, allow_blank=True
+    year = StrictIntegerField(min_value=INT32_MIN, max_value=INT32_MAX)
+    semester = StrictIntegerField(min_value=1, max_value=2)
+    name = StrictCharField(
+        max_length=100,
+        required=False,
+        allow_null=True,
+        allow_blank=True,
+        trim_whitespace=False,
     )
 
 
@@ -94,12 +120,15 @@ class EditionUpdateSerializer(RejectUnknownFieldsMixin, serializers.Serializer):
     Só entram em validated_data os campos enviados: ausente é diferente de null.
     """
 
-    name = serializers.CharField(
-        max_length=100, required=False, allow_null=True, allow_blank=True
+    name = StrictCharField(
+        max_length=100,
+        required=False,
+        allow_null=True,
+        allow_blank=True,
+        trim_whitespace=False,
     )
-    # Os limites são PositiveSmallIntegerField no model: o teto evita erro do banco.
-    min_members = serializers.IntegerField(min_value=1, max_value=32767, required=False)
-    max_members = serializers.IntegerField(min_value=1, max_value=32767, required=False)
+    min_members = StrictIntegerField(min_value=1, max_value=INT32_MAX, required=False)
+    max_members = StrictIntegerField(min_value=1, max_value=INT32_MAX, required=False)
 
     def validate(self, attrs):
         if not attrs:

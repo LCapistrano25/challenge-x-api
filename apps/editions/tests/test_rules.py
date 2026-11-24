@@ -12,6 +12,7 @@ from apps.editions.exceptions import (
     EditionAlreadyExists,
     EditionClosed,
     EditionError,
+    EditionPublished,
     InvalidTeamLimits,
     TeamLimitsLocked,
 )
@@ -41,7 +42,8 @@ pytestmark = pytest.mark.django_db
         (EditionAlreadyExists, "edition_exists"),
         (TeamLimitsLocked, "team_limits_locked"),
         (EditionClosed, "edition_closed"),
-        (InvalidTeamLimits, "invalid_team_limits"),
+        (EditionPublished, "edition_published"),
+        (InvalidTeamLimits, "validation_error"),
     ],
 )
 def test_excecao_tem_codigo_proprio_e_herda_de_edition_error(exception, code):
@@ -116,10 +118,17 @@ def test_edicao_em_configuracao_aceita_mudar_limites():
     ensure_team_limits_editable(EditionFactory(status=EditionStatus.SETUP))
 
 
-@pytest.mark.parametrize("status", [EditionStatus.PUBLISHED, EditionStatus.CLOSED])
-def test_edicao_publicada_ou_encerrada_trava_os_limites(status):
-    with pytest.raises(TeamLimitsLocked):
+@pytest.mark.parametrize(
+    ("status", "error_class"),
+    [
+        (EditionStatus.PUBLISHED, EditionPublished),
+        (EditionStatus.CLOSED, TeamLimitsLocked),
+    ],
+)
+def test_edicao_publicada_ou_encerrada_trava_os_limites(status, error_class):
+    with pytest.raises(error_class) as error:
         ensure_team_limits_editable(EditionFactory(status=status))
+    assert type(error.value) is error_class
 
 
 # Edição encerrada (RF47, RN33)

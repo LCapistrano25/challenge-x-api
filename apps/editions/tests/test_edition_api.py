@@ -298,7 +298,7 @@ def test_cadastro_recusa_semestre_invalido(client, payload, semester):
     assert not Edition.objects.exists()
 
 
-@pytest.mark.parametrize("year", [0, -2026, 32768, "abc", None])
+@pytest.mark.parametrize("year", [-(2**31) - 1, 2**31, "abc", None])
 def test_cadastro_recusa_ano_invalido(client, payload, year):
     payload["year"] = year
 
@@ -466,7 +466,7 @@ def test_atualizacao_parcial_de_limites_preserva_o_outro(
 
 
 @pytest.mark.parametrize("campo", ["min_members", "max_members"])
-@pytest.mark.parametrize("valor", ["abc", "3.5", 3.5, None, [], {}, True, 0, -1, 32768])
+@pytest.mark.parametrize("valor", ["abc", "3.5", 3.5, None, [], {}, True, 0, -1, 2**31])
 def test_atualizacao_recusa_limite_que_nao_e_inteiro_valido(
     client, edicao, campo, valor
 ):
@@ -492,7 +492,7 @@ def test_atualizacao_com_limites_invalidos_em_configuracao_devolve_400(
     resposta = patch(client, edicao, {"name": "Não deve gravar", **campos})
 
     assert resposta.status_code == 400
-    assert resposta.data["error"]["code"] == "invalid_team_limits"
+    assert resposta.data["error"]["code"] == "validation_error"
     assert estado(edicao) == ("Desafio X 2030/1", 3, 5, EditionStatus.SETUP)
 
 
@@ -575,7 +575,7 @@ def test_publicada_com_qualquer_limite_devolve_409_sem_alteracao_parcial(
     resposta = patch(client, edicao, {"name": "Não deve gravar", **campos})
 
     assert resposta.status_code == 409
-    assert resposta.data["error"]["code"] == "team_limits_locked"
+    assert resposta.data["error"]["code"] == "edition_published"
     assert estado(edicao) == ("Publicada", 3, 5, EditionStatus.PUBLISHED)
 
 

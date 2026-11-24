@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 import pytest
 from django.core.exceptions import ValidationError
 from django.db import connection
@@ -387,10 +389,12 @@ def test_campos_fora_do_contrato_nao_sao_aceitos(admin, edicao_nomeada, campo):
 
 
 def test_atualizacao_avanca_updated_at(admin, edicao_nomeada):
-    antes = edicao_nomeada.updated_at
+    antes = datetime(2020, 1, 1, tzinfo=UTC)
+    Edition.objects.filter(pk=edicao_nomeada.pk).update(updated_at=antes)
 
     resultado = update_edition(actor=admin, edition=edicao_nomeada, name="Novo")
 
+    resultado.refresh_from_db()
     assert resultado.updated_at > antes
 
 

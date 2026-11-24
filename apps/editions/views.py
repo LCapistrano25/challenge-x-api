@@ -1,5 +1,6 @@
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, status
+from rest_framework.parsers import JSONParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -63,6 +64,8 @@ class EditionListView(generics.ListAPIView):
     """GET lista as edições (array simples); POST cadastra uma edição (RF47)."""
 
     permission_classes = [IsAdmin]
+    # O contrato só declara application/json nas entradas.
+    parser_classes = [JSONParser]
     serializer_class = EditionSerializer
     pagination_class = None
 
@@ -86,6 +89,8 @@ class EditionDetailView(generics.RetrieveAPIView):
     """GET consulta e PATCH atualiza nome e limites de uma edição (RF47, RF48)."""
 
     permission_classes = [IsAdmin]
+    # O contrato só declara application/json nas entradas.
+    parser_classes = [JSONParser]
     serializer_class = EditionSerializer
     queryset = Edition.objects.all()
     lookup_url_kwarg = "edition_id"

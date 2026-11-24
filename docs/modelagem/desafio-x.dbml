@@ -138,13 +138,13 @@ Table editions_edition [headercolor: #8a5a00] {
 	id bigint [ pk, increment, note: 'ID' ]
 	created_at timestamptz [ not null ]
 	updated_at timestamptz [ not null ]
-	year smallint [ not null ]
+	year integer [ not null ]
 	semester smallint [ not null ]
 	name varchar(100) [ not null ]
 	status editions_edition_status [ not null, default: 'SETUP' ]
 	regulation_url varchar(500) [ not null ]
-	min_members smallint [ not null, default: 3 ]
-	max_members smallint [ not null, default: 5 ]
+	min_members integer [ not null, default: 3 ]
+	max_members integer [ not null, default: 5 ]
 	published_at timestamptz
 	closed_at timestamptz
 
