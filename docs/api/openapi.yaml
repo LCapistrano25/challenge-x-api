@@ -7584,7 +7584,6 @@ paths:
 
         **Regras de negócio:**
         - O integrante deve pertencer à equipe.
-        - A etapa deve pertencer à mesma edição da equipe.
         - O conteúdo não é retornado nem consultável pelo líder ou pelos alunos.
       x-status: confirmed
       x-requirements:
@@ -7601,7 +7600,6 @@ paths:
               $ref: '#/components/schemas/MemberNoteCreate'
             example:
               member_id: 103
-              stage_id: 12
               text: Não participou das duas últimas reuniões.
       responses:
         '201':
@@ -7627,7 +7625,7 @@ paths:
       operationId: teamsListMemberNotes
       summary: Consultar observações sobre integrantes
       description: |-
-        Lista as observações confidenciais registradas pelos líderes da equipe.
+        Lista as observações registradas pelo líder.
 
         **Requisitos:** RF39
 
@@ -7656,11 +7654,11 @@ paths:
               example:
               - id: 17
                 member:
-                  user_id: 43
+                  user_id: 42
                   name: Maria Souza
                 author:
                   user_id: 42
-                  name: João Silva
+                  name: Maria Souza
                 text: Não participou das duas últimas reuniões.
                 created_at: '2026-10-22T16:00:00Z'
         '401':
@@ -11268,11 +11266,6 @@ components:
           description: Vínculo (team_member) observado.
           examples:
           - 103
-        stage_id:
-          type: integer
-          description: Etapa da edição à qual a observação está associada.
-          examples:
-          - 12
         text:
           type: string
           minLength: 1
@@ -11280,7 +11273,6 @@ components:
           - Não participou das duas últimas reuniões.
       required:
       - member_id
-      - stage_id
       - text
       additionalProperties: false
     MemberNoteCreated:
@@ -11307,35 +11299,9 @@ components:
           examples:
           - 17
         member:
-          type: object
-          properties:
-            user_id:
-              type: integer
-              minimum: 1
-              examples:
-              - 43
-            name:
-              type: string
-              examples:
-              - Maria Souza
-          required:
-          - user_id
-          - name
+          $ref: '#/components/schemas/UserSummary'
         author:
-          type: object
-          properties:
-            user_id:
-              type: integer
-              minimum: 1
-              examples:
-              - 42
-            name:
-              type: string
-              examples:
-              - João Silva
-          required:
-          - user_id
-          - name
+          $ref: '#/components/schemas/UserSummary'
         text:
           type: string
           examples:
