@@ -1,22 +1,19 @@
+from uuid import UUID
+
 from django.db import transaction
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 
 from apps.notifications.models import Notification
 
 
 @transaction.atomic
-def mark_notification_as_read(actor, notification_id: int) -> Notification:
-    """
-    Marca uma notificação do usuário como lida.
-    """
-    # 1. Busca a notificação garantindo que pertence ao usuário (actor).
-    # Se não for dele ou não existir, o Django lança Http404 e o
-    #  DRF cuida de devolver a resposta 404 correta.
+def mark_notification_as_read(*, actor, notification_id: UUID) -> Notification:
+    """Preenche read_at de uma notificação do próprio usuário (idempotente)."""
     notification = get_object_or_404(Notification, id=notification_id, user=actor)
 
-    # 2. Se já estiver lida, não faz nada. Se não estiver, atualiza.
-    if not notification.read:
-        notification.read = True
-        notification.save(update_fields=["read"])
+    if notification.read_at is None:
+        notification.read_at = timezone.now()
+        notification.save(update_fields=["read_at", "updated_at"])
 
     return notification
