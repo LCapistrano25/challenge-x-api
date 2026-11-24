@@ -11,6 +11,7 @@ from apps.projects.exceptions import (
     CategoryNotAvailable,
     ChallengeNotEligible,
     ChallengeNotSelected,
+    DeadlineExtensionAlreadyGranted,
     FileFormatNotAllowed,
     FileTooLarge,
     FormationClosed,
@@ -81,6 +82,12 @@ def ensure_extension_after_stage_end(extension) -> None:
         raise ValidationError(
             {"ends_at": "O novo prazo precisa ser depois do fim da etapa."}
         )
+
+
+def ensure_no_extension_for_stage(project, stage) -> None:
+    """Só uma prorrogação por projeto e etapa (RF14)."""
+    if project.deadline_extensions.filter(stage=stage).exists():
+        raise DeadlineExtensionAlreadyGranted()
 
 
 def ensure_actor_is_team_leader(team, actor) -> None:

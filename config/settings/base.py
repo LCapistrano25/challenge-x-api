@@ -129,6 +129,8 @@ MICROSOFT_REDIRECT_URI = env("MICROSOFT_REDIRECT_URI", default="")
 ALLOW_PASSWORD_LOGIN_FOR_ALL_ROLES = env.bool(
     "ALLOW_PASSWORD_LOGIN_FOR_ALL_ROLES", default=False
 )
+# Swagger do contrato em /api/docs/, aberto a quem tiver o link (homologação).
+ENABLE_API_DOCS = env.bool("ENABLE_API_DOCS", default=False)
 
 # Sessão com expiração por inatividade
 SESSION_COOKIE_AGE = 1800
