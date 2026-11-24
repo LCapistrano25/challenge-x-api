@@ -12,13 +12,6 @@ class MemberNote(TimeStampedModel):
     author = models.ForeignKey(
         "accounts.Student", on_delete=models.PROTECT, related_name="member_notes"
     )
-    stage = models.ForeignKey(
-        "editions.Stage",
-        on_delete=models.PROTECT,
-        related_name="member_notes",
-        null=True,
-        blank=True,
-    )
     text = models.TextField()
 
     class Meta:

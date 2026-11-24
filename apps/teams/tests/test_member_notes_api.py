@@ -8,7 +8,6 @@ from apps.accounts.factories import (
     UserFactory,
 )
 from apps.core.tests.contract import mismatches, schema
-from apps.editions.factories import StageFactory
 from apps.projects.factories import ProjectFactory
 from apps.teams.enums import MemberRole
 from apps.teams.factories import (
@@ -37,20 +36,18 @@ def create_team_with_project():
         team=team,
         student__course=project.challenge.course,
     )
-    stage = StageFactory(edition=team.edition)
 
-    return team, project, leader, target, stage
+    return team, project, leader, target
 
 
 def test_lider_registra_observacao_pela_api():
-    team, project, leader, target, stage = create_team_with_project()
+    team, project, leader, target = create_team_with_project()
     client = authenticated_client(leader.student.user)
 
     response = client.post(
         f"/api/teams/{team.pk}/member-notes",
         {
             "member_id": target.pk,
-            "stage_id": stage.pk,
             "text": "Participou ativamente das atividades.",
         },
         format="json",
@@ -64,14 +61,13 @@ def test_lider_registra_observacao_pela_api():
 
 
 def test_registro_sem_autenticacao_retorna_401():
-    team, project, leader, target, stage = create_team_with_project()
+    team, project, leader, target = create_team_with_project()
     client = APIClient()
 
     response = client.post(
         f"/api/teams/{team.pk}/member-notes",
         {
             "member_id": target.pk,
-            "stage_id": stage.pk,
             "text": "Observação.",
         },
         format="json",
@@ -81,7 +77,7 @@ def test_registro_sem_autenticacao_retorna_401():
 
 
 def test_professor_nao_registra_observacao():
-    team, project, leader, target, stage = create_team_with_project()
+    team, project, leader, target = create_team_with_project()
     teacher = TeacherFactory()
     client = authenticated_client(teacher.user)
 
@@ -89,7 +85,6 @@ def test_professor_nao_registra_observacao():
         f"/api/teams/{team.pk}/member-notes",
         {
             "member_id": target.pk,
-            "stage_id": stage.pk,
             "text": "Observação.",
         },
         format="json",
@@ -99,14 +94,13 @@ def test_professor_nao_registra_observacao():
 
 
 def test_aluno_que_nao_e_lider_nao_registra_observacao():
-    team, project, leader, target, stage = create_team_with_project()
+    team, project, leader, target = create_team_with_project()
     client = authenticated_client(target.student.user)
 
     response = client.post(
         f"/api/teams/{team.pk}/member-notes",
         {
             "member_id": target.pk,
-            "stage_id": stage.pk,
             "text": "Observação.",
         },
         format="json",
@@ -115,28 +109,11 @@ def test_aluno_que_nao_e_lider_nao_registra_observacao():
     assert response.status_code == 403
 
 
-def test_registro_sem_stage_id_retorna_400():
-    team, project, leader, target, stage = create_team_with_project()
-    client = authenticated_client(leader.student.user)
-
-    response = client.post(
-        f"/api/teams/{team.pk}/member-notes",
-        {
-            "member_id": target.pk,
-            "text": "Observação.",
-        },
-        format="json",
-    )
-
-    assert response.status_code == 400
-
-
 def test_professor_com_vinculo_ativo_consulta_observacoes():
-    team, project, leader, target, stage = create_team_with_project()
+    team, project, leader, target = create_team_with_project()
     MemberNoteFactory(
         member=target,
         author=leader.student,
-        stage=stage,
         text="Participação abaixo do esperado.",
     )
 
@@ -161,7 +138,7 @@ def test_professor_com_vinculo_ativo_consulta_observacoes():
 
 
 def test_professor_sem_vinculo_ativo_nao_consulta_observacoes():
-    team, project, leader, target, stage = create_team_with_project()
+    team, project, leader, target = create_team_with_project()
     teacher = TeacherFactory()
     client = authenticated_client(teacher.user)
 
@@ -173,11 +150,10 @@ def test_professor_sem_vinculo_ativo_nao_consulta_observacoes():
 
 
 def test_administrador_consulta_observacoes():
-    team, project, leader, target, stage = create_team_with_project()
+    team, project, leader, target = create_team_with_project()
     MemberNoteFactory(
         member=target,
         author=leader.student,
-        stage=stage,
     )
 
     admin = UserFactory(role=UserRole.ADMIN)
@@ -192,7 +168,7 @@ def test_administrador_consulta_observacoes():
 
 
 def test_aluno_nao_consulta_observacoes():
-    team, project, leader, target, stage = create_team_with_project()
+    team, project, leader, target = create_team_with_project()
     client = authenticated_client(leader.student.user)
 
     response = client.get(
@@ -203,7 +179,7 @@ def test_aluno_nao_consulta_observacoes():
 
 
 def test_consulta_sem_autenticacao_retorna_401():
-    team, project, leader, target, stage = create_team_with_project()
+    team, project, leader, target = create_team_with_project()
     client = APIClient()
 
     response = client.get(
@@ -214,7 +190,7 @@ def test_consulta_sem_autenticacao_retorna_401():
 
 
 def test_professor_com_vinculo_inativo_nao_consulta_observacoes():
-    team, project, leader, target, stage = create_team_with_project()
+    team, project, leader, target = create_team_with_project()
     teacher = TeacherFactory()
 
     TeacherCourseFactory(
@@ -233,7 +209,7 @@ def test_professor_com_vinculo_inativo_nao_consulta_observacoes():
 
 
 def test_professor_autorizado_sem_observacoes_recebe_lista_vazia():
-    team, project, leader, target, stage = create_team_with_project()
+    team, project, leader, target = create_team_with_project()
     teacher = TeacherFactory()
 
     TeacherCourseFactory(
@@ -253,14 +229,13 @@ def test_professor_autorizado_sem_observacoes_recebe_lista_vazia():
 
 
 def test_registro_para_equipe_inexistente_retorna_404():
-    team, project, leader, target, stage = create_team_with_project()
+    team, project, leader, target = create_team_with_project()
     client = authenticated_client(leader.student.user)
 
     response = client.post(
         "/api/teams/999999/member-notes",
         {
             "member_id": target.pk,
-            "stage_id": stage.pk,
             "text": "Observação.",
         },
         format="json",

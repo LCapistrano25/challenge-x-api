@@ -4,7 +4,7 @@ from factory.django import DjangoModelFactory
 
 from apps.accounts.enums import UserRole
 from apps.accounts.factories import StudentFactory, UserFactory
-from apps.editions.factories import EditionFactory, StageFactory
+from apps.editions.factories import EditionFactory
 from apps.teams.enums import MemberRole, TeamSituation, TeamStatus
 from apps.teams.models import (
     Invitation,
@@ -92,8 +92,5 @@ class MemberNoteFactory(DjangoModelFactory):
                 active=True,
             ).student
         )
-    )
-    stage = factory.LazyAttribute(
-        lambda obj: StageFactory(edition=obj.member.team.edition)
     )
     text = "Integrante não participou das reuniões."

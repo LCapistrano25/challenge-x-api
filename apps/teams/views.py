@@ -14,6 +14,7 @@ from apps.teams.enums import (
     MemberRole,
     TeamStatus,
 )
+from apps.teams.exceptions import MemberNoteError
 from apps.teams.models import (
     Invitation,
     JoinRequest,
@@ -42,10 +43,7 @@ from apps.teams.serializers import (
     TeamMemberSerializer,
     TeamSerializer,
 )
-from apps.teams.use_cases.add_member_note import (
-    AddMemberNoteRejected,
-    add_member_note,
-)
+from apps.teams.use_cases.add_member_note import add_member_note
 from apps.teams.use_cases.create_team import create_team
 from apps.teams.use_cases.invite_member import invite_member
 from apps.teams.use_cases.leave_team import (
@@ -805,34 +803,16 @@ class TeamMemberNotesView(APIView):
                 team_id=team_id,
                 **serializer.validated_data,
             )
-        except AddMemberNoteRejected as error:
-            message = str(error)
-
-            if message in (
-                "Equipe não encontrada.",
-                "Etapa não encontrada.",
-                "O vínculo informado não é de um integrante ativo desta equipe.",
-            ):
-                code = "not_found"
-                http_status = status.HTTP_404_NOT_FOUND
-            elif message == (
-                "Somente o líder ativo da equipe pode registrar observações."
-            ):
-                code = "permission_denied"
-                http_status = status.HTTP_403_FORBIDDEN
-            else:
-                code = "member_note_rejected"
-                http_status = status.HTTP_400_BAD_REQUEST
-
+        except MemberNoteError as error:
             return Response(
                 {
                     "error": {
-                        "code": code,
-                        "message": message,
+                        "code": error.code,
+                        "message": str(error),
                         "details": None,
                     }
                 },
-                status=http_status,
+                status=error.http_status,
             )
 
         return Response(
@@ -844,7 +824,6 @@ class TeamMemberNotesView(APIView):
         )
 
     def get(self, request, team_id):
-
         team = Team.objects.filter(pk=team_id).first()
 
         if team is None:
