@@ -33,6 +33,41 @@ class TeamMemberSerializer(serializers.ModelSerializer):
         }
 
 
+class AdminTeamDetailSerializer(serializers.ModelSerializer):
+    edition_id = serializers.IntegerField(read_only=True)
+    disqualified_by = serializers.IntegerField(
+        source="disqualified_by_id",
+        read_only=True,
+        allow_null=True,
+    )
+    members = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Team
+        fields = [
+            "id",
+            "edition_id",
+            "name",
+            "code",
+            "status",
+            "situation",
+            "disqualification_reason",
+            "disqualified_at",
+            "disqualified_by",
+            "formation_extended_until",
+            "members",
+            "created_at",
+            "updated_at",
+        ]
+
+    def get_members(self, obj):
+        members = obj.members.filter(active=True).select_related(
+            "student__user",
+            "student__course",
+        )
+        return TeamMemberSerializer(members, many=True).data
+
+
 class TeamSerializer(serializers.ModelSerializer):
     edition_id = serializers.IntegerField(read_only=True)
     members = serializers.SerializerMethodField()
@@ -285,3 +320,35 @@ class DisqualifyTeamSerializer(serializers.Serializer):
         allow_blank=False,
         trim_whitespace=True,
     )
+
+
+class ProjectRefSerializer(serializers.Serializer):
+    id = serializers.IntegerField(read_only=True)
+    title = serializers.CharField(read_only=True)
+
+
+class AdminTeamListItemSerializer(serializers.ModelSerializer):
+    edition_id = serializers.IntegerField(read_only=True)
+    member_count = serializers.IntegerField(read_only=True)
+    project = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Team
+        fields = [
+            "id",
+            "edition_id",
+            "name",
+            "code",
+            "status",
+            "situation",
+            "member_count",
+            "project",
+        ]
+
+    def get_project(self, obj):
+        project = getattr(obj, "project", None)
+
+        if project is None:
+            return None
+
+        return ProjectRefSerializer(project).data
