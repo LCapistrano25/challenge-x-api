@@ -10,6 +10,7 @@ from apps.projects.enums import ProjectStatus
 from apps.projects.models import Project
 from apps.results.compute import CENT, RankEntry, compute_course_ranks
 from apps.results.enums import ResultExclusionReason
+from apps.results.models import ProjectResult
 from apps.teams.enums import TeamStatus
 
 
@@ -84,6 +85,24 @@ def list_edition_standings(edition) -> list[Standing]:
         )
         for project in projects
     ]
+
+
+def get_edition_results(edition) -> dict:
+    """Ranking gravado da edição e quem está fora dele agora (RF15)."""
+    results = list(
+        ProjectResult.objects.filter(
+            project__edition=edition, final_score__isnull=False
+        )
+        .select_related("project__team", "project__challenge__course")
+        .select_related("project__category")
+        .order_by("project__challenge__course__name", "course_rank", "project_id")
+    )
+    return {
+        "edition_id": edition.pk,
+        "approved_at": next((r.approved_at for r in results if r.approved_at), None),
+        "results": results,
+        "excluded": [s for s in list_edition_standings(edition) if s.exclusion],
+    }
 
 
 def _tiebreak_scores(edition, project_ids, stage_ids) -> dict[int, tuple]:
