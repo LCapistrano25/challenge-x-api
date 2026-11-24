@@ -18,8 +18,12 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import include, path
 
+from config import api_docs
+
 urlpatterns = [
     path("admin/", admin.site.urls),
+    path("api/docs/", api_docs.swagger_ui, name="api-docs"),
+    path("api/docs/openapi.yaml", api_docs.openapi_spec, name="api-docs-spec"),
     path("api/", include("apps.core.urls")),
     path("api/auth/", include("apps.accounts.urls")),
     path("api/admin/", include("apps.accounts.admin_urls")),
