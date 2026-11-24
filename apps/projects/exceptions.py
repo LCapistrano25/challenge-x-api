@@ -92,6 +92,11 @@ class FileTooLarge(ProjectError):
     http_status = HTTPStatus.BAD_REQUEST
 
 
+class DeadlineExtensionAlreadyGranted(ProjectError):
+    code = "deadline_extension_already_granted"
+    default_message = "A equipe já tem prorrogação de prazo nesta etapa."
+
+
 class StorageUnavailable(ExternalServiceError):
     code = "storage_unavailable"
     default_message = "Armazenamento indisponível."
