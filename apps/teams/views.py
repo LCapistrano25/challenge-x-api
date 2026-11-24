@@ -22,7 +22,8 @@ from apps.teams.models import (
 )
 from apps.teams.models.team import Team
 from apps.teams.serializers import (
-    AdminTeamSerializer,
+    AdminTeamDetailSerializer,
+    AdminTeamListItemSerializer,
     DisqualifyTeamSerializer,
     InvitationCreateSerializer,
     InvitationResponseSerializer,
@@ -44,6 +45,8 @@ from apps.teams.serializers import (
 from apps.teams.use_cases.create_team import create_team
 from apps.teams.use_cases.disqualify_team import (
     DisqualifyTeamRejected,
+    EditionClosed,
+    TeamAlreadyDisqualified,
     TeamNotFound,
     disqualify_team,
 )
@@ -76,6 +79,7 @@ from apps.teams.use_cases.transfer_leadership import (
     LeadershipTransferRejected,
     transfer_leadership,
 )
+from config.pagination import DefaultPagination
 
 
 class TeamCreateView(APIView):
@@ -789,20 +793,39 @@ class AdminTeamListView(APIView):
     def get(self, request):
         teams = (
             Team.objects.filter(edition__status=EditionStatus.PUBLISHED)
-            .select_related("edition", "disqualified_by")
+            .select_related("edition", "project")
             .annotate(
-                active_members_count=Count(
+                member_count=Count(
                     "members",
                     filter=Q(members__active=True),
+                    distinct=True,
                 )
             )
             .order_by("name")
         )
 
-        return Response(
-            AdminTeamSerializer(teams, many=True).data,
-            status=status.HTTP_200_OK,
-        )
+        edition_id = request.query_params.get("edition_id")
+        if edition_id:
+            teams = teams.filter(edition_id=edition_id)
+
+        team_status = request.query_params.get("status")
+        if team_status:
+            teams = teams.filter(status=team_status)
+
+        search = request.query_params.get("search")
+        if search:
+            teams = teams.filter(
+                Q(name__icontains=search)
+                | Q(code__icontains=search)
+                | Q(project__title__icontains=search)
+            )
+
+        paginator = DefaultPagination()
+        page = paginator.paginate_queryset(teams, request, view=self)
+
+        serializer = AdminTeamListItemSerializer(page, many=True)
+
+        return paginator.get_paginated_response(serializer.data)
 
 
 class AdminTeamDisqualifyView(APIView):
@@ -829,6 +852,28 @@ class AdminTeamDisqualifyView(APIView):
                 },
                 status=status.HTTP_404_NOT_FOUND,
             )
+        except TeamAlreadyDisqualified as error:
+            return Response(
+                {
+                    "error": {
+                        "code": "team_already_disqualified",
+                        "message": str(error),
+                        "details": None,
+                    }
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+        except EditionClosed as error:
+            return Response(
+                {
+                    "error": {
+                        "code": "edition_closed",
+                        "message": str(error),
+                        "details": None,
+                    }
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
         except DisqualifyTeamRejected as error:
             return Response(
                 {
@@ -844,16 +889,14 @@ class AdminTeamDisqualifyView(APIView):
         team = (
             Team.objects.filter(pk=team.pk)
             .select_related("edition", "disqualified_by")
-            .annotate(
-                active_members_count=Count(
-                    "members",
-                    filter=Q(members__active=True),
-                )
+            .prefetch_related(
+                "members__student__user",
+                "members__student__course",
             )
             .get()
         )
 
         return Response(
-            AdminTeamSerializer(team).data,
+            AdminTeamDetailSerializer(team).data,
             status=status.HTTP_200_OK,
         )
