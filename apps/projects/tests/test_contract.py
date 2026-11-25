@@ -137,3 +137,15 @@ def test_prorrogacao_segue_o_contrato():
 
     assert response.status_code == 201
     assert mismatches(response.json(), schema("DeadlineExtension")) == []
+
+
+def test_comprovante_segue_o_contrato(dproject, dleader, dstage, dfield):  # noqa: F811
+    created = post_version(dleader, dproject, dstage, payload(dfield))
+
+    response = client_for(dleader).get(
+        f"/api/deliverable-versions/{created.data['id']}/receipt"
+    )
+
+    assert response.status_code == 200
+    assert mismatches(response.json(), schema("Receipt")) == []
+    assert response.json()["stage"]["order"] == dstage.order

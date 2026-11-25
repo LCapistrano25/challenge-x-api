@@ -1244,7 +1244,7 @@ def test_lider_consulta_o_comprovante(receipt, dproject, dstage, dleader):
     assert response.data["stage"] == {
         "id": dstage.pk,
         "name": dstage.name,
-        "position": dstage.order,
+        "order": dstage.order,
     }
     assert response.data["submitted_at"] is not None
 

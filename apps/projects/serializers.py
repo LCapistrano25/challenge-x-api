@@ -211,7 +211,7 @@ class ProjectRefSerializer(serializers.Serializer):
 class StageRefSerializer(serializers.Serializer):
     id = serializers.IntegerField()
     name = serializers.CharField()
-    position = serializers.IntegerField(source="order")
+    order = serializers.IntegerField()
 
 
 class ReceiptDetailSerializer(serializers.Serializer):
