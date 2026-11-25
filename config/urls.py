@@ -35,6 +35,7 @@ urlpatterns = [
     path("api/deliverable-versions/", include("apps.projects.version_urls")),
     path("api/deliverable-items/", include("apps.projects.file_urls")),
     path("api/admin/", include("apps.editions.urls")),
+    path("api/admin/editions/", include("apps.results.urls")),
     path("api/public/", include("apps.public.urls")),
     path("", include("apps.notifications.urls")),
 ]
