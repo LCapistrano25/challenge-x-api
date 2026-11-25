@@ -9,6 +9,7 @@ from apps.teams.views import (
     LeadershipTransferView,
     MyInvitationsView,
     MyJoinRequestsView,
+    StudentDashboardView,
     TeacherLeadershipRequestsView,
     TeamCreateView,
     TeamDetailView,
@@ -77,5 +78,10 @@ urlpatterns = [
         "leadership-requests/<int:leadership_request_id>/decide",
         LeadershipRequestReviewView.as_view(),
         name="leadership-request-decide",
+    ),
+    path(
+        "me/dashboard",
+        StudentDashboardView.as_view(),
+        name="student-dashboard",
     ),
 ]
