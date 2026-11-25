@@ -7984,7 +7984,7 @@ paths:
 
         **Perfis permitidos:** STUDENT
 
-        **Autorização adicional:** O usuário deve ser o LEADER ativo da equipe.
+        **Autorização adicional:** O usuário deve ser o LEADER ativo da equipe. Erro 403: not_team_leader.
 
         **Regras de negócio:**
         - O integrante deve pertencer à equipe.
@@ -8029,7 +8029,7 @@ paths:
       operationId: teamsListMemberNotes
       summary: Consultar observações sobre integrantes
       description: |-
-        Lista as observações registradas pelo líder.
+        Lista as observações confidenciais registradas pelos líderes da equipe.
 
         **Requisitos:** RF39
 

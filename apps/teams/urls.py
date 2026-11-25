@@ -16,6 +16,7 @@ from apps.teams.views import (
     TeamDetailView,
     TeamInvitationView,
     TeamLeaveView,
+    TeamMemberNotesView,
 )
 
 urlpatterns = [
@@ -85,5 +86,10 @@ urlpatterns = [
         "leadership-requests/<int:leadership_request_id>/decide",
         LeadershipRequestReviewView.as_view(),
         name="leadership-request-decide",
+    ),
+    path(
+        "teams/<int:team_id>/member-notes",
+        TeamMemberNotesView.as_view(),
+        name="team-member-notes",
     ),
 ]

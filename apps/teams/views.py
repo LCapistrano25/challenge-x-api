@@ -14,13 +14,15 @@ from apps.teams.enums import (
     MemberRole,
     TeamStatus,
 )
+from apps.teams.exceptions import MemberNoteError
 from apps.teams.models import (
     Invitation,
     JoinRequest,
     LeadershipRequest,
+    MemberNote,
+    Team,
     TeamMember,
 )
-from apps.teams.models.team import Team
 from apps.teams.serializers import (
     AdminTeamDetailSerializer,
     AdminTeamListItemSerializer,
@@ -37,12 +39,15 @@ from apps.teams.serializers import (
     LeadershipRequestDecisionSerializer,
     LeadershipRequestSerializer,
     LeadershipTransferSerializer,
+    MemberNoteCreateSerializer,
+    MemberNoteSerializer,
     TeamAvailabilitySerializer,
     TeamCreateSerializer,
     TeamLeaveSerializer,
     TeamMemberSerializer,
     TeamSerializer,
 )
+from apps.teams.use_cases.add_member_note import add_member_note
 from apps.teams.use_cases.create_team import create_team
 from apps.teams.use_cases.disqualify_team import disqualify_team
 from apps.teams.use_cases.invite_member import invite_member
@@ -778,6 +783,100 @@ class LeadershipRequestReviewView(APIView):
 
         return Response(
             LeadershipRequestSerializer(leadership_request).data,
+            status=status.HTTP_200_OK,
+        )
+
+
+class TeamMemberNotesView(APIView):
+    def get_permissions(self):
+        if self.request.method == "POST":
+            permission_classes = [IsAuthenticated, IsStudent]
+        elif self.request.method == "GET":
+            permission_classes = [IsAuthenticated, IsTeacher | IsAdmin]
+        else:
+            permission_classes = [IsAuthenticated]
+
+        return [permission() for permission in permission_classes]
+
+    def post(self, request, team_id):
+
+        serializer = MemberNoteCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            note = add_member_note(
+                actor=request.user,
+                team_id=team_id,
+                **serializer.validated_data,
+            )
+        except MemberNoteError as error:
+            return Response(
+                {
+                    "error": {
+                        "code": error.code,
+                        "message": str(error),
+                        "details": None,
+                    }
+                },
+                status=error.http_status,
+            )
+
+        return Response(
+            {
+                "id": note.pk,
+                "created_at": note.created_at,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+    def get(self, request, team_id):
+        team = Team.objects.filter(pk=team_id).first()
+
+        if team is None:
+            return Response(
+                {
+                    "error": {
+                        "code": "not_found",
+                        "message": "Equipe não encontrada.",
+                        "details": None,
+                    }
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if request.user.role == UserRole.TEACHER:
+            has_course_access = Project.objects.filter(
+                team=team,
+                challenge__course__teacher_links__teacher__user=request.user,
+                challenge__course__teacher_links__active=True,
+            ).exists()
+
+            if not has_course_access:
+                return Response(
+                    {
+                        "error": {
+                            "code": "permission_denied",
+                            "message": (
+                                "Você não possui vínculo ativo com o curso "
+                                "do desafio desta equipe."
+                            ),
+                            "details": None,
+                        }
+                    },
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+        notes = (
+            MemberNote.objects.filter(member__team=team)
+            .select_related(
+                "member__student__user",
+                "author__user",
+            )
+            .order_by("created_at", "pk")
+        )
+
+        return Response(
+            MemberNoteSerializer(notes, many=True).data,
             status=status.HTTP_200_OK,
         )
 
