@@ -1,6 +1,8 @@
 from django.urls import path
 
 from apps.teams.views import (
+    AdminTeamDisqualifyView,
+    AdminTeamListView,
     InvitationResponseView,
     JoinRequestCreateView,
     JoinRequestResponseView,
@@ -17,6 +19,12 @@ from apps.teams.views import (
 )
 
 urlpatterns = [
+    path("admin/teams", AdminTeamListView.as_view(), name="admin-team-list"),
+    path(
+        "admin/teams/<int:team_id>/disqualify",
+        AdminTeamDisqualifyView.as_view(),
+        name="admin-team-disqualify",
+    ),
     path("teams", TeamCreateView.as_view(), name="team-create"),
     path(
         "teams/<int:team_id>",

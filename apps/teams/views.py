@@ -22,6 +22,10 @@ from apps.teams.models import (
 )
 from apps.teams.models.team import Team
 from apps.teams.serializers import (
+    AdminTeamDetailSerializer,
+    AdminTeamListItemSerializer,
+    AdminTeamListQuerySerializer,
+    DisqualifyTeamSerializer,
     InvitationCreateSerializer,
     InvitationResponseSerializer,
     InvitationSerializer,
@@ -40,6 +44,7 @@ from apps.teams.serializers import (
     TeamSerializer,
 )
 from apps.teams.use_cases.create_team import create_team
+from apps.teams.use_cases.disqualify_team import disqualify_team
 from apps.teams.use_cases.invite_member import invite_member
 from apps.teams.use_cases.leave_team import (
     LeaveTeamRejected,
@@ -69,6 +74,7 @@ from apps.teams.use_cases.transfer_leadership import (
     LeadershipTransferRejected,
     transfer_leadership,
 )
+from config.pagination import DefaultPagination
 
 
 class TeamCreateView(APIView):
@@ -772,5 +778,79 @@ class LeadershipRequestReviewView(APIView):
 
         return Response(
             LeadershipRequestSerializer(leadership_request).data,
+            status=status.HTTP_200_OK,
+        )
+
+
+class AdminTeamListView(APIView):
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    def get(self, request):
+        query_serializer = AdminTeamListQuerySerializer(data=request.query_params)
+        query_serializer.is_valid(raise_exception=True)
+        filters = query_serializer.validated_data
+
+        teams = (
+            Team.objects.all()
+            .select_related("edition", "project")
+            .annotate(
+                member_count=Count(
+                    "members",
+                    filter=Q(members__active=True),
+                    distinct=True,
+                )
+            )
+            .order_by("name")
+        )
+
+        edition_id = filters.get("edition_id")
+        if edition_id is not None:
+            teams = teams.filter(edition_id=edition_id)
+
+        team_status = filters.get("status")
+        if team_status:
+            teams = teams.filter(status=team_status)
+
+        search = filters.get("search")
+        if search:
+            teams = teams.filter(
+                Q(name__icontains=search)
+                | Q(code__icontains=search)
+                | Q(project__title__icontains=search)
+            )
+
+        paginator = DefaultPagination()
+        page = paginator.paginate_queryset(teams, request, view=self)
+
+        serializer = AdminTeamListItemSerializer(page, many=True)
+
+        return paginator.get_paginated_response(serializer.data)
+
+
+class AdminTeamDisqualifyView(APIView):
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    def post(self, request, team_id):
+        serializer = DisqualifyTeamSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        team = disqualify_team(
+            actor=request.user,
+            team_id=team_id,
+            reason=serializer.validated_data["reason"],
+        )
+
+        team = (
+            Team.objects.filter(pk=team.pk)
+            .select_related("edition", "disqualified_by")
+            .prefetch_related(
+                "members__student__user",
+                "members__student__course",
+            )
+            .get()
+        )
+
+        return Response(
+            AdminTeamDetailSerializer(team).data,
             status=status.HTTP_200_OK,
         )
