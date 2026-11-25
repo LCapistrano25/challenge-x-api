@@ -76,5 +76,9 @@ Dump diário às 3h, guardando 7 dias (`crontab -e`):
 O dump fica no próprio disco: para sobreviver à perda da instância, ligue também
 **Snapshots → Automatic snapshots** na Lightsail (cobrado por GB, centavos por mês).
 Os arquivos das entregas ficam no volume `deliveries` e entram no snapshot, não no dump.
+Os PDFs dos editais ficam no volume `regulations`, montado em
+`REGULATION_STORAGE_ROOT=/data/regulations`. Inclua esse volume no backup.
+Em homologação, publique um edital, guarde o link retornado e confira o mesmo
+download após recriar o serviço `api` com o volume preservado.
 
 Restaurar: `gunzip -c backup-Seg.sql.gz | docker compose -f docker-compose.prod.yaml exec -T db sh -c 'psql -U "$POSTGRES_USER" "$POSTGRES_DB"'`.

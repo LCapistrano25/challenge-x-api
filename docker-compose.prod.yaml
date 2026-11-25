@@ -23,12 +23,14 @@ services:
       POSTGRES_HOST: db
       POSTGRES_PORT: "5432"
       DELIVERY_STORAGE_ROOT: /data/deliveries
+      REGULATION_STORAGE_ROOT: /data/regulations
     depends_on:
       db:
         condition: service_healthy
     volumes:
       - static:/app/staticfiles
       - deliveries:/data/deliveries
+      - regulations:/data/regulations
 
   caddy:
     image: caddy:2.10
@@ -50,5 +52,6 @@ volumes:
   pgdata:
   static:
   deliveries:
+  regulations:
   caddy_data:
   caddy_config:
