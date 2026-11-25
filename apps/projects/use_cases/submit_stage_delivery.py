@@ -7,6 +7,8 @@ from apps.accounts.models import User
 from apps.editions.enums import FieldKind
 from apps.editions.models import Stage
 from apps.editions.rules import ensure_edition_not_closed
+from apps.notifications.models import NotificationType
+from apps.notifications.services import create_notification
 from apps.projects.files import (
     build_storage_key,
     clean_file_name,
@@ -116,6 +118,7 @@ def submit_stage_delivery(
         for key in stored_keys:
             delete_delivery_file(key)
         raise
+    _notify_stage_delivery(team=team, project=project, stage=stage, version=version)
     return version
 
 
@@ -132,3 +135,18 @@ def _create_file_item(version, item, project, stage, stored_keys) -> SubmissionI
         file_name=clean_file_name(upload.name),
         size_bytes=size,
     )
+
+
+def _notify_stage_delivery(*, team, project, stage, version) -> None:
+    members = team.members.filter(active=True).select_related("student__user")
+    for member in members:
+        create_notification(
+            user=member.student.user,
+            notification_type=NotificationType.DELIVERABLE,
+            title=f"Entrega registrada — {stage.name}",
+            message=(
+                f"A versão {version.number} da etapa {stage.name} "
+                f"do projeto {project.title} foi enviada."
+            ),
+            link=f"/projects/{project.id}/deliverables",
+        )

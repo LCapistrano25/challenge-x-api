@@ -1,7 +1,9 @@
 from decimal import Decimal
+from unittest.mock import patch
 
 import pytest
 from django.core.exceptions import ValidationError
+from django.db import DatabaseError
 from django.utils import timezone
 
 from apps.accounts.exceptions import NotAdminActor
@@ -11,6 +13,7 @@ from apps.editions.enums import EditionStatus
 from apps.editions.exceptions import EditionClosed
 from apps.evaluations.factories import FinalEvaluationFactory
 from apps.evaluations.models import StageScore
+from apps.notifications.models import Notification, NotificationType
 from apps.projects.enums import ProjectStatus
 from apps.projects.models import Project
 from apps.results.exceptions import (
@@ -322,3 +325,39 @@ def test_nada_muda_depois_de_homologar(admin, edition, calculated):
 
     with pytest.raises(ResultsAlreadyApproved):
         calculate_results(actor=admin, edition=edition)
+
+
+def test_homologacao_notifica_finalistas_e_classificados(admin, edition, calculated):
+    first, second, pending = calculated
+    inativo = TeamMemberFactory(team=first.team, active=False, left_at=timezone.now())
+    select_finalists(actor=admin, edition=edition, project_ids=[first.pk])
+
+    approve_finalists(actor=admin, edition=edition)
+
+    notifs = Notification.objects.filter(type=NotificationType.RESULT)
+    por_usuario = {n.user_id: n for n in notifs}
+
+    lider_finalista = leader_of(first).student.user_id
+    lider_classificado = leader_of(second).student.user_id
+    lider_pendente = leader_of(pending).student.user_id
+
+    assert set(por_usuario) == {lider_finalista, lider_classificado}
+    assert "final" in por_usuario[lider_finalista].title.lower()
+    assert "resultado" in por_usuario[lider_classificado].title.lower()
+    assert lider_pendente not in por_usuario
+    assert inativo.student.user_id not in por_usuario
+
+
+def test_homologacao_nao_quebra_se_notificacao_falhar(admin, edition, calculated):
+    first, second, _ = calculated
+    select_finalists(actor=admin, edition=edition, project_ids=[first.pk])
+
+    with patch(
+        "apps.notifications.services.Notification.objects.create",
+        side_effect=DatabaseError("erro simulado"),
+    ):
+        approve_finalists(actor=admin, edition=edition)
+
+    assert result_of(first).approved_at is not None
+    assert result_of(second).approved_at is not None
+    assert Notification.objects.count() == 0
