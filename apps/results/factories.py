@@ -11,9 +11,7 @@ from apps.results.models import (
     Certificate,
     CertificateTemplate,
     ProjectResult,
-    StudentScore,
 )
-from apps.teams.enums import MemberRole
 
 
 class ProjectResultFactory(DjangoModelFactory):
@@ -25,19 +23,6 @@ class ProjectResultFactory(DjangoModelFactory):
 
     class Params:
         awarded = factory.Trait(finalist=True, award=1)
-
-
-class StudentScoreFactory(DjangoModelFactory):
-    class Meta:
-        model = StudentScore
-
-    project = factory.SubFactory(ProjectFactory)
-    # O líder é integrante da equipe do projeto.
-    student = factory.LazyAttribute(
-        lambda o: o.project.team.members.get(role=MemberRole.LEADER).student
-    )
-    term = factory.SelfAttribute("student.term")
-    points = Decimal("1.50")
 
 
 class CertificateTemplateFactory(DjangoModelFactory):

@@ -1,16 +1,23 @@
-from typing import Any
+from django.db.models import QuerySet
 
+from apps.accounts.rules import ensure_actor_is_admin
 from apps.core.models import Course
 
 
-def list_courses(*, actor) -> list[dict[str, Any]]:
-    """
-    Lista todos os cursos cadastrados.
-    Regra: Apenas administradores podem ver esta lista
-    (já garantido pela View, mas mantemos o actor para auditoria futura).
-    """
-    if not actor.is_staff and not actor.is_superuser:
-        raise PermissionError("Apenas administradores podem listar cursos.")
+def list_courses(
+    *,
+    actor,
+    search: str | None = None,
+    active: bool | None = None,
+) -> QuerySet[Course]:
+    """Lista todos os cursos cadastrados (administração), com filtros opcionais."""
+    ensure_actor_is_admin(actor)
 
-    # Retorna os dados puros (sem acoplamento com objetos complexos do Django)
-    return list(Course.objects.all().values("id", "name", "term_count"))
+    qs = Course.objects.all()
+    if active is not None:
+        qs = qs.filter(active=active)
+    if search:
+        term = search.strip()
+        if term:
+            qs = qs.filter(name__icontains=term)
+    return qs

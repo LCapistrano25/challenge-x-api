@@ -5,6 +5,8 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from apps.accounts.enums import UserRole
+from apps.accounts.exceptions import NotAdminActor
+from apps.core.exceptions import CourseNameTaken
 from apps.core.factories import CourseFactory
 from apps.core.models import Course
 from apps.core.use_cases.create_course import create_course
@@ -46,9 +48,7 @@ def test_create_course_success(admin_user):
 @pytest.mark.django_db
 def test_create_course_fails_if_not_admin(normal_user):
     """Garante que utilizadores comuns não podem criar cursos."""
-    with pytest.raises(
-        PermissionError, match="Apenas administradores podem cadastrar cursos."
-    ):
+    with pytest.raises(NotAdminActor):
         create_course(
             actor=normal_user, name="Ciência da Computação Inédita", term_count=8
         )
@@ -68,9 +68,7 @@ def test_create_course_fails_if_name_exists(admin_user):
     """Garante que não é possível criar dois cursos com o mesmo nome."""
     CourseFactory(name="Curso Duplicado Super Exclusivo")
 
-    with pytest.raises(
-        ValidationError, match="Já existe um curso cadastrado com este nome."
-    ):
+    with pytest.raises(CourseNameTaken):
         create_course(
             actor=admin_user, name="Curso Duplicado Super Exclusivo", term_count=10
         )

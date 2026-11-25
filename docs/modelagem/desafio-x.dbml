@@ -615,25 +615,6 @@ CHECK project_result_final_score_0_to_10: (final_score is null OR (final_score >
 CHECK project_result_award_1_to_3: (award is null OR award in [1, 2, 3])'''
 }
 
-Table results_studentscore [headercolor: #4a6b1e] {
-	id bigint [ pk, increment, note: 'ID' ]
-	created_at timestamptz [ not null ]
-	updated_at timestamptz [ not null ]
-	project_id bigint [ not null ]
-	student_id bigint [ not null ]
-	term smallint [ not null ]
-	points numeric(4,2) [ not null ]
-	calculated_at timestamptz
-
-	indexes {
-		(project_id, student_id) [ unique, name: 'unique_score_per_student' ]
-	}
-
-	Note: '''pontuação do aluno (results.StudentScore)
-CHECK student_score_term_1_to_10: (term >= 1 AND term <= 10)
-CHECK student_score_points_gte_0: points >= 0'''
-}
-
 Table results_certificatetemplate [headercolor: #4a6b1e] {
 	id bigint [ pk, increment, note: 'ID' ]
 	created_at timestamptz [ not null ]
@@ -870,8 +851,6 @@ Ref: evaluations_finalanswer.question_id > evaluations_finalquestion.id [ delete
 Ref: evaluations_scorerectification.item_id > evaluations_evaluationitem.id [ delete: restrict ]
 Ref: evaluations_scorerectification.rectified_by_id > accounts_user.id [ delete: restrict ]
 Ref: results_projectresult.project_id - projects_project.id [ delete: restrict ]
-Ref: results_studentscore.project_id > projects_project.id [ delete: restrict ]
-Ref: results_studentscore.student_id > accounts_student.user_id [ delete: restrict ]
 Ref: results_certificatetemplate.edition_id > editions_edition.id [ delete: restrict ]
 Ref: results_certificate.template_id > results_certificatetemplate.id [ delete: restrict ]
 Ref: results_certificate.user_id > accounts_user.id [ delete: restrict ]
