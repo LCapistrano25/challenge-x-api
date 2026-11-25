@@ -248,3 +248,33 @@ class LeadershipRequestSerializer(serializers.ModelSerializer):
             "user_id": obj.teacher.user_id,
             "name": obj.teacher.user.name,
         }
+
+
+class StudentDashboardTeamSerializer(serializers.ModelSerializer):
+    edition_id = serializers.IntegerField(read_only=True)
+    members = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Team
+        fields = [
+            "id",
+            "edition_id",
+            "name",
+            "code",
+            "status",
+            "situation",
+            "disqualification_reason",
+            "disqualified_at",
+            "disqualified_by",
+            "formation_extended_until",
+            "members",
+            "created_at",
+            "updated_at",
+        ]
+
+    def get_members(self, obj):
+        members = obj.members.filter(active=True).select_related(
+            "student__user",
+            "student__course",
+        )
+        return TeamMemberSerializer(members, many=True).data
