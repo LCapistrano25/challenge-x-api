@@ -38,6 +38,8 @@ urlpatterns = [
     path("api/admin/editions/", include("apps.results.urls")),
     path("api/public/", include("apps.public.urls")),
     path("", include("apps.notifications.urls")),
+    path("api/support/", include("apps.support.urls")),
+    path("api/admin/support/", include("apps.support.admin_urls")),
 ]
 
 handler404 = "config.exception.api_not_found"
