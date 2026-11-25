@@ -1,31 +1,36 @@
 from django.core.exceptions import ValidationError
 from django.db import transaction
 
+from apps.accounts.rules import ensure_actor_is_admin
+from apps.core.exceptions import CourseNameTaken
 from apps.core.models import Course
 
 
 @transaction.atomic
-def create_course(*, actor, name: str, term_count: int) -> Course:
-    """
-    Cadastra um novo curso.
-    Regras de negócio (RF03):
-    - Apenas administradores podem criar.
-    - Nome único.
-    - 8 ou 10 períodos.
-    """
-    # 1. Verifica se o utilizador tem permissão de admin
-    if not actor.is_staff and not actor.is_superuser:
-        raise PermissionError("Apenas administradores podem cadastrar cursos.")
+def create_course(
+    *,
+    actor,
+    name: str,
+    term_count: int,
+    active: bool = True,
+) -> Course:
+    """Cadastra um novo curso (RF03)."""
+    ensure_actor_is_admin(actor)
 
-    # 2. Valida a quantidade de períodos antes de bater no banco
-    if term_count not in [8, 10]:
-        raise ValidationError("O curso deve ter exatamente 8 ou 10 períodos.")
+    clean_name = (name or "").strip()
+    if not clean_name:
+        raise ValidationError({"name": "Informe o nome do curso."})
 
-    # 3. Valida se já existe um curso com esse nome
-    if Course.objects.filter(name__iexact=name).exists():
-        raise ValidationError("Já existe um curso cadastrado com este nome.")
+    if term_count not in (8, 10):
+        raise ValidationError(
+            {"term_count": "O curso deve ter exatamente 8 ou 10 períodos."}
+        )
 
-    # 4. Salva o curso na base de dados
-    course = Course.objects.create(name=name, term_count=term_count)
+    if Course.objects.filter(name__iexact=clean_name).exists():
+        raise CourseNameTaken()
 
-    return course
+    return Course.objects.create(
+        name=clean_name,
+        term_count=term_count,
+        active=active,
+    )

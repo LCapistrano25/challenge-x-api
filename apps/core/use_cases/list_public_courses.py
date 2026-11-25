@@ -9,4 +9,4 @@ def list_public_courses() -> list[dict[str, Any]]:
     Regra: Retorna APENAS os cursos marcados como ativos.
     """
     # Filtra por active=True e devolve os dados puros
-    return list(Course.objects.filter(active=True).values("id", "name", "term_count"))
+    return list(Course.objects.filter(active=True).values("id", "name"))
