@@ -40,6 +40,7 @@ from apps.teams.serializers import (
     TeamSerializer,
 )
 from apps.teams.use_cases.create_team import create_team
+from apps.teams.use_cases.get_student_dashboard import get_student_dashboard
 from apps.teams.use_cases.invite_member import invite_member
 from apps.teams.use_cases.leave_team import (
     LeaveTeamRejected,
@@ -69,6 +70,18 @@ from apps.teams.use_cases.transfer_leadership import (
     LeadershipTransferRejected,
     transfer_leadership,
 )
+
+
+class StudentDashboardView(APIView):
+    permission_classes = [IsAuthenticated, IsStudent]
+
+    def get(self, request):
+        dashboard = get_student_dashboard(actor=request.user)
+
+        return Response(
+            dashboard,
+            status=status.HTTP_200_OK,
+        )
 
 
 class TeamCreateView(APIView):
