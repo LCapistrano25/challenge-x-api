@@ -1,4 +1,5 @@
 import pytest
+from django.core.exceptions import ValidationError
 
 from apps.accounts.enums import UserRole
 from apps.accounts.exceptions import NotAdminActor
@@ -11,8 +12,8 @@ from apps.projects.models import Project
 from apps.teams.enums import TeamStatus
 from apps.teams.factories import TeamFactory
 from apps.teams.use_cases.disqualify_team import (
-    DisqualifyTeamRejected,
     EditionClosed,
+    TeamNotFound,
     disqualify_team,
 )
 
@@ -60,7 +61,7 @@ def test_usuario_que_nao_e_admin_nao_pode_desclassificar(equipe):
 
 
 def test_equipe_inexistente_nao_pode_ser_desclassificada(admin):
-    with pytest.raises(DisqualifyTeamRejected, match="Equipe não encontrada."):
+    with pytest.raises(TeamNotFound, match="Equipe não encontrada."):
         disqualify_team(
             actor=admin,
             team_id=999999,
@@ -71,7 +72,7 @@ def test_equipe_inexistente_nao_pode_ser_desclassificada(admin):
 @pytest.mark.parametrize("reason", ["", "   "])
 def test_justificativa_vazia_e_rejeitada(admin, equipe, reason):
     with pytest.raises(
-        DisqualifyTeamRejected,
+        ValidationError,
         match="A justificativa da desclassificação é obrigatória.",
     ):
         disqualify_team(actor=admin, team_id=equipe.pk, reason=reason)
@@ -85,7 +86,7 @@ def test_equipe_que_nao_esta_ativa_nao_pode_ser_desclassificada(admin):
     equipe = TeamFactory(edition=edition, status=TeamStatus.DISBANDED)
 
     with pytest.raises(
-        DisqualifyTeamRejected,
+        ValidationError,
         match="Não é possível desclassificar uma equipe que não está ativa.",
     ):
         disqualify_team(

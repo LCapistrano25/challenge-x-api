@@ -1,8 +1,12 @@
+from http import HTTPStatus
+
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
 
 from apps.accounts.models import User
 from apps.accounts.rules import ensure_actor_is_admin
+from apps.core.exceptions import AppError, BusinessRuleViolation
 from apps.editions.enums import EditionStatus
 from apps.projects.enums import ProjectStatus
 from apps.projects.models import Project
@@ -10,20 +14,23 @@ from apps.teams.enums import TeamStatus
 from apps.teams.models import Team
 
 
-class DisqualifyTeamRejected(Exception):
-    """A desclassificação foi rejeitada por uma regra de negócio."""
-
-
-class TeamNotFound(DisqualifyTeamRejected):
+class TeamNotFound(AppError):
     """A equipe informada não foi encontrada."""
 
+    code = "not_found"
+    http_status = HTTPStatus.NOT_FOUND
 
-class TeamAlreadyDisqualified(DisqualifyTeamRejected):
+
+class TeamAlreadyDisqualified(BusinessRuleViolation):
     """A equipe já está desclassificada."""
 
+    code = "team_already_disqualified"
 
-class EditionClosed(DisqualifyTeamRejected):
+
+class EditionClosed(BusinessRuleViolation):
     """A edição está encerrada."""
+
+    code = "edition_closed"
 
 
 @transaction.atomic
@@ -46,17 +53,15 @@ def disqualify_team(*, actor: User, team_id: int, reason: str) -> Team:
         raise EditionClosed("A edição está encerrada e não pode ser alterada.")
 
     if team.edition.status != EditionStatus.PUBLISHED:
-        raise DisqualifyTeamRejected("A equipe não pertence à edição vigente.")
+        raise ValidationError("A equipe não pertence à edição vigente.")
 
     if team.status != TeamStatus.ACTIVE:
-        raise DisqualifyTeamRejected(
+        raise ValidationError(
             "Não é possível desclassificar uma equipe que não está ativa."
         )
 
     if not reason or not reason.strip():
-        raise DisqualifyTeamRejected(
-            "A justificativa da desclassificação é obrigatória."
-        )
+        raise ValidationError("A justificativa da desclassificação é obrigatória.")
 
     team.status = TeamStatus.DISQUALIFIED
     team.disqualification_reason = reason.strip()

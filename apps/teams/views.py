@@ -24,6 +24,7 @@ from apps.teams.models.team import Team
 from apps.teams.serializers import (
     AdminTeamDetailSerializer,
     AdminTeamListItemSerializer,
+    AdminTeamListQuerySerializer,
     DisqualifyTeamSerializer,
     InvitationCreateSerializer,
     InvitationResponseSerializer,
@@ -43,13 +44,7 @@ from apps.teams.serializers import (
     TeamSerializer,
 )
 from apps.teams.use_cases.create_team import create_team
-from apps.teams.use_cases.disqualify_team import (
-    DisqualifyTeamRejected,
-    EditionClosed,
-    TeamAlreadyDisqualified,
-    TeamNotFound,
-    disqualify_team,
-)
+from apps.teams.use_cases.disqualify_team import disqualify_team
 from apps.teams.use_cases.invite_member import invite_member
 from apps.teams.use_cases.leave_team import (
     LeaveTeamRejected,
@@ -791,8 +786,12 @@ class AdminTeamListView(APIView):
     permission_classes = [IsAuthenticated, IsAdmin]
 
     def get(self, request):
+        query_serializer = AdminTeamListQuerySerializer(data=request.query_params)
+        query_serializer.is_valid(raise_exception=True)
+        filters = query_serializer.validated_data
+
         teams = (
-            Team.objects.filter(edition__status=EditionStatus.PUBLISHED)
+            Team.objects.all()
             .select_related("edition", "project")
             .annotate(
                 member_count=Count(
@@ -804,15 +803,15 @@ class AdminTeamListView(APIView):
             .order_by("name")
         )
 
-        edition_id = request.query_params.get("edition_id")
-        if edition_id:
+        edition_id = filters.get("edition_id")
+        if edition_id is not None:
             teams = teams.filter(edition_id=edition_id)
 
-        team_status = request.query_params.get("status")
+        team_status = filters.get("status")
         if team_status:
             teams = teams.filter(status=team_status)
 
-        search = request.query_params.get("search")
+        search = filters.get("search")
         if search:
             teams = teams.filter(
                 Q(name__icontains=search)
@@ -835,56 +834,11 @@ class AdminTeamDisqualifyView(APIView):
         serializer = DisqualifyTeamSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        try:
-            team = disqualify_team(
-                actor=request.user,
-                team_id=team_id,
-                reason=serializer.validated_data["reason"],
-            )
-        except TeamNotFound as error:
-            return Response(
-                {
-                    "error": {
-                        "code": "not_found",
-                        "message": str(error),
-                        "details": None,
-                    }
-                },
-                status=status.HTTP_404_NOT_FOUND,
-            )
-        except TeamAlreadyDisqualified as error:
-            return Response(
-                {
-                    "error": {
-                        "code": "team_already_disqualified",
-                        "message": str(error),
-                        "details": None,
-                    }
-                },
-                status=status.HTTP_409_CONFLICT,
-            )
-        except EditionClosed as error:
-            return Response(
-                {
-                    "error": {
-                        "code": "edition_closed",
-                        "message": str(error),
-                        "details": None,
-                    }
-                },
-                status=status.HTTP_409_CONFLICT,
-            )
-        except DisqualifyTeamRejected as error:
-            return Response(
-                {
-                    "error": {
-                        "code": "disqualify_team_rejected",
-                        "message": str(error),
-                        "details": None,
-                    }
-                },
-                status=status.HTTP_409_CONFLICT,
-            )
+        team = disqualify_team(
+            actor=request.user,
+            team_id=team_id,
+            reason=serializer.validated_data["reason"],
+        )
 
         team = (
             Team.objects.filter(pk=team.pk)

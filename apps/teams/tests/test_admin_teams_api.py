@@ -70,17 +70,15 @@ def test_listagem_inclui_equipes_desclassificadas(admin):
     assert response.data["results"][0]["status"] == TeamStatus.DISQUALIFIED
 
 
-def test_listagem_nao_inclui_equipes_de_edicoes_nao_publicadas(admin):
+def test_listagem_inclui_equipes_de_edicoes_encerradas(admin):
     edition = EditionFactory(status=EditionStatus.CLOSED)
-    TeamFactory(edition=edition)
+    team = TeamFactory(edition=edition)
 
     response = authenticated_client(admin).get(TEAMS_URL)
 
     assert response.status_code == 200
-    assert response.data["count"] == 0
-    assert response.data["results"] == []
-    assert response.data["next"] is None
-    assert response.data["previous"] is None
+    assert response.data["count"] == 1
+    assert response.data["results"][0]["id"] == team.id
 
 
 def test_desclassificacao_administrativa_requer_autenticacao():
