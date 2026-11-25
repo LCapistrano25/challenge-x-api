@@ -20,9 +20,3 @@ class MemberNotePermissionDenied(MemberNoteError):
     code = "permission_denied"
     default_message = "Você não tem permissão para realizar esta ação."
     http_status = HTTPStatus.FORBIDDEN
-
-
-class MemberNoteRejected(MemberNoteError):
-    code = "member_note_rejected"
-    default_message = "A observação foi rejeitada."
-    http_status = HTTPStatus.BAD_REQUEST

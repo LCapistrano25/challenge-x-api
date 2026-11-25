@@ -1102,8 +1102,9 @@ op("post", "/api/leadership-requests/{leadership_request_id}/decide", "teamsDeci
    pend=["P-24"])
 op("post", "/api/teams/{team_id}/member-notes", "teamsCreateMemberNote", "teams", "Registrar observação sobre integrante", ["RF33"], ["STUDENT"],
    "Registra observação confidencial sobre um integrante.", params=["TeamId"], body=ref("MemberNoteCreate"), ok=ref("MemberNoteCreated"),
-   ok_code="201", ok_desc="Observação registrada.", errs=["404"], authz=LEADER,
-   rules=["O integrante deve pertencer à equipe.", "A etapa deve pertencer à mesma edição da equipe.", "O conteúdo não é retornado nem consultável pelo líder ou pelos alunos."])
+   ok_code="201", ok_desc="Observação registrada.", errs=["400", "403", "404"],
+   authz=LEADER + " Erro 403: not_team_leader.",
+   rules=["O integrante deve pertencer à equipe.", "O conteúdo não é retornado nem consultável pelo líder ou pelos alunos."])
 op("get", "/api/teams/{team_id}/member-notes", "teamsListMemberNotes", "teams", "Consultar observações sobre integrantes", ["RF39"], ["TEACHER", "ADMIN"],
    "Lista as observações confidenciais registradas pelos líderes da equipe.", params=["TeamId"], ok=arr(ref("MemberNote")), errs=["404"],
    authz="TEACHER com vínculo ativo no curso do desafio do projeto; ADMIN.")
