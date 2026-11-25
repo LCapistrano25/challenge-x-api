@@ -564,7 +564,7 @@ def test_lider_envia_a_entrega(dproject, dleader, dstage, dfield):
     response = post_version(dleader, dproject, dstage, payload(dfield, notes="Ok"))
 
     assert response.status_code == 201
-    assert response.data["version_number"] == 1
+    assert response.data["number"] == 1
     assert response.data["notes"] == "Ok"
     assert response.data["submitted_by"] == {
         "user_id": dleader.pk,
@@ -721,14 +721,14 @@ def test_aluno_integrante_consulta_as_entregas(dproject, dleader, dstage, dfield
     assert len(response.data) == 1
     entry = response.data[0]
     assert entry["stage"]["id"] == dstage.pk
-    assert entry["stage"]["position"] == dstage.order
+    assert entry["stage"]["order"] == dstage.order
     assert entry["stage"]["phase_status"] == "OPEN"
     assert entry["fields"][0]["id"] == dfield.pk
-    assert entry["fields"][0]["type"] == "LINK"
+    assert entry["fields"][0]["kind"] == "LINK"
     assert entry["fields"][0]["required"] is True
     assert entry["status"] == "SUBMITTED"
     assert entry["official_version_id"] is None
-    assert [v["version_number"] for v in entry["versions"]] == [2, 1]
+    assert [v["number"] for v in entry["versions"]] == [2, 1]
     assert entry["versions"][0]["receipt"]["verification_code"]
 
 

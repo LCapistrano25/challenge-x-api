@@ -233,7 +233,7 @@ class ReceiptDetailSerializer(serializers.Serializer):
 
 class DeliverableVersionSerializer(serializers.Serializer):
     id = serializers.IntegerField()
-    version_number = serializers.IntegerField(source="number")
+    number = serializers.IntegerField()
     submitted_by = UserSummarySerializer(source="submitted_by.user")
     submitted_at = serializers.DateTimeField()
     notes = serializers.SerializerMethodField()
@@ -246,7 +246,7 @@ class DeliverableVersionSerializer(serializers.Serializer):
 
 class DeliverableFieldSerializer(serializers.Serializer):
     id = serializers.IntegerField()
-    type = serializers.CharField(source="kind")
+    kind = serializers.CharField()
     label = serializers.CharField()
     required = serializers.BooleanField()
     formats = serializers.SerializerMethodField()
@@ -258,14 +258,15 @@ class DeliverableFieldSerializer(serializers.Serializer):
 
 class StageScheduleSerializer(serializers.Serializer):
     id = serializers.IntegerField()
-    position = serializers.IntegerField(source="order")
+    order = serializers.IntegerField()
     name = serializers.CharField()
-    type = serializers.CharField(source="kind")
+    kind = serializers.CharField()
     starts_at = serializers.DateTimeField()
     ends_at = serializers.DateTimeField()
+    evaluation_ends_at = serializers.DateTimeField(allow_null=True)
     scored = serializers.BooleanField()
-    points_value = serializers.DecimalField(
-        source="max_score", max_digits=4, decimal_places=2, allow_null=True
+    max_score = serializers.DecimalField(
+        max_digits=4, decimal_places=2, allow_null=True
     )
     phase_status = serializers.SerializerMethodField()
 
