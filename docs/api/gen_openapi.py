@@ -304,9 +304,9 @@ SC["Edition"] = obj({
     "min_members": INT(ex=3, minimum=1), "max_members": INT(ex=5, minimum=1),
     "published_at": nul(DT(ex=None)), "closed_at": nul(DT(ex=None)), "created_at": DT(), "updated_at": DT(),
 }, ["id", "year", "semester", "name", "status", "regulation_url", "min_members", "max_members", "published_at", "closed_at", "created_at", "updated_at"])
-SC["EditionCreate"] = obj({"year": INT(ex=2026), "semester": INT(ex=1, enum=[1, 2]), "name": nul(STR(ex="Desafio X 2026/1", maxLength=100))},
+SC["EditionCreate"] = obj({"year": INT(ex=2026, minimum=2000, maximum=2100), "semester": INT(ex=1, enum=[1, 2]), "name": nul(STR(ex="Desafio X 2026/1", maxLength=100))},
                           ["year", "semester"], strict=True)
-SC["EditionUpdate"] = obj({"name": nul(STR(ex="Desafio X 2026/1", maxLength=100)), "min_members": INT(ex=3, minimum=1), "max_members": INT(ex=5, minimum=1)},
+SC["EditionUpdate"] = obj({"name": nul(STR(ex="Desafio X 2026/1", maxLength=100)), "min_members": INT(ex=3, minimum=1, maximum=20), "max_members": INT(ex=5, minimum=1, maximum=20)},
                           desc="Ao menos um campo deve ser informado.", strict=True, minProperties=1)
 SC["EditionPublish"] = obj({"notice_file": STR("PDF do edital oficial.", contentMediaType="application/pdf", format="binary")}, ["notice_file"])
 SC["EditionClose"] = obj({"confirm": {"type": "boolean", "const": True, "description": "Confirmação explícita do encerramento irreversível (P-45).", "examples": [True]}}, ["confirm"], strict=True)
@@ -573,6 +573,18 @@ SC["Receipt"] = obj({
     "file_url": nul(P("string", "Caminho autenticado do PDF do comprovante; nulo enquanto o PDF não for gerado. Nunca é URL pública.", None, format="uri-reference")), "generated_at": DT(),
     "team": ref("TeamRef"), "project": ref("ProjectRef"), "stage": ref("StageRef"), "submitted_at": DT(),
 }, ["id", "version_id", "number", "verification_code", "file_url", "generated_at", "team", "project", "stage", "submitted_at"])
+
+SC["DeadlineExtensionWrite"] = obj({
+    "stage_id": INT("Etapa a prorrogar; precisa ser da edição do projeto.", 12),
+    "ends_at": DT("Novo prazo da equipe; precisa ser depois do fim da etapa.", "2026-11-25T23:59:00Z"),
+    "reason": TXT("Justificativa da prorrogação (obrigatória, sem ser só espaços).", "Atestado médico do líder."),
+}, ["stage_id", "ends_at", "reason"], strict=True)
+SC["DeadlineExtension"] = obj({
+    "id": INT(ex=3), "team_id": INT(ex=15), "project_id": INT(ex=9), "stage_id": INT(ex=12),
+    "ends_at": DT("Novo prazo da equipe na etapa.", "2026-11-25T23:59:00Z"), "reason": TXT(ex="Atestado médico do líder."),
+    "granted_by": INT("Id do administrador.", 1), "granted_at": DT(ex="2026-11-20T14:30:00Z"),
+}, ["id", "team_id", "project_id", "stage_id", "ends_at", "reason", "granted_by", "granted_at"],
+    desc="Prorrogação gravada; é o histórico do ajuste e não se altera nem se apaga (P-21).")
 
 # ---------------------------------------------------------------- dashboard
 SC["ScoreSummary"] = obj({"status": ref("ScoreStatus"), "value": nul(DEC(ex="2.40"))}, ["status", "value"])
@@ -1170,6 +1182,17 @@ op("get", "/api/deliverable-versions/{version_id}/receipt", "projectsGetReceipt"
           "A consulta continua permitida com equipe desclassificada, edição encerrada ou prazo vencido.",
           "file_url é nulo enquanto o PDF do comprovante não for gerado."], pend=["P-43"])
 
+op("post", "/api/admin/teams/{team_id}/deadline-extensions", "projectsCreateDeadlineExtension", "projects", "Prorrogar o prazo de uma equipe", ["RF14"], ["ADMIN"],
+   "Concede à equipe um prazo de entrega maior que o da etapa e grava a prorrogação no histórico, que não pode ser alterado nem excluído.",
+   params=["TeamId"], body=ref("DeadlineExtensionWrite"), ok=ref("DeadlineExtension"), ok_code="201", ok_desc="Prorrogação registrada.", errs=["404"],
+   rules=["Uma prorrogação por projeto e etapa; a segunda recebe 409 deadline_extension_already_granted.",
+          "O novo prazo precisa ser depois do fim da etapa e a etapa, da edição do projeto (400 validation_error).",
+          "Justificativa obrigatória.",
+          "Vale só para esta equipe; os envios e a nota zero passam a usar o novo prazo.",
+          "Equipe sem projeto, equipe ou etapa inexistente: 404. Edição encerrada não aceita (RN33).",
+          "O administrador (granted_by) e a data (granted_at) vêm da sessão e do servidor, nunca do corpo."],
+   conflicts=[("deadline_extension_already_granted", "A equipe já tem prorrogação de prazo nesta etapa."), CLOSED], pend=["P-46"])
+
 # ---------- evaluations
 op("get", "/api/teacher/projects", "evaluationsListTeacherProjects", "evaluations", "Painel de acompanhamento do curso", ["RF37"], ["TEACHER"],
    "Lista os projetos dos cursos com vínculo ativo do professor, com status das entregas e das avaliações.",
@@ -1317,8 +1340,9 @@ spec = {
         },
         "parameters": PARAMS,
         "responses": {
-            "BadRequest": {"description": "Requisição inválida: dados inválidos (`validation_error`) ou corpo acima de 2,5 MB, o `DATA_UPLOAD_MAX_MEMORY_SIZE` (`request_too_large`).", "content": {"application/json": {"schema": ref("Error"),
+            "BadRequest": {"description": "Requisição inválida: dados inválidos (`validation_error`), JSON malformado (`parse_error`) ou corpo acima de 2,5 MB, o `DATA_UPLOAD_MAX_MEMORY_SIZE` (`request_too_large`).", "content": {"application/json": {"schema": ref("Error"),
                            "examples": {"validation_error": {"value": err_example("validation_error", "Dados inválidos.", {"title": ["Este campo é obrigatório."]})},
+                                        "parse_error": {"value": err_example("parse_error", "O corpo contém JSON inválido.")},
                                         "request_too_large": {"value": err_example("request_too_large", "A requisição excede o tamanho permitido.")}}}}},
             "Unauthorized": {"description": "Autenticação ausente, inválida ou expirada.", "content": {"application/json": {"schema": ref("Error"),
                              "example": err_example("not_authenticated", "Credenciais de autenticação inválidas ou ausentes.")}}},

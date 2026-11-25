@@ -8,6 +8,7 @@ from apps.editions.enums import EditionStatus
 from apps.editions.exceptions import (
     EditionAlreadyExists,
     EditionClosed,
+    EditionPublished,
     InvalidTeamLimits,
     TeamLimitsLocked,
 )
@@ -103,6 +104,8 @@ def ensure_team_limits_editable(edition) -> None:
 
     Edição publicada já divulgou o edital; encerrada não aceita alteração alguma.
     """
+    if edition.status == EditionStatus.PUBLISHED:
+        raise EditionPublished()
     if edition.status != EditionStatus.SETUP:
         raise TeamLimitsLocked()
 

@@ -6,6 +6,16 @@ Fonte de verdade: `docs/api/openapi.yaml`. Em caso de dúvida, vale o contrato.
 Formato de erro de todas as rotas: `{"error": {"code", "message", "details"}}`.
 `details` é `null` ou `{campo: [mensagens]}` (erro sem campo vai em `non_field_errors`).
 
+### Edições e JSON malformado (#122 e #71)
+
+- O POST administrativo aceita `year` de **2000 a 2100**. O PATCH aceita
+  **1 ≤ min_members ≤ max_members ≤ 20**. Valores fora dessas faixas retornam
+  `400 validation_error`. As colunas existentes comportam os valores aceitos.
+- JSON malformado retorna `400 parse_error`, com `error.details: null`.
+  Trate-o como falha na montagem do corpo da requisição. Dados inválidos
+  retornam `validation_error` e corpos acima do limite retornam
+  `request_too_large`.
+
 ---
 
 ## 1. Projeto: o `PUT /api/teams/{team_id}/project` foi removido

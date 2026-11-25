@@ -3919,6 +3919,94 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+  /api/admin/teams/{team_id}/deadline-extensions:
+    post:
+      tags:
+      - projects
+      operationId: projectsCreateDeadlineExtension
+      summary: Prorrogar o prazo de uma equipe
+      description: |-
+        Concede à equipe um prazo de entrega maior que o da etapa e grava a prorrogação no histórico, que não pode ser alterado nem excluído.
+
+        **Requisitos:** RF14
+
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
+
+        **Perfis permitidos:** ADMIN
+
+        **Regras de negócio:**
+        - Uma prorrogação por projeto e etapa; a segunda recebe 409 deadline_extension_already_granted.
+        - O novo prazo precisa ser depois do fim da etapa e a etapa, da edição do projeto (400 validation_error).
+        - Justificativa obrigatória.
+        - Vale só para esta equipe; os envios e a nota zero passam a usar o novo prazo.
+        - Equipe sem projeto, equipe ou etapa inexistente: 404. Edição encerrada não aceita (RN33).
+        - O administrador (granted_by) e a data (granted_at) vêm da sessão e do servidor, nunca do corpo.
+
+        **Pendências relacionadas (api-pendencias.md):** P-46
+      x-status: confirmed
+      x-requirements:
+      - RF14
+      x-roles:
+      - ADMIN
+      x-pendencias:
+      - P-46
+      parameters:
+      - $ref: '#/components/parameters/TeamId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeadlineExtensionWrite'
+            example:
+              stage_id: 12
+              ends_at: '2026-11-25T23:59:00Z'
+              reason: Atestado médico do líder.
+      responses:
+        '201':
+          description: Prorrogação registrada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeadlineExtension'
+              example:
+                id: 3
+                team_id: 15
+                project_id: 9
+                stage_id: 12
+                ends_at: '2026-11-25T23:59:00Z'
+                reason: Atestado médico do líder.
+                granted_by: 1
+                granted_at: '2026-11-20T14:30:00Z'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Conflito com uma regra de negócio.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                deadline_extension_already_granted:
+                  summary: A equipe já tem prorrogação de prazo nesta etapa.
+                  value:
+                    error:
+                      code: deadline_extension_already_granted
+                      message: A equipe já tem prorrogação de prazo nesta etapa.
+                      details: null
+                edition_closed:
+                  summary: A edição está encerrada e não pode ser alterada.
+                  value:
+                    error:
+                      code: edition_closed
+                      message: A edição está encerrada e não pode ser alterada.
+                      details: null
   /api/admin/teams/{team_id}/disqualify:
     post:
       tags:
@@ -8388,8 +8476,8 @@ components:
         default: false
   responses:
     BadRequest:
-      description: 'Requisição inválida: dados inválidos (`validation_error`) ou corpo acima de 2,5 MB, o `DATA_UPLOAD_MAX_MEMORY_SIZE`
-        (`request_too_large`).'
+      description: 'Requisição inválida: dados inválidos (`validation_error`), JSON malformado (`parse_error`) ou corpo acima
+        de 2,5 MB, o `DATA_UPLOAD_MAX_MEMORY_SIZE` (`request_too_large`).'
       content:
         application/json:
           schema:
@@ -8403,6 +8491,12 @@ components:
                   details:
                     title:
                     - Este campo é obrigatório.
+            parse_error:
+              value:
+                error:
+                  code: parse_error
+                  message: O corpo contém JSON inválido.
+                  details: null
             request_too_large:
               value:
                 error:
@@ -9703,6 +9797,8 @@ components:
       properties:
         year:
           type: integer
+          minimum: 2000
+          maximum: 2100
           examples:
           - 2026
         semester:
@@ -9737,11 +9833,13 @@ components:
         min_members:
           type: integer
           minimum: 1
+          maximum: 20
           examples:
           - 3
         max_members:
           type: integer
           minimum: 1
+          maximum: 20
           examples:
           - 5
       additionalProperties: false
@@ -11859,6 +11957,79 @@ components:
       - project
       - stage
       - submitted_at
+    DeadlineExtensionWrite:
+      type: object
+      properties:
+        stage_id:
+          type: integer
+          description: Etapa a prorrogar; precisa ser da edição do projeto.
+          examples:
+          - 12
+        ends_at:
+          type: string
+          description: Novo prazo da equipe; precisa ser depois do fim da etapa.
+          format: date-time
+          examples:
+          - '2026-11-25T23:59:00Z'
+        reason:
+          type: string
+          description: Justificativa da prorrogação (obrigatória, sem ser só espaços).
+          examples:
+          - Atestado médico do líder.
+      required:
+      - stage_id
+      - ends_at
+      - reason
+      additionalProperties: false
+    DeadlineExtension:
+      type: object
+      description: Prorrogação gravada; é o histórico do ajuste e não se altera nem se apaga (P-21).
+      properties:
+        id:
+          type: integer
+          examples:
+          - 3
+        team_id:
+          type: integer
+          examples:
+          - 15
+        project_id:
+          type: integer
+          examples:
+          - 9
+        stage_id:
+          type: integer
+          examples:
+          - 12
+        ends_at:
+          type: string
+          description: Novo prazo da equipe na etapa.
+          format: date-time
+          examples:
+          - '2026-11-25T23:59:00Z'
+        reason:
+          type: string
+          examples:
+          - Atestado médico do líder.
+        granted_by:
+          type: integer
+          description: Id do administrador.
+          examples:
+          - 1
+        granted_at:
+          type: string
+          format: date-time
+          examples:
+          - '2026-11-20T14:30:00Z'
+      required:
+      - id
+      - team_id
+      - project_id
+      - stage_id
+      - ends_at
+      - reason
+      - granted_by
+      - granted_at
     ScoreSummary:
       type: object
       properties:
