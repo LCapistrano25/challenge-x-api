@@ -1,8 +1,8 @@
-"""Cálculos puros de resultados (RF15, RF19, RN49): sem banco."""
+"""Cálculos puros de resultados (RF15): sem banco."""
 
 from collections import defaultdict
 from dataclasses import dataclass
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import Decimal
 
 CENT = Decimal("0.01")
 
@@ -15,12 +15,6 @@ class RankEntry:
     course_id: int
     final_score: Decimal
     tiebreak: tuple[Decimal, ...] = ()
-
-
-def compute_points(final_score: Decimal, term: int) -> Decimal:
-    """Nota final / 10 x 1,0 no 1º período ou x 2,0 nos demais (RN49)."""
-    factor = Decimal("1.0") if term == 1 else Decimal("2.0")
-    return (final_score / 10 * factor).quantize(CENT, rounding=ROUND_HALF_UP)
 
 
 def compute_course_ranks(entries: list[RankEntry]) -> dict[int, int]:

@@ -106,9 +106,11 @@ def get_edition_results(edition) -> dict:
 
 
 def _tiebreak_scores(edition, project_ids, stage_ids) -> dict[int, tuple]:
-    """Pontos de cada critério de desempate, na ordem de `tiebreak_order`.
+    """Nota de cada critério de desempate, na ordem de `tiebreak_order`.
 
-    Por etapa, média das avaliações finalizadas; entre etapas, soma.
+    Cada nota vira escala de 0 a 10 (pontos / max_score do critério na etapa),
+    para o mesmo critério pesar igual em etapas com valores diferentes. Por
+    etapa, média das avaliações finalizadas; entre etapas, soma.
     """
     criterion_ids = list(
         Criterion.objects.filter(edition=edition, tiebreak_order__isnull=False)
@@ -116,7 +118,13 @@ def _tiebreak_scores(edition, project_ids, stage_ids) -> dict[int, tuple]:
         .values_list("pk", flat=True)
     )
     points = defaultdict(list)
-    for project_id, stage_id, criterion_id, value in EvaluationItem.objects.filter(
+    for (
+        project_id,
+        stage_id,
+        criterion_id,
+        value,
+        max_score,
+    ) in EvaluationItem.objects.filter(
         evaluation__project_id__in=project_ids,
         evaluation__stage_id__in=stage_ids,
         evaluation__status=EvaluationStatus.FINALIZED,
@@ -126,8 +134,9 @@ def _tiebreak_scores(edition, project_ids, stage_ids) -> dict[int, tuple]:
         "evaluation__stage_id",
         "stage_criterion__criterion_id",
         "points",
+        "stage_criterion__max_score",
     ):
-        points[project_id, stage_id, criterion_id].append(value)
+        points[project_id, stage_id, criterion_id].append(value / max_score * 10)
 
     totals = defaultdict(Decimal)
     for (project_id, _, criterion_id), values in points.items():

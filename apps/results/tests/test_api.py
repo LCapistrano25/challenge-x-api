@@ -10,7 +10,7 @@ from apps.core.factories import CourseFactory
 from apps.editions.enums import EditionStatus
 from apps.evaluations.factories import FinalEvaluationFactory
 from apps.evaluations.models import StageScore
-from apps.results.models import ProjectResult, StudentScore
+from apps.results.models import ProjectResult
 
 pytestmark = pytest.mark.django_db
 
@@ -59,7 +59,6 @@ def test_fluxo_completo_200(admin, edition, make_project):
     assert row["final_score"] == "5.50"
     assert row["course_rank"] == 1
     assert row["finalist"] is True
-    assert StudentScore.objects.filter(project=project).count() == 1
 
 
 def test_excluidos_aparecem_com_o_motivo(admin, edition, make_project):
@@ -121,7 +120,7 @@ def test_404_edicao_inexistente(admin, route):
 
 @pytest.mark.parametrize(
     "body",
-    [{}, {"project_ids": []}, {"project_ids": ["x"]}, "repetida", "fora"],
+    [{"project_ids": []}, {"project_ids": ["x"]}, "repetida", "fora"],
 )
 def test_400_nos_finalistas(admin, edition, make_project, body):
     project = make_project("3.00", "3.00")
@@ -187,3 +186,19 @@ def test_409(admin, edition, request, case, route, code):
 @pytest.mark.parametrize("route", ROUTES)
 def test_405_get(admin, edition, route):
     assert client_for(admin).get(url(edition, route)).status_code == 405
+
+
+def test_finalistas_sem_lista_escolhem_os_3_primeiros_do_curso(
+    admin, edition, make_project
+):
+    projects = [make_project(v, v) for v in ("3.00", "2.50", "2.00", "1.00")]
+    client = client_for(admin)
+    post(client, edition, "results/calculate")
+
+    response = client.post(url(edition, "finalists"), {}, format="json")
+
+    assert response.status_code == 200
+    chosen = {
+        row["project"]["id"] for row in response.json()["results"] if row["finalist"]
+    }
+    assert chosen == {p.pk for p in projects[:3]}

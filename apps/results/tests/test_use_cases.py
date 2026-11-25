@@ -6,6 +6,7 @@ from django.utils import timezone
 
 from apps.accounts.exceptions import NotAdminActor
 from apps.accounts.factories import StudentFactory
+from apps.core.factories import CourseFactory
 from apps.editions.enums import EditionStatus
 from apps.editions.exceptions import EditionClosed
 from apps.evaluations.factories import FinalEvaluationFactory
@@ -21,10 +22,9 @@ from apps.results.exceptions import (
     ResultsOutdated,
 )
 from apps.results.factories import ProjectResultFactory
-from apps.results.models import ProjectResult, StudentScore
+from apps.results.models import ProjectResult
 from apps.results.use_cases.approve_finalists import approve_finalists
 from apps.results.use_cases.calculate_results import calculate_results
-from apps.results.use_cases.compute_student_points import compute_student_points
 from apps.results.use_cases.select_finalists import select_finalists
 from apps.teams.enums import MemberRole, TeamStatus
 from apps.teams.factories import TeamMemberFactory
@@ -44,121 +44,8 @@ def add_member(project, term, **kwargs):
     )
 
 
-def leader_of(project, term=1):
-    member = project.team.members.get(role=MemberRole.LEADER)
-    member.student.term = term
-    member.student.save()
-    return member
-
-
-def points_of(project):
-    return {
-        s.student_id: (s.term, s.points)
-        for s in StudentScore.objects.filter(project=project)
-    }
-
-
-# compute_student_points (RF19, RN49)
-
-
-@pytest.fixture
-def scored(make_project):
-    """Projeto com nota final 7,50, líder no 1º período e um integrante no 4º."""
-    project = make_project()
-    leader = leader_of(project, term=1)
-    member = add_member(project, term=4)
-    result = ProjectResultFactory(project=project, final_score=Decimal("7.50"))
-    return project, leader, member, result
-
-
-def test_grava_um_registro_por_integrante_ativo(admin, scored):
-    project, leader, member, _ = scored
-
-    scores = compute_student_points(actor=admin, project=project)
-
-    assert len(scores) == 2
-    assert all(s.calculated_at for s in scores)
-    assert points_of(project) == {
-        leader.student_id: (1, Decimal("0.75")),
-        member.student_id: (4, Decimal("1.50")),
-    }
-
-
-def test_integrante_inativo_nao_pontua(admin, scored):
-    project, *_ = scored
-    gone = add_member(project, term=2, active=False, left_at=timezone.now())
-
-    compute_student_points(actor=admin, project=project)
-
-    assert gone.student_id not in points_of(project)
-
-
-def test_quem_saiu_perde_a_pontuacao_no_recalculo(admin, scored):
-    project, leader, member, _ = scored
-    compute_student_points(actor=admin, project=project)
-    member.active = False
-    member.left_at = timezone.now()
-    member.save()
-
-    compute_student_points(actor=admin, project=project)
-
-    assert list(points_of(project)) == [leader.student_id]
-
-
-def test_recalculo_mantem_o_periodo_e_atualiza_os_pontos(admin, scored):
-    project, _, member, result = scored
-    compute_student_points(actor=admin, project=project)
-    member.student.term = 1
-    member.student.save()
-    result.final_score = Decimal("10.00")
-    result.save()
-
-    compute_student_points(actor=admin, project=project)
-
-    assert points_of(project)[member.student_id] == (4, Decimal("2.00"))
-
-
-def test_resultado_sem_nota_apaga_os_pontos(admin, scored):
-    project, *_, result = scored
-    compute_student_points(actor=admin, project=project)
-    result.final_score = None
-    result.save()
-
-    assert compute_student_points(actor=admin, project=project) == []
-    assert points_of(project) == {}
-
-
-def test_pontos_exigem_resultado(admin, make_project):
-    with pytest.raises(ResultsNotCalculated):
-        compute_student_points(actor=admin, project=make_project())
-
-
-def test_pontos_exigem_admin(scored):
-    project, leader, *_ = scored
-
-    with pytest.raises(NotAdminActor):
-        compute_student_points(actor=leader.student.user, project=project)
-    assert points_of(project) == {}
-
-
-def test_pontos_barram_edicao_encerrada(admin, edition, scored):
-    project = scored[0]
-    close(edition)
-    project.refresh_from_db()
-
-    with pytest.raises(EditionClosed):
-        compute_student_points(actor=admin, project=project)
-    assert points_of(project) == {}
-
-
-def test_pontos_barram_resultado_homologado(admin, scored):
-    project, *_, result = scored
-    result.approved_at = timezone.now()
-    result.save()
-
-    with pytest.raises(ResultsAlreadyApproved):
-        compute_student_points(actor=admin, project=project)
-    assert points_of(project) == {}
+def leader_of(project):
+    return project.team.members.get(role=MemberRole.LEADER)
 
 
 # calculate_results (RF15)
@@ -168,10 +55,9 @@ def result_of(project):
     return ProjectResult.objects.get(project=project)
 
 
-def test_calculo_grava_nota_posicao_e_pontos(admin, edition, make_project):
+def test_calculo_grava_nota_e_posicao(admin, edition, make_project):
     first = make_project("3.00", "3.00")
     second = make_project("1.00", "1.50")
-    leader = leader_of(first, term=3)
 
     calculate_results(actor=admin, edition=edition)
 
@@ -179,7 +65,6 @@ def test_calculo_grava_nota_posicao_e_pontos(admin, edition, make_project):
     assert result_of(first).course_rank == 1
     assert result_of(second).final_score == Decimal("2.50")
     assert result_of(second).course_rank == 2
-    assert points_of(first) == {leader.student_id: (3, Decimal("1.20"))}
 
 
 def test_pendente_e_desclassificada_nao_ganham_resultado(admin, edition, make_project):
@@ -190,7 +75,6 @@ def test_pendente_e_desclassificada_nao_ganham_resultado(admin, edition, make_pr
 
     ids = [pending.pk, disqualified.pk]
     assert not ProjectResult.objects.filter(project_id__in=ids).exists()
-    assert not StudentScore.objects.filter(project_id__in=ids).exists()
 
 
 def test_recalculo_preserva_finalista_classificado(admin, edition, make_project):
@@ -204,7 +88,7 @@ def test_recalculo_preserva_finalista_classificado(admin, edition, make_project)
 
 
 @pytest.mark.parametrize("status", [TeamStatus.DISQUALIFIED, TeamStatus.DISBANDED])
-def test_quem_sai_do_ranking_perde_nota_posicao_marca_e_pontos(
+def test_quem_sai_do_ranking_perde_nota_posicao_e_marca(
     admin, edition, make_project, status
 ):
     project = make_project("3.00", "3.00")
@@ -227,7 +111,6 @@ def test_quem_sai_do_ranking_perde_nota_posicao_marca_e_pontos(
         None,
         False,
     )
-    assert points_of(project) == {}
 
 
 def test_calculo_exige_etapa_pontuada(admin, edition):
@@ -263,14 +146,13 @@ def test_calculo_barra_resultado_homologado(admin, edition, make_project):
     assert result_of(project).final_score == Decimal("6.00")
 
 
-def test_calculo_e_atomico(admin, edition, make_project):
+def test_periodo_do_aluno_nao_trava_o_calculo(admin, edition, make_project):
+    # D-04: o sistema não calcula pontos do aluno; o período não entra no cálculo.
     project = make_project("3.00", "3.00")
-    add_member(project, term=11)  # fora do CHECK de StudentScore (1 a 10)
+    add_member(project, term=11)
 
-    with pytest.raises(ValidationError):
-        calculate_results(actor=admin, edition=edition)
-    assert not ProjectResult.objects.exists()
-    assert not StudentScore.objects.exists()
+    calculate_results(actor=admin, edition=edition)
+    assert result_of(project).final_score == Decimal("6.00")
 
 
 # select_finalists e approve_finalists (RF15, UC15)
@@ -300,6 +182,22 @@ def test_finalistas_marca_exatamente_a_lista(admin, edition, calculated):
     select_finalists(actor=admin, edition=edition, project_ids=[second.pk])
 
     assert finalists(edition) == {second.pk}
+
+
+def test_sem_lista_ficam_os_3_primeiros_de_cada_curso(admin, edition, make_project):
+    other = CourseFactory()
+    top = [make_project(v, v) for v in ("3.00", "2.50", "2.00")]
+    tied_third = make_project("2.00", "2.00")
+    fourth = make_project("1.00", "1.00")
+    other_course = make_project("0.50", "0.50", course=other)
+    calculate_results(actor=admin, edition=edition)
+
+    select_finalists(actor=admin, edition=edition)
+
+    # Empate no 3º lugar leva os dois; a comissão ajusta mandando a lista.
+    expected = {p.pk for p in top} | {tied_third.pk, other_course.pk}
+    assert finalists(edition) == expected
+    assert fourth.pk not in finalists(edition)
 
 
 def test_nova_lista_substitui_a_anterior(admin, edition, calculated):

@@ -2,8 +2,9 @@ from rest_framework import serializers
 
 
 class FinalistsWriteSerializer(serializers.Serializer):
+    # Sem a lista, ficam os 3 primeiros de cada curso (Cap. VIII IV).
     project_ids = serializers.ListField(
-        child=serializers.IntegerField(min_value=1), allow_empty=False
+        child=serializers.IntegerField(min_value=1), allow_empty=False, required=False
     )
 
     def validate_project_ids(self, value):
