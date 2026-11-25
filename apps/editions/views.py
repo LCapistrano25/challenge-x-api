@@ -1,14 +1,21 @@
+from urllib.parse import urlsplit
+
+from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, status
-from rest_framework.parsers import JSONParser
+from rest_framework.parsers import JSONParser, MultiPartParser
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts.permissions import IsAdmin
+from apps.editions.enums import EditionStatus
 from apps.editions.models import Edition, EditionReviewer
+from apps.editions.regulation_files import open_regulation
 from apps.editions.selectors import list_edition_reviewers, list_editions
 from apps.editions.serializers import (
     EditionCreateSerializer,
+    EditionPublishSerializer,
     EditionReviewerCreateSerializer,
     EditionReviewerSerializer,
     EditionReviewerUpdateSerializer,
@@ -17,6 +24,7 @@ from apps.editions.serializers import (
 )
 from apps.editions.use_cases.create_edition import create_edition
 from apps.editions.use_cases.link_reviewer_to_edition import link_reviewer_to_edition
+from apps.editions.use_cases.publish_regulation import publish_regulation
 from apps.editions.use_cases.update_edition import update_edition
 from apps.editions.use_cases.update_reviewer_scope import update_reviewer_scope
 
@@ -103,3 +111,45 @@ class EditionDetailView(generics.RetrieveAPIView):
             actor=request.user, edition=edition, **serializer.validated_data
         )
         return Response(EditionSerializer(edition).data)
+
+
+class EditionPublishView(APIView):
+    permission_classes = [IsAdmin]
+    parser_classes = [MultiPartParser]
+
+    def post(self, request, edition_id):
+        edition = get_object_or_404(Edition, pk=edition_id)
+        serializer = EditionPublishSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        edition = publish_regulation(
+            actor=request.user,
+            edition=edition,
+            public_origin=request.build_absolute_uri("/").rstrip("/"),
+            **serializer.validated_data,
+        )
+        return Response(EditionSerializer(edition).data)
+
+
+class EditionRegulationView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request, edition_id, token):
+        edition = get_object_or_404(
+            Edition,
+            pk=edition_id,
+            status__in=[EditionStatus.PUBLISHED, EditionStatus.CLOSED],
+        )
+        if urlsplit(edition.regulation_url).path != request.path:
+            raise Http404
+        try:
+            file = open_regulation(f"{edition.pk}/{token.hex}.pdf")
+        except FileNotFoundError as error:
+            raise Http404 from error
+        response = FileResponse(
+            file,
+            as_attachment=True,
+            filename="edital.pdf",
+            content_type="application/pdf",
+        )
+        response["X-Content-Type-Options"] = "nosniff"
+        return response

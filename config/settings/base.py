@@ -111,6 +111,15 @@ STORAGES = {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
         "OPTIONS": {"location": DELIVERY_STORAGE_ROOT},
     },
+    "regulations": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+        "OPTIONS": {
+            "location": env(
+                "REGULATION_STORAGE_ROOT",
+                default=str(BASE_DIR / "private_media" / "regulations"),
+            ),
+        },
+    },
 }
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

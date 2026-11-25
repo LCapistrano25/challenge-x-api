@@ -1,5 +1,6 @@
 from django.urls import path
 
+from apps.editions.views import EditionRegulationView
 from apps.public.views import (
     ClosedEditionsListView,
     CurrentEditionView,
@@ -9,6 +10,11 @@ from apps.public.views import (
 )
 
 urlpatterns = [
+    path(
+        "editions/<int:edition_id>/regulation/<uuid:token>",
+        EditionRegulationView.as_view(),
+        name="edition-regulation",
+    ),
     path("editions/current", CurrentEditionView.as_view(), name="current-edition"),
     path("editions", ClosedEditionsListView.as_view(), name="closed-editions"),
     path(

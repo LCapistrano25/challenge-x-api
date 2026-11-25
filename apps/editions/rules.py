@@ -8,8 +8,10 @@ from apps.editions.enums import EditionStatus
 from apps.editions.exceptions import (
     EditionAlreadyExists,
     EditionClosed,
+    EditionNotInSetup,
     EditionPublished,
     InvalidTeamLimits,
+    PublicationRequirementsNotMet,
     TeamLimitsLocked,
 )
 
@@ -121,3 +123,43 @@ def ensure_course_is_active(course_id: int) -> None:
     courses = apps.get_model("core", "Course").objects
     if not courses.filter(pk=course_id, active=True).exists():
         raise ValidationError({"course_id": "Curso inválido."})
+
+
+def ensure_edition_ready_for_publication(edition) -> None:
+    """Exige a configuração mínima da edição (RF09, INT-01, INT-02)."""
+    if edition.status != EditionStatus.SETUP:
+        raise EditionNotInSetup()
+
+    pending = {}
+    if not apps.get_model("core", "Course").objects.filter(active=True).exists():
+        pending["courses"] = "Cadastre pelo menos um curso ativo."
+    enabled_sdgs = edition.sdg_links.filter(sdg__active=True).values("sdg_id")
+    if not enabled_sdgs.exists():
+        pending["sdgs"] = "Habilite pelo menos uma ODS ativa na edição."
+    if not edition.challenges.filter(
+        active=True, course__active=True, sdg_id__in=enabled_sdgs
+    ).exists():
+        pending["challenges"] = "Cadastre um desafio ativo para curso e ODS ativos."
+    if not edition.categories.exists():
+        pending["categories"] = "Cadastre pelo menos uma categoria."
+    if not edition.criteria.exists():
+        pending["criteria"] = "Cadastre pelo menos um critério."
+    try:
+        ensure_team_limits_valid(edition.min_members, edition.max_members)
+    except InvalidTeamLimits:
+        pending["team_limits"] = str(InvalidTeamLimits())
+
+    stages = list(
+        edition.stages.filter(scored=True).annotate(
+            criteria_total=Sum("criterion_links__max_score")
+        )
+    )
+    if sum(stage.max_score for stage in stages) != MAX_FINAL_SCORE:
+        pending["stages"] = "As etapas pontuadas devem somar 10,00 pontos."
+    if any(stage.criteria_total != stage.max_score for stage in stages):
+        pending["stage_criteria"] = (
+            "Os critérios de cada etapa devem somar o valor dela."
+        )
+
+    if pending:
+        raise PublicationRequirementsNotMet(pending)
