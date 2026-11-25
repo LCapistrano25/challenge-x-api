@@ -343,7 +343,7 @@ Estas são convenções que a especificação adota para ficar completa. Cada um
   - Emissão de certificados pelo Admin (RF17): a elegibilidade de Finalista e Premiado depende de P-29/P-30, e não existem tipos para professor e avaliador (P-34).
   - Seleção e homologação de finalistas, cálculo da nota final, ranking, premiação e pontuação individual (P-29, P-30, P-31).
   - Ajustes pontuais (RF14), sem persistência no modelo (P-21).
-- **Rotas candidatas, ainda não especificadas:** `POST /api/admin/editions/{id}/results/calculate`, `POST /api/admin/editions/{id}/finalists`, `POST /api/admin/editions/{id}/results/homologate`, `POST /api/admin/editions/{id}/certificates/issue`. Elas entram na especificação quando as regras forem aprovadas.
+- **Rotas candidatas, ainda não especificadas:** `POST /api/admin/editions/{id}/certificates/issue` (certificados adiados, D-07). As rotas de cálculo, finalistas e homologação entraram no contrato em 24/11/2026.
 - **Atualização (#109):** a rota `POST /api/admin/teams/{id}/deadline-extensions` foi especificada e implementada; sai da lista de candidatas.
 
 ### P-47 — Campos de entrega Canvas e SWOT: modelos fixos e escopo · Média
@@ -479,3 +479,4 @@ O validador oficial (`openapi-spec-validator`) **não pôde ser instalado**, por
 | 21/11/2026 | A resposta `BadRequest` (400) documenta também `request_too_large`, para corpo acima de 2,5 MB (`DATA_UPLOAD_MAX_MEMORY_SIZE`), com exemplo próprio. | Comportamento entregue na #182 (P-37); registrado no contrato, que é a autoridade da interface. |
 | 21/11/2026 | Autenticação por sessão: o esquema `bearerAuth` (JWT) vira `sessionAuth` (cookie `sessionid`) e `csrfToken` (cabeçalho `X-CSRFToken`); a descrição de cada operação deixa de citar Bearer JWT; entra `GET /api/auth/csrf` (schema `CsrfToken`). | Decisão da #70 (sessão + CSRF), já implementada desde a #91; o contrato ainda descrevia JWT (I-08, I-10, I-36). |
 | 23/11/2026 | Entra `POST /api/admin/teams/{team_id}/deadline-extensions` (`projectsCreateDeadlineExtension`), com os schemas `DeadlineExtensionWrite` e `DeadlineExtension`. | Prorrogação de prazo por equipe (RF14), decidida na P-21 e entregue na #109. |
+| 24/11/2026 | Entram `POST /api/admin/editions/{edition_id}/results/calculate` (`resultsCalculate`), `.../finalists` (`resultsSelectFinalists`) e `.../results/homologate` (`resultsApprove`), com os schemas `EditionResults`, `ResultRow`, `ResultExcluded`, `FinalistsSelect` e o enum `ResultExclusionReason`. Sem `project_ids`, os finalistas são os 3 primeiros de cada curso. | Rotas entregues na #220 (#110) e alinhadas às decisões de 24/11 (#217): sem pontos do aluno (D-04), desempate normalizado por etapa. |

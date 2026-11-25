@@ -1,22 +1,6 @@
 from decimal import Decimal as D
 
-import pytest
-
-from apps.results.compute import RankEntry, compute_course_ranks, compute_points
-
-
-@pytest.mark.parametrize(
-    "score, term, points",
-    [
-        ("10", 1, "1.00"),
-        ("10", 2, "2.00"),
-        ("0", 5, "0.00"),
-        ("7.35", 1, "0.74"),  # meio arredonda para cima
-        ("7.35", 8, "1.47"),
-    ],
-)
-def test_pontos_do_aluno(score, term, points):
-    assert compute_points(D(score), term) == D(points)
+from apps.results.compute import RankEntry, compute_course_ranks
 
 
 def entry(pid, score, tiebreak=(), course=1):

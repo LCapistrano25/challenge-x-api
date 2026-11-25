@@ -152,6 +152,7 @@ enum("FieldType", ["LINK", "FILE", "CANVAS", "SWOT"], "Tipo do campo de entrega 
 enum("InvitationStatus", ["PENDING", "ACCEPTED", "DECLINED", "CANCELLED"], "Situação do convite (enum InvitationStatus).")
 enum("RequestStatus", ["PENDING", "APPROVED", "REJECTED", "CANCELLED"], "Situação de solicitação (enum RequestStatus).")
 enum("EvaluationStatus", ["DRAFT", "FINALIZED"], "Situação da avaliação do professor (enum EvaluationStatus).")
+enum("ResultExclusionReason", ["DISQUALIFIED", "NO_CHALLENGE", "PENDING_SCORE"], "Por que o projeto ficou fora do ranking da edição (calculado, não gravado).")
 enum("ScoreStatus", ["PENDING", "DEFINITIVE", "ZERO_NO_SUBMISSION"], "Situação da nota consolidada da etapa (enum ScoreStatus).")
 enum("QuestionType", ["SCORE", "CONCEPT", "TEXT"], "Tipo de pergunta do formulário final (enum QuestionKind).")
 enum("FinalEvaluationStatus", ["PENDING", "EVALUATED"], "Situação da avaliação final (enum FinalEvaluationStatus).")
@@ -655,6 +656,18 @@ SC["FinalEvaluationWrite"] = obj({"status": STR(ex="EVALUATED", enum=["PENDING",
                                   "answers": arr(ref("FinalAnswerWrite"))}, ["status", "answers"], strict=True)
 
 # ---------------------------------------------------------------- results
+SC["ResultRow"] = obj({"project": ref("ProjectRef"), "team": ref("TeamRef"), "course": ref("CourseSummary"), "category": nul(ref("CategoryRef")),
+                      "final_score": DEC("Soma das notas das etapas de entrega pontuadas (0 a 10).", "7.50"),
+                      "course_rank": INT("Posição no curso; empate total divide a posição (1, 1, 3).", 1, minimum=1),
+                      "finalist": BOOL(ex=True)},
+                     ["project", "team", "course", "category", "final_score", "course_rank", "finalist"])
+SC["ResultExcluded"] = obj({"project_id": INT(ex=40), "team_id": INT(ex=12), "reason": ref("ResultExclusionReason")}, ["project_id", "team_id", "reason"])
+SC["EditionResults"] = obj({"edition_id": INT(ex=3), "approved_at": nul(DT(ex=None)), "results": arr(ref("ResultRow")), "excluded": arr(ref("ResultExcluded"))},
+                          ["edition_id", "approved_at", "results", "excluded"],
+                          desc="Ranking gravado da edição, por curso, e os projetos que estão fora dele agora.")
+SC["FinalistsSelect"] = obj({"project_ids": arr(INT(ex=40, minimum=1), minItems=1, uniqueItems=True,
+                                                description="Lista completa de finalistas. Omitida: os 3 primeiros de cada curso (course_rank ≤ 3).")},
+                           strict=True, description="Corpo opcional.")
 SC["CertificateTemplate"] = obj({"id": INT(ex=6), "edition_id": INT(ex=3), "kind": ref("CertificateType"),
                                  "template_url": nul(URL(ex="https://storage.projetox.edu.br/certificados/modelos/participacao-2026-1.pdf")),
                                  "signatures": nul(TXT(ex="Reitoria; Coordenação do Desafio X")), "created_at": DT(), "updated_at": DT()},
@@ -1248,6 +1261,32 @@ op("put", "/api/evaluator/finalists/{project_id}/final-evaluation", "evaluations
    conflicts=[("final_form_not_published", "O formulário da etapa final ainda não foi publicado."), ("final_evaluation_already_finalized", "A avaliação final já foi finalizada."), CLOSED], pend=["P-30"])
 
 # ---------- results
+op("post", "/api/admin/editions/{edition_id}/results/calculate", "resultsCalculate", "results", "Calcular nota final e ranking", ["RF15"], ["ADMIN"],
+   "Calcula e grava a nota final e a posição no curso de cada projeto da edição. Pode repetir até a homologação.",
+   params=["EditionId"], ok=ref("EditionResults"), errs=["404"],
+   rules=["Nota final = soma das etapas de entrega pontuadas; o projeto só entra no ranking com todas elas DEFINITIVE ou ZERO_NO_SUBMISSION.",
+          "Fora do ranking: equipe ou projeto desclassificado, projeto sem desafio, nota pendente (lista em excluded). Equipe desfeita não aparece.",
+          "Desempate (Art. 24): critérios com tiebreak_order, na ordem; nota do critério em escala 0 a 10 por etapa, média dos professores, soma entre etapas.",
+          "Recalcular preserva os finalistas ainda classificados; quem sai do ranking perde nota, posição e a marca de finalista.",
+          "O sistema não calcula pontos do aluno na disciplina (D-04)."],
+   conflicts=[("no_scored_stages", "A edição não tem etapa de entrega pontuada."), ("results_already_approved", "O resultado da edição já foi homologado."), CLOSED],
+   pend=["P-46"])
+op("post", "/api/admin/editions/{edition_id}/finalists", "resultsSelectFinalists", "results", "Escolher os finalistas", ["RF15", "RF42"], ["ADMIN"],
+   "Marca como finalistas exatamente os projetos da lista; sem lista, os 3 primeiros de cada curso (Cap. VIII IV).",
+   params=["EditionId"], body=ref("FinalistsSelect"), req_ex={}, ok=ref("EditionResults"), errs=["404"],
+   rules=["Sem project_ids, ficam os de course_rank ≤ 3; empate na 3ª posição leva todos os empatados, e a comissão ajusta mandando a lista.",
+          "Todo projeto da lista precisa estar no ranking da edição; lista vazia, repetida ou com projeto fora do ranking: 400 validation_error.",
+          "Finalista que já recebeu avaliação final não sai da lista."],
+   conflicts=[("results_not_calculated", "Calcule os resultados antes."), ("finalist_already_evaluated", "Um finalista retirado já foi avaliado."),
+              ("results_already_approved", "O resultado da edição já foi homologado."), CLOSED],
+   pend=["P-46"])
+op("post", "/api/admin/editions/{edition_id}/results/homologate", "resultsApprove", "results", "Homologar o resultado", ["RF15"], ["ADMIN"],
+   "Grava a homologação em todos os projetos classificados. Depois dela o resultado não muda.",
+   params=["EditionId"], ok=ref("EditionResults"), errs=["404"],
+   rules=["Não recalcula: se as notas mudaram depois do cálculo, recusa com results_outdated."],
+   conflicts=[("results_not_calculated", "Calcule os resultados antes."), ("no_finalists", "Escolha os finalistas antes."),
+              ("results_outdated", "As notas mudaram depois do cálculo; calcule de novo."), ("results_already_approved", "O resultado da edição já foi homologado."), CLOSED],
+   pend=["P-46"])
 op("get", "/api/admin/editions/{edition_id}/certificate-templates", "resultsListCertificateTemplates", "results", "Listar modelos de certificado",
    ["RF17"], ["ADMIN"], "Lista os modelos de certificado da edição.", params=["EditionId"], ok=arr(ref("CertificateTemplate")), errs=["404"], pend=["P-34"])
 op("put", "/api/admin/editions/{edition_id}/certificate-templates/{certificate_type}", "resultsSaveCertificateTemplate", "results",

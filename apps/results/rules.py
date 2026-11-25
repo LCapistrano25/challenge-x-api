@@ -14,15 +14,6 @@ from apps.results.exceptions import (
 # do Django (como a FK por string), sem import que fecharia o ciclo.
 
 
-def ensure_student_in_project_team(score) -> None:
-    """Só pontua quem integrou a equipe do projeto (RF16)."""
-    members = apps.get_model("teams", "TeamMember").objects
-    if not members.filter(
-        team_id=score.project.team_id, student_id=score.student_id
-    ).exists():
-        raise ValidationError({"student": "O aluno não integrou a equipe do projeto."})
-
-
 def ensure_edition_has_scored_stages(edition) -> None:
     """A nota final soma as etapas de entrega pontuadas; sem elas não há cálculo."""
     stages = apps.get_model("editions", "Stage").objects

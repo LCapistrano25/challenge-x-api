@@ -5,7 +5,6 @@ from django.utils import timezone
 from apps.core.models import TimeStampedModel
 from apps.projects.models import new_verification_code
 from apps.results.enums import CertificateKind
-from apps.results.rules import ensure_student_in_project_team
 
 
 class ProjectResult(TimeStampedModel):
@@ -47,48 +46,6 @@ class ProjectResult(TimeStampedModel):
 
     def __str__(self):
         return f"{self.project}: {self.final_score}"
-
-
-class StudentScore(TimeStampedModel):
-    """Pontos do aluno na disciplina pela edição (RF16).
-
-    `term` fica congelado no cálculo: o aluno muda de período, a pontuação
-    daquela edição não. `points` = nota final / 10 x 1,0 (1º período) ou
-    x 2,0 (demais).
-    """
-
-    project = models.ForeignKey(
-        "projects.Project", on_delete=models.PROTECT, related_name="student_scores"
-    )
-    student = models.ForeignKey(
-        "accounts.Student", on_delete=models.PROTECT, related_name="scores"
-    )
-    term = models.PositiveSmallIntegerField()
-    points = models.DecimalField(max_digits=4, decimal_places=2)
-    calculated_at = models.DateTimeField(null=True, blank=True)
-
-    class Meta:
-        verbose_name = "pontuação do aluno"
-        verbose_name_plural = "pontuações dos alunos"
-        constraints = [
-            models.UniqueConstraint(
-                fields=["project", "student"], name="unique_score_per_student"
-            ),
-            models.CheckConstraint(
-                condition=Q(term__gte=1, term__lte=10),
-                name="student_score_term_1_to_10",
-            ),
-            models.CheckConstraint(
-                condition=Q(points__gte=0), name="student_score_points_gte_0"
-            ),
-        ]
-
-    def clean(self):
-        if self.project_id and self.student_id:
-            ensure_student_in_project_team(self)
-
-    def __str__(self):
-        return f"{self.student} — {self.project}: {self.points}"
 
 
 class CertificateTemplate(TimeStampedModel):

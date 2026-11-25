@@ -12,17 +12,15 @@ from apps.results.rules import (
     ensure_results_not_approved,
 )
 from apps.results.selectors import list_edition_standings
-from apps.results.use_cases.compute_student_points import compute_student_points
 
 
 @transaction.atomic
 def calculate_results(*, actor: User, edition: Edition) -> None:
-    """Grava nota final, posição no curso e pontos dos alunos da edição.
+    """Grava nota final e posição no curso dos projetos da edição.
 
     Recalcular preserva os finalistas ainda classificados; quem saiu do ranking
-    perde a nota, a posição, a marca e os pontos.
-    Levanta NotAdminActor, EditionClosed, ResultsAlreadyApproved, NoScoredStages
-    e ValidationError se o período de um aluno não for aceito.
+    perde a nota, a posição e a marca de finalista.
+    Levanta NotAdminActor, EditionClosed, ResultsAlreadyApproved e NoScoredStages.
     """
     ensure_actor_is_admin(actor)
     edition = Edition.objects.select_for_update().get(pk=edition.pk)
@@ -45,5 +43,3 @@ def calculate_results(*, actor: User, edition: Edition) -> None:
         result.course_rank = None
         result.finalist = False
         result.save()
-    for result in results.select_related("project"):
-        compute_student_points(actor=actor, project=result.project)
