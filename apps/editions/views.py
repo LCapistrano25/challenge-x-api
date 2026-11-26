@@ -6,17 +6,24 @@ from rest_framework.views import APIView
 
 from apps.accounts.permissions import IsAdmin
 from apps.editions.models import Edition, EditionReviewer
-from apps.editions.selectors import list_edition_reviewers, list_editions
+from apps.editions.selectors import (
+    list_edition_reviewers,
+    list_edition_sdgs,
+    list_editions,
+)
 from apps.editions.serializers import (
     EditionCreateSerializer,
     EditionReviewerCreateSerializer,
     EditionReviewerSerializer,
     EditionReviewerUpdateSerializer,
+    EditionSdgSerializer,
+    EditionSdgsUpdateSerializer,
     EditionSerializer,
     EditionUpdateSerializer,
 )
 from apps.editions.use_cases.create_edition import create_edition
 from apps.editions.use_cases.link_reviewer_to_edition import link_reviewer_to_edition
+from apps.editions.use_cases.set_edition_sdgs import set_edition_sdgs
 from apps.editions.use_cases.update_edition import update_edition
 from apps.editions.use_cases.update_reviewer_scope import update_reviewer_scope
 
@@ -58,6 +65,28 @@ class EditionReviewDetailView(APIView):
             actor=request.user, link=link, **serializer.validated_data
         )
         return Response(EditionReviewerSerializer(link).data)
+
+
+class EditionSdgsView(APIView):
+    """Lista e define as ODS habilitadas na edição (RF04)."""
+
+    permission_classes = [IsAdmin]
+    parser_classes = [JSONParser]
+
+    def get(self, request, edition_id):
+        edition = get_object_or_404(Edition, pk=edition_id)
+        return Response(
+            EditionSdgSerializer(list_edition_sdgs(edition.pk), many=True).data
+        )
+
+    def put(self, request, edition_id):
+        edition = get_object_or_404(Edition, pk=edition_id)
+        serializer = EditionSdgsUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        sdgs = set_edition_sdgs(
+            actor=request.user, edition=edition, **serializer.validated_data
+        )
+        return Response(EditionSdgSerializer(sdgs, many=True).data)
 
 
 class EditionListView(generics.ListAPIView):

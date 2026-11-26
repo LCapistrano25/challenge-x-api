@@ -929,7 +929,7 @@ op("get", "/api/admin/editions/{edition_id}/sdgs", "editionsListSdgs", "editions
    "Lista as ODS habilitadas.", params=["EditionId"], ok=arr(ref("Sdg")), errs=["404"])
 op("put", "/api/admin/editions/{edition_id}/sdgs", "editionsSetSdgs", "editions", "Definir ODS habilitadas na edição", ["RF04"], ["ADMIN"],
    "Substitui o conjunto de ODS habilitadas.", params=["EditionId"], body=ref("EditionSdgsUpdate"), ok=arr(ref("Sdg")), errs=["404"],
-   rules=["Somente ODS ativas.", "Uma ODS usada por desafio da edição não pode ser removida."],
+   rules=["Somente ODS ativas podem ser incluídas; as já habilitadas permanecem mesmo se inativadas no catálogo.", "Uma ODS usada por desafio da edição não pode ser removida."],
    conflicts=[("sdg_in_use", "A ODS está vinculada a desafios da edição."), CLOSED])
 op("get", "/api/admin/editions/{edition_id}/challenges", "editionsListChallenges", "editions", "Listar desafios da edição", ["RF05"], ["ADMIN"],
    "Lista os desafios da edição.", params=["EditionId", "CourseFilter", "SdgFilter", "ActiveFilter"], ok=arr(ref("Challenge")), errs=["404"])

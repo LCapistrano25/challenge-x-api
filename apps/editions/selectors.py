@@ -1,5 +1,6 @@
 from django.db.models import QuerySet
 
+from apps.core.models import Sdg
 from apps.editions.models import Edition, EditionReviewer
 
 
@@ -16,3 +17,8 @@ def list_edition_reviewers(edition_id: int) -> QuerySet[EditionReviewer]:
 def list_editions():
     """Todas as edições, na ordem do model (ano e semestre, da mais recente)."""
     return Edition.objects.all()
+
+
+def list_edition_sdgs(edition_id: int) -> QuerySet[Sdg]:
+    """Lista as ODS habilitadas, incluindo as inativadas no catálogo."""
+    return Sdg.objects.filter(edition_links__edition_id=edition_id).order_by("number")
