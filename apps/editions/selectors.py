@@ -1,7 +1,21 @@
 from django.db.models import QuerySet
 
 from apps.core.models import Sdg
-from apps.editions.models import Challenge, Edition, EditionReviewer
+from apps.editions.exceptions import CategoryNotFound
+from apps.editions.models import Category, Challenge, Edition, EditionReviewer
+
+
+def list_edition_categories(edition_id: int) -> QuerySet[Category]:
+    """Lista as categorias cadastradas na edição (RF49)."""
+    return Category.objects.filter(edition_id=edition_id).order_by("id")
+
+
+def get_locked_category(category_id: int) -> Category:
+    """Busca a categoria após a trava da edição, dentro da transação."""
+    try:
+        return Category.objects.select_for_update().get(pk=category_id)
+    except Category.DoesNotExist as error:
+        raise CategoryNotFound() from error
 
 
 def list_edition_reviewers(edition_id: int) -> QuerySet[EditionReviewer]:

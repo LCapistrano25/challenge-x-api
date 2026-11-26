@@ -4,6 +4,11 @@ from apps.editions import views
 
 urlpatterns = [
     path(
+        "categories/<int:category_id>",
+        views.CategoryDetailView.as_view(),
+        name="category-detail",
+    ),
+    path(
         "challenges/<int:challenge_id>",
         views.ChallengeDetailView.as_view(),
         name="challenge-detail",
@@ -18,6 +23,11 @@ urlpatterns = [
         "editions/<int:edition_id>",
         views.EditionDetailView.as_view(),
         name="edition-detail",
+    ),
+    path(
+        "editions/<int:edition_id>/categories",
+        views.EditionCategoriesView.as_view(),
+        name="edition-categories",
     ),
     path(
         "editions/<int:edition_id>/challenges",

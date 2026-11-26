@@ -1,4 +1,7 @@
+from contextlib import contextmanager
 from http import HTTPStatus
+
+from django.db import IntegrityError
 
 from apps.core.exceptions import BusinessRuleViolation, ExternalServiceError
 
@@ -36,6 +39,36 @@ class InvalidTeamLimits(EditionError):
 class EditionClosed(EditionError):
     code = "edition_closed"
     default_message = "A edição está encerrada e não pode ser alterada."
+
+
+class CategoryNameTaken(EditionError):
+    code = "category_name_taken"
+    default_message = "Já existe categoria com este nome na edição."
+
+
+class CategoryInUse(EditionError):
+    code = "category_in_use"
+    default_message = "A categoria é usada por projetos e só pode ser desativada."
+
+
+class CategoryNotFound(EditionError):
+    code = "not_found"
+    default_message = "Categoria não encontrada."
+    http_status = HTTPStatus.NOT_FOUND
+
+
+@contextmanager
+def translate_category_name_conflict():
+    """Traduz somente a violação da unicidade do nome na edição."""
+    try:
+        yield
+    except IntegrityError as error:
+        diagnostics = getattr(error.__cause__, "diag", None)
+        if getattr(diagnostics, "constraint_name", None) == (
+            "unique_category_name_per_edition"
+        ):
+            raise CategoryNameTaken() from error
+        raise
 
 
 class EditionSdgInUse(EditionError):
