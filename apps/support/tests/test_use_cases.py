@@ -169,12 +169,11 @@ def test_answer_ticket_closed_com_resposta_preenche_resolved_at():
     [
         (SupportTicketStatus.IN_PROGRESS, SupportTicketStatus.OPEN),
         (SupportTicketStatus.RESOLVED, SupportTicketStatus.OPEN),
+        (SupportTicketStatus.RESOLVED, SupportTicketStatus.WAITING_USER),
         (SupportTicketStatus.CLOSED, SupportTicketStatus.OPEN),
         (SupportTicketStatus.CLOSED, SupportTicketStatus.IN_PROGRESS),
+        (SupportTicketStatus.CLOSED, SupportTicketStatus.WAITING_USER),
         (SupportTicketStatus.CLOSED, SupportTicketStatus.RESOLVED),
-        (SupportTicketStatus.OPEN, SupportTicketStatus.WAITING_USER),
-        (SupportTicketStatus.IN_PROGRESS, SupportTicketStatus.WAITING_USER),
-        (SupportTicketStatus.RESOLVED, SupportTicketStatus.WAITING_USER),
     ],
 )
 def test_answer_ticket_bloqueia_transicoes_proibidas(initial, target):
@@ -235,3 +234,32 @@ def test_answer_ticket_notifica_quando_muda_so_a_resposta():
         ).count()
         == 1
     )
+
+
+@pytest.mark.parametrize(
+    ("initial", "target", "response"),
+    [
+        (SupportTicketStatus.OPEN, SupportTicketStatus.WAITING_USER, None),
+        (SupportTicketStatus.IN_PROGRESS, SupportTicketStatus.WAITING_USER, None),
+        (SupportTicketStatus.WAITING_USER, SupportTicketStatus.OPEN, None),
+        (SupportTicketStatus.WAITING_USER, SupportTicketStatus.IN_PROGRESS, None),
+        (SupportTicketStatus.WAITING_USER, SupportTicketStatus.RESOLVED, None),
+        (
+            SupportTicketStatus.WAITING_USER,
+            SupportTicketStatus.CLOSED,
+            "Encerrado após aguardar retorno.",
+        ),
+    ],
+)
+def test_answer_ticket_permite_transicoes_com_waiting_user(initial, target, response):
+    admin = UserFactory(role=UserRole.ADMIN)
+    ticket = SupportTicketFactory(status=initial)
+
+    kwargs = {"status": target}
+    if response is not None:
+        kwargs["support_response"] = response
+
+    updated = answer_ticket(actor=admin, ticket=ticket, **kwargs)
+
+    updated.refresh_from_db()
+    assert updated.status == target

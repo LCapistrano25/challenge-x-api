@@ -8,10 +8,18 @@ from apps.support.exceptions import InvalidStatusTransition
 ALLOWED_STATUS_TRANSITIONS: dict[str, set[str]] = {
     SupportTicketStatus.OPEN: {
         SupportTicketStatus.IN_PROGRESS,
+        SupportTicketStatus.WAITING_USER,
         SupportTicketStatus.RESOLVED,
         SupportTicketStatus.CLOSED,
     },
     SupportTicketStatus.IN_PROGRESS: {
+        SupportTicketStatus.WAITING_USER,
+        SupportTicketStatus.RESOLVED,
+        SupportTicketStatus.CLOSED,
+    },
+    SupportTicketStatus.WAITING_USER: {
+        SupportTicketStatus.OPEN,
+        SupportTicketStatus.IN_PROGRESS,
         SupportTicketStatus.RESOLVED,
         SupportTicketStatus.CLOSED,
     },
@@ -20,7 +28,6 @@ ALLOWED_STATUS_TRANSITIONS: dict[str, set[str]] = {
         SupportTicketStatus.CLOSED,
     },
     SupportTicketStatus.CLOSED: set(),
-    SupportTicketStatus.WAITING_USER: set(),
 }
 
 
@@ -32,8 +39,6 @@ def ensure_actor_can_open_ticket(actor: User) -> None:
 
 
 def ensure_valid_status_transition(current_status: str, new_status: str) -> None:
-    if new_status == SupportTicketStatus.WAITING_USER:
-        raise InvalidStatusTransition("O status WAITING_USER não é utilizado.")
     if new_status == current_status:
         return
     allowed = ALLOWED_STATUS_TRANSITIONS.get(current_status, set())
