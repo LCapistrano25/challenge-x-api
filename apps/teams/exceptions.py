@@ -20,3 +20,8 @@ class MemberNotePermissionDenied(MemberNoteError):
     code = "permission_denied"
     default_message = "Você não tem permissão para realizar esta ação."
     http_status = HTTPStatus.FORBIDDEN
+
+
+class TeamNameTaken(BusinessRuleViolation):
+    code = "team_name_taken"
+    default_message = "Já existe equipe com este nome na edição."

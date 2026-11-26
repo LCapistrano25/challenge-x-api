@@ -26,8 +26,8 @@ Este documento consolida as decisões tomadas após a revisão do Regulamento e 
 | **D-09** | (a) Carga do Apêndice A entra, depois das respostas da coordenação. (b) 3 a 5 desafios por curso: **fora**. (c) Só o e-mail real entra; o envio fica a definir. Avisos públicos: **fora**. (d) Aceite do regulamento: **fora**. Substitui as Novas Issues 4, 5 (só o e-mail fica) e 6. | (a) aguarda a coordenação; (c) #234. |
 | **D-10** | Sem papel de coordenador. Coordenadores usam ADMIN ou TEACHER. | — |
 | **Chamados** | Regras do app `support`: abrem STUDENT e TEACHER; atende só ADMIN ativo (P-10); CLOSED é final; RESOLVED só volta a IN_PROGRESS ou vai a CLOSED (P-06); encerrar exige resposta (P-07); `resolved_at` limpo na reabertura (P-12); notifica o solicitante. `WAITING_USER` fica no contrato, mas a orientação é não usar (P-08). Sem histórico de respostas. | Na #224 (aberta). |
-| **Convite** | `InvitationCreate` aceita `student_id` **ou** `email` (`oneOf`). Rota nova `GET /api/teams/{team_id}/invitable-students?search=` (só o líder; `search` ≥ 3 caracteres; devolve id, nome e curso). | Contrato do convite aplicado (#231); rota `invitable-students` a implementar (#232). |
-| **Editar equipe** | `PATCH /api/teams/{team_id}` só com `name`, só pelo líder e só na formação (Art. 15 § 1º). | A implementar (#233). |
+| **Convite** | `InvitationCreate` aceita `student_id` **ou** `email` (`oneOf`). Rota nova `GET /api/teams/{team_id}/invitable-students?search=` (só o líder; `search` ≥ 3 caracteres; devolve id, nome e curso). | Aplicado: contrato do convite (#231) e rota `invitable-students` (#232). |
+| **Editar equipe** | `PATCH /api/teams/{team_id}` só com `name`, só pelo líder e só na formação (Art. 15 § 1º). | Aplicado (#233). |
 | **Ano e limites (#122)** | `year` de 2000 a 2100; limites de equipe de 1 a 20; JSON malformado = `400 parse_error`. | Aplicado (#218). |
 | **Branch de emergência** | Fica sem aplicação, como reserva de código. | — |
 

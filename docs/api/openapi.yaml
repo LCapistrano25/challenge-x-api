@@ -7466,6 +7466,165 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+    patch:
+      tags:
+      - teams
+      operationId: teamsUpdate
+      summary: Editar o nome da equipe
+      description: |-
+        Altera o nome da equipe durante a formação (Art. 15 § 1º: até o prazo, só o líder atualiza a inscrição).
+
+        **Requisitos:** RF21
+
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
+
+        **Perfis permitidos:** STUDENT
+
+        **Autorização adicional:** O usuário deve ser o LEADER ativo da equipe. Erro 403: not_team_leader.
+
+        **Regras de negócio:**
+        - Somente durante o prazo da etapa FORMATION.
+        - Nome único na edição (equipe desfeita libera o nome); de 1 a 150 caracteres, sem espaços nas pontas.
+        - Equipe desclassificada não edita.
+      x-status: confirmed
+      x-requirements:
+      - RF21
+      x-roles:
+      - STUDENT
+      parameters:
+      - $ref: '#/components/parameters/TeamId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TeamUpdate'
+            example:
+              name: Equipe Aurora
+      responses:
+        '200':
+          description: Operação concluída.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Team'
+              example:
+                id: 12
+                edition_id: 3
+                name: Equipe Aurora
+                code: DXA7K2
+                status: ACTIVE
+                situation: COMPLETE
+                disqualification_reason: null
+                disqualified_at: null
+                disqualified_by: null
+                formation_extended_until: null
+                members:
+                - id: 101
+                  student:
+                    user_id: 42
+                    name: Maria Souza
+                    course:
+                      id: 1
+                      name: Engenharia de Software
+                  role: LEADER
+                  joined_at: '2026-10-22T16:00:00Z'
+                created_at: '2026-10-22T16:00:00Z'
+                updated_at: '2026-10-22T16:00:00Z'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Conflito com uma regra de negócio.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                formation_closed:
+                  summary: O prazo de formação de equipes está encerrado.
+                  value:
+                    error:
+                      code: formation_closed
+                      message: O prazo de formação de equipes está encerrado.
+                      details: null
+                team_name_taken:
+                  summary: Já existe equipe com este nome na edição.
+                  value:
+                    error:
+                      code: team_name_taken
+                      message: Já existe equipe com este nome na edição.
+                      details: null
+                team_disqualified:
+                  summary: A equipe está desclassificada.
+                  value:
+                    error:
+                      code: team_disqualified
+                      message: A equipe está desclassificada.
+                      details: null
+  /api/teams/{team_id}/invitable-students:
+    get:
+      tags:
+      - teams
+      operationId: teamsListInvitableStudents
+      summary: Buscar alunos para convidar
+      description: |-
+        Lista os alunos que a equipe pode convidar, para o popup de convite; o convite vai com o id como student_id.
+
+        **Requisitos:** RF22
+
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
+
+        **Perfis permitidos:** STUDENT
+
+        **Autorização adicional:** O usuário deve ser o LEADER ativo da equipe. Erro 403: not_team_leader.
+
+        **Regras de negócio:**
+        - search é obrigatório, com pelo menos 3 caracteres, e busca pelo nome (400 validation_error).
+        - Só alunos ativos, com e-mail confirmado e sem equipe ativa na edição da equipe (as regras do convite); quem já tem convite pendente desta equipe fica de fora.
+        - Sem restrição por curso. Ordenado por nome.
+
+        **Pendências relacionadas (api-pendencias.md):** P-13
+      x-status: confirmed
+      x-requirements:
+      - RF22
+      x-roles:
+      - STUDENT
+      x-pendencias:
+      - P-13
+      parameters:
+      - $ref: '#/components/parameters/TeamId'
+      - $ref: '#/components/parameters/StudentNameSearch'
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Operação concluída.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedInvitableStudent'
+              example:
+                count: 1
+                next: null
+                previous: null
+                results:
+                - id: 42
+                  name: Maria Souza
+                  course:
+                    id: 1
+                    name: Engenharia de Software
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/teams/{team_id}/invitations:
     post:
       tags:
@@ -8806,6 +8965,14 @@ components:
       description: Busca textual.
       schema:
         type: string
+    StudentNameSearch:
+      name: search
+      in: query
+      required: true
+      description: Parte do nome do aluno, com pelo menos 3 caracteres.
+      schema:
+        type: string
+        minLength: 3
     ActiveFilter:
       name: active
       in: query
@@ -11484,6 +11651,19 @@ components:
           - false
       additionalProperties: false
       description: Corpo opcional.
+    TeamUpdate:
+      type: object
+      description: Só o nome é editável; integrantes, liderança e projeto têm rotas próprias.
+      properties:
+        name:
+          type: string
+          maxLength: 150
+          minLength: 1
+          examples:
+          - Equipe Aurora
+      required:
+      - name
+      additionalProperties: false
     TeamCreate:
       type: object
       properties:
@@ -11590,6 +11770,26 @@ components:
       required:
       - reason
       additionalProperties: false
+    InvitableStudent:
+      type: object
+      description: Sem e-mail, matrícula ou período (LGPD).
+      properties:
+        id:
+          type: integer
+          description: Use como student_id no convite.
+          minimum: 1
+          examples:
+          - 42
+        name:
+          type: string
+          examples:
+          - Maria Souza
+        course:
+          $ref: '#/components/schemas/CourseSummary'
+      required:
+      - id
+      - name
+      - course
     InvitationCreate:
       oneOf:
       - type: object
@@ -13792,6 +13992,40 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/AdminTeamListItem'
+      required:
+      - count
+      - next
+      - previous
+      - results
+    PaginatedInvitableStudent:
+      type: object
+      description: Página de resultados de InvitableStudent.
+      properties:
+        count:
+          type: integer
+          description: Total de registros.
+          examples:
+          - 1
+        next:
+          type:
+          - string
+          - 'null'
+          description: URL da próxima página.
+          format: uri
+          examples:
+          - null
+        previous:
+          type:
+          - string
+          - 'null'
+          description: URL da página anterior.
+          format: uri
+          examples:
+          - null
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/InvitableStudent'
       required:
       - count
       - next

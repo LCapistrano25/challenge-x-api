@@ -35,8 +35,8 @@ Data-base: 25/11/2026, `developer` em `1166905` (#221 mesclada).
 | B | ~~**D-06** categoria obrigatória (#229)~~ feito | `category` em `ensure_project_complete`; testes e factories de teams e projects | #219 |
 | C | ~~**D-01** pódio por categoria na edição (#230)~~ feito | Trazer `compute_awards` da branch de emergência com o grupo por `category_id`; homologação depois da avaliação externa e do pódio (pendência 3 da #220); texto da rota `winners`; `list_edition_winners` | A, B |
 | D | ~~Convite `student_id` ou `email` (#231)~~ feito | `InvitationCreate` com `oneOf` no gerador; código não muda | — |
-| E | Rota `invitable-students` (#232) | Rota nova no contrato + selector + view (só líder, `search` ≥ 3, nome e curso) | D |
-| F | `PATCH /api/teams/{id}` só com `name` (#233) | Contrato + use case + view (líder, formação aberta) | — |
+| E | ~~Rota `invitable-students` (#232)~~ feito | Rota nova no contrato + selector + view (só líder, `search` ≥ 3, nome e curso) | D |
+| F | ~~`PATCH /api/teams/{id}` só com `name` (#233)~~ feito | Contrato + use case + view (líder, formação aberta) | — |
 
 ## Decisões que você ainda precisa tomar
 

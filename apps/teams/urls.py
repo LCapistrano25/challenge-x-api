@@ -3,6 +3,7 @@ from django.urls import path
 from apps.teams.views import (
     AdminTeamDisqualifyView,
     AdminTeamListView,
+    InvitableStudentsView,
     InvitationResponseView,
     JoinRequestCreateView,
     JoinRequestResponseView,
@@ -87,6 +88,11 @@ urlpatterns = [
         "leadership-requests/<int:leadership_request_id>/decide",
         LeadershipRequestReviewView.as_view(),
         name="leadership-request-decide",
+    ),
+    path(
+        "teams/<int:team_id>/invitable-students",
+        InvitableStudentsView.as_view(),
+        name="team-invitable-students",
     ),
     path(
         "teams/<int:team_id>/member-notes",
