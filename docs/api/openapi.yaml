@@ -872,8 +872,6 @@ paths:
       operationId: resultsCalculateAwards
       summary: Calcular o pódio
       description: |-
-        **Status: PROPOSTO** — o contrato depende da decisão de P-30 e pode mudar.
-
         Calcula e grava o pódio: 1º a 3º por categoria na edição inteira, entre os finalistas (Art. 26, D-01). Pode repetir até a homologação.
 
         **Requisitos:** RF49
@@ -888,7 +886,7 @@ paths:
         - Grava category_rank de todos os finalistas com posição e award (1 a 3) nos três primeiros de cada categoria.
 
         **Pendências relacionadas (api-pendencias.md):** P-30
-      x-status: proposed
+      x-status: confirmed
       x-requirements:
       - RF49
       x-roles:
@@ -4022,8 +4020,6 @@ paths:
       operationId: supportAdminUpdateTicket
       summary: Atender chamado
       description: |-
-        **Status: PROPOSTO** — o contrato depende da decisão de P-06 e pode mudar.
-
         Atualiza status, prioridade, responsável e resposta do chamado.
 
         **Requisitos:** RFXX
@@ -4039,7 +4035,7 @@ paths:
         - Notifica o solicitante (SYSTEM).
 
         **Pendências relacionadas (api-pendencias.md):** P-06, P-07, P-08, P-10, P-12
-      x-status: proposed
+      x-status: confirmed
       x-requirements:
       - RFXX
       x-roles:
@@ -4817,8 +4813,6 @@ paths:
       operationId: authCreatePasswordSession
       summary: Autenticar administrador ou avaliador externo com e-mail e senha
       description: |-
-        **Status: PROPOSTO** — o contrato depende da decisão de P-01 e pode mudar.
-
         Autentica contas com senha local (ADMIN e EXTERNAL_REVIEWER) e cria a sessão (cookie). Exige o cabeçalho X-CSRFToken, obtido em GET /api/auth/csrf.
 
         **Requisitos:** RF01, RF41
@@ -4834,7 +4828,7 @@ paths:
         - A sessão expira após 30 minutos de inatividade, renovados a cada requisição (P-03).
 
         **Pendências relacionadas (api-pendencias.md):** P-01, P-03, P-05
-      x-status: proposed
+      x-status: confirmed
       x-requirements:
       - RF01
       - RF41
@@ -5168,8 +5162,6 @@ paths:
       operationId: evaluationsListFinalists
       summary: Painel de projetos finalistas
       description: |-
-        **Status: PROPOSTO** — o contrato depende da decisão de P-29 e pode mudar.
-
         Lista os projetos finalistas dentro da abrangência do avaliador, com sua situação de avaliação.
 
         **Requisitos:** RF42
@@ -5185,7 +5177,7 @@ paths:
         - Não exibe notas internas das etapas anteriores.
 
         **Pendências relacionadas (api-pendencias.md):** P-29, P-32
-      x-status: proposed
+      x-status: confirmed
       x-requirements:
       - RF42
       x-roles:
@@ -5359,8 +5351,6 @@ paths:
       operationId: evaluationsSaveFinalEvaluation
       summary: Avaliar projeto finalista
       description: |-
-        **Status: PROPOSTO** — o contrato depende da decisão de P-30 e pode mudar.
-
         Cria ou atualiza a avaliação final do avaliador autenticado (uma por avaliador e projeto).
 
         **Requisitos:** RF43
@@ -5377,7 +5367,7 @@ paths:
         - Notas alimentam apenas a premiação; não alteram a nota acadêmica.
 
         **Pendências relacionadas (api-pendencias.md):** P-30
-      x-status: proposed
+      x-status: confirmed
       x-requirements:
       - RF43
       x-roles:
@@ -5804,8 +5794,6 @@ paths:
       operationId: teamsGetStudentDashboard
       summary: Painel do acadêmico
       description: |-
-        **Status: PROPOSTO** — o contrato depende da decisão de P-23 e pode mudar.
-
         Informações da participação do aluno na edição vigente: equipe, projeto, cronograma, status das entregas, notas e pendências.
 
         **Requisitos:** RF20, RF51
@@ -5822,7 +5810,7 @@ paths:
         - Notas seguem as regras de exibição do RF32.
 
         **Pendências relacionadas (api-pendencias.md):** P-23, P-27, P-41
-      x-status: proposed
+      x-status: confirmed
       x-requirements:
       - RF20
       - RF51
@@ -6471,8 +6459,6 @@ paths:
       operationId: projectsSubmitDeliverableVersion
       summary: Enviar ou atualizar entrega da etapa
       description: |-
-        **Status: PROPOSTO** — o contrato depende da decisão de P-23 e pode mudar.
-
         Registra nova versão imutável da entrega e gera o comprovante. A confirmação prévia é responsabilidade do frontend.
 
         **Requisitos:** RF31
@@ -6495,7 +6481,7 @@ paths:
         - Equipe desclassificada ou incompleta não envia (P-23).
 
         **Pendências relacionadas (api-pendencias.md):** P-23, P-43, P-47
-      x-status: proposed
+      x-status: confirmed
       x-requirements:
       - RF31
       x-roles:
@@ -6788,8 +6774,6 @@ paths:
       operationId: publicListWinners
       summary: Galeria de vencedores da edição
       description: |-
-        **Status: PROPOSTO** — o contrato depende da decisão de P-30 e pode mudar.
-
         Pódio (1º a 3º) por categoria, na edição inteira, de uma edição encerrada e homologada (D-01). Ordenado por categoria e colocação.
 
         **Requisitos:** RF35, RF46
@@ -6802,7 +6786,7 @@ paths:
         - Somente edições CLOSED com resultados homologados.
 
         **Pendências relacionadas (api-pendencias.md):** P-28, P-30
-      x-status: proposed
+      x-status: confirmed
       x-requirements:
       - RF35
       - RF46
@@ -7024,8 +7008,6 @@ paths:
       operationId: supportCreateTicket
       summary: Abrir chamado de correção cadastral
       description: |-
-        **Status: PROPOSTO** — o contrato depende da decisão de P-06 e pode mudar.
-
         Abre chamado vinculado ao usuário autenticado; não altera o cadastro.
 
         **Requisitos:** RFXX
@@ -7039,7 +7021,7 @@ paths:
         - O solicitante sempre é o usuário do token.
 
         **Pendências relacionadas (api-pendencias.md):** P-06, P-09, P-10, P-11
-      x-status: proposed
+      x-status: confirmed
       x-requirements:
       - RFXX
       x-roles:
@@ -8243,8 +8225,6 @@ paths:
       operationId: teamsLeave
       summary: Sair da equipe
       description: |-
-        **Status: PROPOSTO** — o contrato depende da decisão de P-25 e pode mudar.
-
         Encerra o vínculo do próprio aluno (left_at preenchido, active=false), preservando o histórico.
 
         **Requisitos:** RF26
@@ -8263,7 +8243,7 @@ paths:
         - Se a saída ocorre nas últimas 24 horas do prazo de formação e deixa a equipe abaixo do mínimo, a equipe ganha, uma única vez, 48 horas depois do fim do prazo (formation_extended_until) para convidar, receber solicitações e aceitar convites. Durante a janela extra ninguém sai.
 
         **Pendências relacionadas (api-pendencias.md):** P-25
-      x-status: proposed
+      x-status: confirmed
       x-requirements:
       - RF26
       x-roles:
@@ -9340,7 +9320,8 @@ components:
       - WAITING_USER
       - RESOLVED
       - CLOSED
-      description: Situação do chamado (enum support_ticket_status). Mapeamento com os requisitos pendente (P-06).
+      description: 'Situação do chamado (enum support_ticket_status). WAITING_USER existe, mas os admins não usam: o usuário
+        não tem como responder (P-06, P-08).'
     SupportTicketPriority:
       type: string
       enum:

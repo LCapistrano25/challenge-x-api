@@ -100,7 +100,7 @@ def op(method, path, opid, tag, summary, rf, roles, desc, *, authz=None, rules=(
     if authz: lines += ["", "**Autorização adicional:** " + authz]
     if rules: lines += ["", "**Regras de negócio:**"] + ["- " + r for r in rules]
     if pend: lines += ["", "**Pendências relacionadas (api-pendencias.md):** " + ", ".join(pend)]
-    HIGH = {"P-01", "P-04", "P-06", "P-19", "P-21", "P-23", "P-25", "P-29", "P-30", "P-31"}
+    HIGH = {"P-19", "P-21"}  # só as de prioridade alta ainda abertas
     blocking = sorted(set(pend) & HIGH)
     status = "proposed" if blocking else "confirmed"
     if blocking:
@@ -157,7 +157,7 @@ enum("ScoreStatus", ["PENDING", "DEFINITIVE", "ZERO_NO_SUBMISSION"], "Situação
 enum("QuestionType", ["SCORE", "CONCEPT", "TEXT"], "Tipo de pergunta do formulário final (enum QuestionKind).")
 enum("FinalEvaluationStatus", ["PENDING", "EVALUATED"], "Situação da avaliação final (enum FinalEvaluationStatus).")
 enum("CertificateType", ["PARTICIPATION", "FINALIST", "AWARD"], "Tipo de certificado (enum CertificateKind). Incompleto em relação ao RF17 (P-34).")
-enum("SupportTicketStatus", ["OPEN", "IN_PROGRESS", "WAITING_USER", "RESOLVED", "CLOSED"], "Situação do chamado (enum support_ticket_status). Mapeamento com os requisitos pendente (P-06).")
+enum("SupportTicketStatus", ["OPEN", "IN_PROGRESS", "WAITING_USER", "RESOLVED", "CLOSED"], "Situação do chamado (enum support_ticket_status). WAITING_USER existe, mas os admins não usam: o usuário não tem como responder (P-06, P-08).")
 enum("SupportTicketPriority", ["LOW", "MEDIUM", "HIGH", "URGENT"], "Prioridade do chamado (enum support_ticket_priority).")
 enum("NotificationType", ["SYSTEM", "TEAM", "PROJECT", "DELIVERABLE", "EVALUATION", "RESULT", "CERTIFICATE"], "Tipo da notificação (enum notification_type).")
 # derivados (não persistidos)
