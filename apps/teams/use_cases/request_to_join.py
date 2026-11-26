@@ -23,7 +23,7 @@ class JoinRequestRejected(BusinessRuleViolation):
 class JoinRequestNotFound(JoinRequestRejected):
     """Equipe não encontrada."""
 
-    code = "team_not_found"
+    code = "not_found"
     http_status = HTTPStatus.NOT_FOUND
 
 
