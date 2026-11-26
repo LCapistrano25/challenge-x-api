@@ -50,6 +50,7 @@ from apps.teams.serializers import (
 from apps.teams.use_cases.add_member_note import add_member_note
 from apps.teams.use_cases.create_team import create_team
 from apps.teams.use_cases.disqualify_team import disqualify_team
+from apps.teams.use_cases.get_student_dashboard import get_student_dashboard
 from apps.teams.use_cases.invite_member import invite_member
 from apps.teams.use_cases.leave_team import (
     LeaveTeamRejected,
@@ -80,6 +81,18 @@ from apps.teams.use_cases.transfer_leadership import (
     transfer_leadership,
 )
 from config.pagination import DefaultPagination
+
+
+class StudentDashboardView(APIView):
+    permission_classes = [IsAuthenticated, IsStudent]
+
+    def get(self, request):
+        dashboard = get_student_dashboard(actor=request.user)
+
+        return Response(
+            dashboard,
+            status=status.HTTP_200_OK,
+        )
 
 
 class TeamCreateView(APIView):

@@ -11,6 +11,7 @@ from apps.accounts.factories import (
     TeacherFactory,
     UserFactory,
 )
+from apps.core.tests.contract import mismatches, schema
 from apps.editions.enums import EditionStatus
 from apps.editions.factories import (
     ChallengeFactory,
@@ -35,6 +36,7 @@ from apps.teams.models import Invitation, Team, TeamMember
 pytestmark = pytest.mark.django_db
 
 TEAMS_URL = "/api/teams"
+DASHBOARD_URL = "/api/me/dashboard"
 
 
 def authenticated_client(user):
@@ -981,3 +983,32 @@ def test_saida_abaixo_do_minimo_pede_confirmacao_pela_api():
     assert sem_confirmar.data["error"]["code"] == "leave_below_minimum"
     assert "1 de 3 integrantes" in sem_confirmar.data["error"]["message"]
     assert confirmando.status_code == 204
+
+
+def test_dashboard_sem_autenticacao_retorna_401():
+    response = APIClient().get(DASHBOARD_URL)
+
+    assert response.status_code == 401
+
+
+@pytest.mark.parametrize(
+    "user_factory",
+    [TeacherFactory, lambda: UserFactory(role=UserRole.ADMIN)],
+)
+def test_dashboard_para_usuario_sem_perfil_academico_retorna_403(user_factory):
+    user = user_factory()
+    response = authenticated_client(user.user if hasattr(user, "user") else user).get(
+        DASHBOARD_URL
+    )
+
+    assert response.status_code == 403
+
+
+def test_academico_consulta_dashboard_pela_api():
+    student = StudentFactory()
+    EditionFactory(status=EditionStatus.PUBLISHED)
+
+    response = authenticated_client(student.user).get(DASHBOARD_URL)
+
+    assert response.status_code == 200
+    assert mismatches(response.data, schema("StudentDashboard")) == []

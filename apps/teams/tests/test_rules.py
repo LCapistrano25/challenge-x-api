@@ -3,7 +3,7 @@ import pytest
 from apps.editions.factories import CategoryFactory
 from apps.projects.factories import ProjectFactory
 from apps.teams.factories import TeamFactory, TeamMemberFactory
-from apps.teams.rules import compute_unmet_requirements
+from apps.teams.rules import compute_unmet_requirements, unmet_requirement_codes
 
 pytestmark = pytest.mark.django_db
 
@@ -63,3 +63,14 @@ def test_integrante_que_saiu_nao_conta():
     saiu.left_at = saiu.created_at
     saiu.save()
     assert compute_unmet_requirements(projeto.team) == ["2 integrantes; o mínimo é 3."]
+
+
+def test_codigos_dos_requisitos_seguem_o_contrato():
+    # Só o líder e sem projeto: título, resumo e categoria viram um código só.
+    team = TeamFactory()
+
+    assert unmet_requirement_codes(team) == [
+        "MIN_MEMBERS",
+        "CHALLENGE_NOT_SELECTED",
+        "PROJECT_DATA_MISSING",
+    ]

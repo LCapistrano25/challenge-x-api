@@ -11,6 +11,7 @@ from apps.teams.views import (
     LeadershipTransferView,
     MyInvitationsView,
     MyJoinRequestsView,
+    StudentDashboardView,
     TeacherLeadershipRequestsView,
     TeamCreateView,
     TeamDetailView,
@@ -91,5 +92,10 @@ urlpatterns = [
         "teams/<int:team_id>/member-notes",
         TeamMemberNotesView.as_view(),
         name="team-member-notes",
+    ),
+    path(
+        "me/dashboard",
+        StudentDashboardView.as_view(),
+        name="student-dashboard",
     ),
 ]

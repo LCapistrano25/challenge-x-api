@@ -21,7 +21,7 @@ Este documento consolida as decisões tomadas após a revisão do Regulamento e 
 | **D-03** | 1 ODS principal por desafio; a 2ª ODS vai na `description`. Sem mudança de banco. | Vale para a carga do Apêndice A. |
 | **D-04** | **Fora do escopo:** o sistema não calcula pontos do aluno na disciplina (o período não é atualizado). O professor converte a nota final. Psicologia avalia por conceitos, fora do sistema. Substitui a D-04 da seção 1. | Aplicado (#221 removeu `StudentScore`). Fechar a #111. |
 | **D-05** | Desclassificar a equipe também põe o projeto em `DISQUALIFIED`, na mesma transação. Art. 18 e Art. 11 IV fora do MVP: o admin resolve. | Na #219 (aberta). |
-| **D-06** | Categoria do projeto **obrigatória** no congelamento (`compute_unmet_requirements`) e no envio de entrega (`ensure_project_complete`). | Aplicado: congelamento na #219 e envio de entrega na #229. Falta o painel do aluno (#227). |
+| **D-06** | Categoria do projeto **obrigatória** no congelamento (`compute_unmet_requirements`) e no envio de entrega (`ensure_project_complete`). | Aplicado: congelamento na #219, envio de entrega na #229 e painel do aluno na #227. |
 | **D-07** | Certificados **adiados**. A universidade talvez emita; o sistema pode só listar os elegíveis. | Aguardando a coordenação. |
 | **D-09** | (a) Carga do Apêndice A entra, depois das respostas da coordenação. (b) 3 a 5 desafios por curso: **fora**. (c) Só o e-mail real entra; o envio fica a definir. Avisos públicos: **fora**. (d) Aceite do regulamento: **fora**. Substitui as Novas Issues 4, 5 (só o e-mail fica) e 6. | (a) aguarda a coordenação; (c) #234. |
 | **D-10** | Sem papel de coordenador. Coordenadores usam ADMIN ou TEACHER. | — |
