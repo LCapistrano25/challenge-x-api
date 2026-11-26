@@ -2313,7 +2313,7 @@ paths:
         **Perfis permitidos:** ADMIN
 
         **Regras de negócio:**
-        - Somente ODS ativas.
+        - Somente ODS ativas podem ser incluídas; as já habilitadas permanecem mesmo se inativadas no catálogo.
         - Uma ODS usada por desafio da edição não pode ser removida.
       x-status: confirmed
       x-requirements:
