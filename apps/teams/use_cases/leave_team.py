@@ -1,8 +1,11 @@
+from http import HTTPStatus
+
 from django.db import transaction
 from django.utils import timezone
 
 from apps.accounts.enums import UserRole
 from apps.accounts.models import Student, User
+from apps.core.exceptions import BusinessRuleViolation
 from apps.notifications.models import NotificationType
 from apps.notifications.services import create_notification
 from apps.teams.enums import InvitationStatus, MemberRole, RequestStatus, TeamStatus
@@ -14,14 +17,36 @@ from apps.teams.rules import (
 )
 
 
-class LeaveTeamRejected(Exception):
+class LeaveTeamRejected(BusinessRuleViolation):
     """A saída da equipe foi rejeitada por uma regra de negócio."""
+
+
+class LeaveTeamNotFound(LeaveTeamRejected):
+    """Equipe, perfil ou vínculo ativo não encontrado."""
+
+    code = "not_found"
+    http_status = HTTPStatus.NOT_FOUND
+
+
+class FormationClosed(LeaveTeamRejected):
+    """O prazo de formação da equipe está fechado."""
+
+    code = "formation_closed"
+    http_status = HTTPStatus.CONFLICT
 
 
 class LeaveBelowMinimum(LeaveTeamRejected):
     """A saída deixa a equipe abaixo do mínimo e ainda não foi confirmada."""
 
     code = "leave_below_minimum"
+    http_status = HTTPStatus.CONFLICT
+
+
+class LeaderMustTransfer(LeaveTeamRejected):
+    """O líder precisa transferir a liderança antes de sair."""
+
+    code = "leader_must_transfer"
+    http_status = HTTPStatus.CONFLICT
 
 
 @transaction.atomic
@@ -47,12 +72,12 @@ def leave_team(
     student = Student.objects.filter(user=actor).first()
 
     if student is None:
-        raise LeaveTeamRejected("O perfil de aluno não foi encontrado.")
+        raise LeaveTeamNotFound("O perfil de aluno não foi encontrado.")
 
     team = Team.objects.select_for_update().filter(pk=team_id).first()
 
     if team is None:
-        raise LeaveTeamRejected("Equipe não encontrada.")
+        raise LeaveTeamNotFound("Equipe não encontrada.")
 
     membership = (
         TeamMember.objects.select_for_update()
@@ -65,14 +90,14 @@ def leave_team(
     )
 
     if membership is None:
-        raise LeaveTeamRejected("O aluno não possui vínculo ativo com esta equipe.")
+        raise LeaveTeamNotFound("O aluno não possui vínculo ativo com esta equipe.")
 
     now = timezone.now()
 
     formation_stage = get_open_formation_stage(team.edition, now)
 
     if formation_stage is None:
-        raise LeaveTeamRejected("Não existe prazo de formação aberto para esta equipe.")
+        raise FormationClosed("Não existe prazo de formação aberto para esta equipe.")
 
     if membership.role == MemberRole.LEADER:
         has_other_members = (
@@ -81,7 +106,7 @@ def leave_team(
             .exists()
         )
         if has_other_members:
-            raise LeaveTeamRejected("Transfira a liderança antes de sair da equipe.")
+            raise LeaderMustTransfer("Transfira a liderança antes de sair da equipe.")
         _disband_team(team, now)
 
     remaining = (
