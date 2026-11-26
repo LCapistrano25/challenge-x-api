@@ -168,7 +168,7 @@ def test_aluno_integrante_consulta_o_projeto(team, member, challenge):
 
 
 def test_projeto_sem_desafio_mostra_desafio_nulo(team, member):
-    ProjectFactory(team=team, challenge=None, title="")
+    ProjectFactory(team=team, challenge=None, category=None, title="")
 
     response = client_for(member).get(url(team))
 
@@ -452,10 +452,11 @@ def test_escolher_categoria_exige_login(team, project, category):
 
 def test_admin_nao_escolhe_categoria(team, project, category):
     admin = UserFactory(role=UserRole.ADMIN)
+    before = project.category_id
     response = put_category(admin, team, {"category_id": category.pk})
     assert response.status_code == 403
     project.refresh_from_db()
-    assert project.category is None
+    assert project.category_id == before
 
 
 def test_categoria_recusa_quem_nao_e_lider(team, member, project, category):
@@ -671,6 +672,16 @@ def test_envio_com_projeto_incompleto_da_400(dproject, dleader, dstage, dfield):
     response = post_version(dleader, dproject, dstage, payload(dfield))
     assert response.status_code == 400
     assert error_code(response) == "validation_error"
+
+
+def test_envio_sem_categoria_da_400(dproject, dleader, dstage, dfield):
+    # Categoria obrigatória para a premiação (D-06).
+    dproject.category = None
+    dproject.save()
+    response = post_version(dleader, dproject, dstage, payload(dfield))
+    assert response.status_code == 400
+    assert error_code(response) == "validation_error"
+    assert "category" in response.data["error"]["details"]
 
 
 def test_envio_com_prazo_encerrado_da_409(dproject, dleader):

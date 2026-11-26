@@ -6,7 +6,7 @@ from factory.django import DjangoModelFactory
 from apps.accounts.enums import UserRole
 from apps.accounts.factories import UserFactory
 from apps.editions.enums import FieldKind
-from apps.editions.factories import ChallengeFactory, StageFactory
+from apps.editions.factories import CategoryFactory, ChallengeFactory, StageFactory
 from apps.projects.models import (
     DeadlineExtension,
     Project,
@@ -28,6 +28,10 @@ class ProjectFactory(DjangoModelFactory):
     edition = factory.SelfAttribute("team.edition")
     challenge = factory.SubFactory(
         ChallengeFactory, edition=factory.SelfAttribute("..team.edition")
+    )
+    # Categoria obrigatória para enviar entrega (D-06).
+    category = factory.SubFactory(
+        CategoryFactory, edition=factory.SelfAttribute("..team.edition")
     )
     title = factory.Sequence(lambda n: f"Projeto {n}")
     summary = "Resumo da proposta."

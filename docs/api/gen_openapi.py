@@ -1177,7 +1177,7 @@ op("post", "/api/projects/{project_id}/stages/{stage_id}/versions", "projectsSub
           "Arquivo: extensão permitida pelos formatos do campo (400 file_format_not_allowed), até o tamanho máximo do campo e do servidor (400 file_too_large), não vazio e com conteúdo que combine com a extensão. Executáveis e scripts nunca entram.",
           "JSON aceita links, canvas e SWOT. Arquivos exigem multipart/form-data: `items` em string JSON, com `file_index` apontando para `files[]`; arquivo sobrando ou índice inexistente é 400.",
           "Os arquivos ficam em armazenamento privado, sem URL pública; o download é por GET /api/deliverable-items/{item_id}/file.",
-          "O projeto precisa ter desafio, título e resumo (400 validation_error).",
+          "O projeto precisa ter desafio, categoria, título e resumo (400 validation_error; D-06).",
           "Cada envio cria number sequencial; versões anteriores são preservadas.", "Equipe desclassificada ou incompleta não envia (P-23)."],
    conflicts=[("stage_deadline_closed", "O prazo da etapa está encerrado."), ("team_disqualified", "A equipe está desclassificada."),
               ("team_incomplete", "Equipes incompletas não podem realizar entregas."), ("stage_not_open", "A etapa ainda não está aberta."), CLOSED], pend=["P-23", "P-43", "P-47"])
