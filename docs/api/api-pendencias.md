@@ -31,7 +31,7 @@
 | P-13 | Notificação de convite por e-mail sem usuário | Média | `teams`, notificações |
 | P-14 | Formato do `link` da notificação — **resolvida** | Baixa | notificações |
 | P-15 | Ação de exclusão das FKs novas — **resolvida** | Baixa | `support`, notificações |
-| P-16 | Transição para `IN_PROGRESS` da edição | Média | `editions` |
+| P-16 | Transição para `IN_PROGRESS` da edição — **resolvida** | Média | `editions` |
 | P-17 | "Código/sigla" do curso × `slug` | Baixa | `core` |
 | P-18 | Conteúdo da pré-carga da edição | Média | `editions` (seed) |
 | P-19 | Prazo de avaliação dos professores | Alta | `editions`, `evaluations` |
@@ -41,7 +41,7 @@
 | P-23 | Equipe incompleta (RF51) × `team_qualification` — **resolvida** | Alta | `teams`, `projects` |
 | P-24 | RF28 × RF40 sobre o ex-líder | Baixa | `teams` |
 | P-25 | `project` com campos NOT NULL × fluxo RF29/RF30 — **resolvida** | Alta | `projects` |
-| P-26 | Transições de `project_status` | Média | `projects` |
+| P-26 | Transições de `project_status` — **resolvida** | Média | `projects` |
 | P-27 | Status de entrega e nota zero automática — **resolvida** | Média | `projects`, `evaluations` |
 | P-28 | Visibilidade pública do acervo | Baixa | `results` |
 | P-29 | Seleção de finalistas sem requisito — **resolvida** | Alta | `results`, `evaluations` |
@@ -173,6 +173,7 @@
 ### P-16 — Transição para `IN_PROGRESS` · Média
 - `edition_status` tem `SETUP → PUBLISHED → IN_PROGRESS → CLOSED`, mas os requisitos só descrevem a publicação (RF09) e o encerramento (RF47).
 - **Decidir:** se `IN_PROGRESS` é definido manualmente pelo Admin, automaticamente pela data da primeira etapa, ou se é dispensável.
+- **Resolvida (26/11/2026, #72):** `IN_PROGRESS` é dispensável e saiu do modelo e do contrato. A edição passa por `SETUP → PUBLISHED → CLOSED`: publica com o edital (RF09) e encerra pelo admin (RF47, #130).
 
 ### P-17 — "Código/sigla" do curso × `slug` · Baixa
 - O RF03 pede "código/sigla" e unicidade por nome **ou** sigla. O DBML tem `slug` (único).
@@ -181,6 +182,7 @@
 ### P-18 — Conteúdo da pré-carga da edição · Média
 - O RF47/RF06/RF49 manda pré-carregar os 7 critérios do Quadro 1 do regulamento, as categorias padrão (Art. 2) e os limites 3–5.
 - O texto dos 7 critérios e de suas faixas não está no material disponível.
+- **Atualização (26/11/2026, #72):** segue na #130, esperando a coordenação (D-09a). Cada critério vale 10; o Critério 1 entra com `tiebreak_order = 1` e o Critério 4 com `tiebreak_order = 2`.
 
 ### P-19 — Prazo de avaliação dos professores · Alta
 - O RF38 diz que a avaliação deve respeitar o "prazo limite de avaliação definido no cronograma da etapa".
@@ -234,6 +236,7 @@
 
 ### P-26 — Transições de `project_status` · Média
 - `project_status` tem `IN_PROGRESS`, `SUBMITTED`, `UNDER_EVALUATION`, `APPROVED` e `REJECTED`, mas nenhum requisito define quando o projeto é aprovado ou reprovado, nem quem faz cada transição.
+- **Resolvida (26/11/2026, #72):** os status são `IN_PROGRESS`, `COMPLETED` e `DISQUALIFIED`. O projeto nasce `IN_PROGRESS`; vira `DISQUALIFIED` junto com a equipe (D-05, `disqualify_team`); ao encerrar a edição (`close_edition`, #130), os que não foram desclassificados viram `COMPLETED`, na mesma transação. Não há aprovação nem reprovação de projeto.
 
 ### P-27 — Status de entrega e nota zero automática · Média
 - O RF31 define os status "Não enviada", "Enviada" e "Não entregue", que não estão persistidos.
