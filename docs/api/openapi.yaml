@@ -6770,6 +6770,17 @@ paths:
                 format: binary
         '404':
           $ref: '#/components/responses/NotFound'
+        '503':
+          description: Armazenamento do edital indisponível.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  code: storage_unavailable
+                  message: Armazenamento indisponível.
+                  details: null
   /api/public/editions/{edition_id}/winners:
     get:
       tags:

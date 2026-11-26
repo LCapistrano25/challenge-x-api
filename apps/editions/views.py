@@ -5,6 +5,7 @@ from django.shortcuts import get_object_or_404
 from rest_framework import generics, status
 from rest_framework.parsers import JSONParser, MultiPartParser
 from rest_framework.permissions import AllowAny
+from rest_framework.renderers import JSONRenderer
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -161,6 +162,12 @@ class EditionPublishView(APIView):
 
 class EditionRegulationView(APIView):
     permission_classes = [AllowAny]
+    renderer_classes = [JSONRenderer]
+
+    def perform_content_negotiation(self, request, force=False):
+        # FileResponse entrega o PDF; o renderer formata só os erros em JSON.
+        renderer = self.get_renderers()[0]
+        return renderer, renderer.media_type
 
     def get(self, request, edition_id, token):
         edition = get_object_or_404(

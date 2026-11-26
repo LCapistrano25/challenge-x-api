@@ -5,6 +5,7 @@ from threading import Barrier, Event
 from uuid import UUID
 
 import pytest
+import yaml
 from django.apps import apps
 from django.core import serializers as django_serializers
 from django.core.files.storage import storages
@@ -24,7 +25,7 @@ from apps.accounts.enums import UserRole
 from apps.accounts.exceptions import NotAdminActor
 from apps.accounts.factories import UserFactory
 from apps.core.models import Course, Sdg
-from apps.core.tests.contract import mismatches, schema
+from apps.core.tests.contract import CONTRACT, mismatches, schema
 from apps.editions.enums import EditionStatus
 from apps.editions.exceptions import EditionNotInSetup
 from apps.editions.factories import (
@@ -114,10 +115,37 @@ def test_publica_e_disponibiliza_pdf_para_consulta(admin_client, edition):
     assert edition.published_at is not None
     assert response.json()["regulation_url"] == edition.regulation_url
 
-    download = APIClient().get(edition.regulation_url)
+    download = APIClient().get(edition.regulation_url, HTTP_ACCEPT="application/pdf")
     assert download.status_code == 200
     assert download["Content-Type"] == "application/pdf"
     assert b"".join(download.streaming_content) == PDF
+
+
+def test_download_com_storage_indisponivel(admin_client, edition, monkeypatch):
+    published = publish(admin_client, edition.pk)
+    assert published.status_code == 200
+
+    def fail(*args, **kwargs):
+        raise OSError("Falha simulada na leitura")
+
+    monkeypatch.setattr(storages["regulations"], "open", fail)
+    response = APIClient().get(
+        published.json()["regulation_url"], HTTP_ACCEPT="application/pdf"
+    )
+
+    assert response.status_code == 503
+    assert response["Content-Type"] == "application/json"
+    body = response.json()
+    assert body["error"]["code"] == "storage_unavailable"
+    assert body["error"]["details"] is None
+    assert mismatches(body, schema("Error")) == []
+
+    path = "/api/public/editions/{edition_id}/regulation/{token}"
+    spec = yaml.safe_load(CONTRACT.read_text(encoding="utf-8"))
+    declared = spec["paths"][path]["get"]["responses"]["503"]
+    assert declared["content"]["application/json"]["example"]["error"]["code"] == (
+        "storage_unavailable"
+    )
 
 
 def test_incompleta_informa_pendencias_sem_gravar_pdf(admin_client, regulation_storage):

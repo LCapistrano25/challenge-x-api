@@ -1030,7 +1030,10 @@ op("get", "/api/public/editions/{edition_id}/regulation/{token}", "publicDownloa
    "Devolve o PDF do edital publicado. É o endereço do regulation_url da edição.", public=True, params=["EditionId", "RegulationToken"],
    ok=None, ok_desc="PDF do edital.", errs=["404"],
    more={"200": {"description": "PDF do edital, como anexo (`Content-Disposition: attachment; filename=edital.pdf`, `X-Content-Type-Options: nosniff`).",
-                 "content": {"application/pdf": {"schema": {"type": "string", "format": "binary"}}}}},
+                 "content": {"application/pdf": {"schema": {"type": "string", "format": "binary"}}}},
+         "503": {"description": "Armazenamento do edital indisponível.",
+                 "content": {"application/json": {"schema": ref("Error"),
+                 "example": {"error": {"code": "storage_unavailable", "message": "Armazenamento indisponível.", "details": None}}}}}},
    rules=["Somente edições PUBLISHED ou CLOSED; o caminho precisa ser o do regulation_url da edição (404 nos demais casos).",
           "O arquivo fica em armazenamento próprio; a URL não expõe o caminho do disco (P-43)."], pend=["P-43"])
 op("get", "/api/public/editions/{edition_id}/winners", "publicListWinners", "public", "Galeria de vencedores da edição", ["RF35", "RF46"], [],
