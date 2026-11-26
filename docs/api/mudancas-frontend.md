@@ -297,6 +297,27 @@ SWOT (`type: "SWOT"`): uma lista de textos por quadrante, **ao menos um texto em
 
 ---
 
+## 11. Entregas e comprovante: nomes de campo (#187)
+
+As respostas passam a usar os nomes do contrato. Os antigos deixam de existir, sem período de transição.
+
+| Rota | Onde | Antes | Agora |
+|---|---|---|---|
+| `GET /api/projects/{project_id}/deliverables` | `stage` | `position` | `order` |
+| idem | `stage` | `type` | `kind` |
+| idem | `stage` | `points_value` | `max_score` (texto, ex.: `"3.00"`, ou `null`) |
+| idem | `stage` | (não vinha) | `evaluation_ends_at` (data e hora ou `null`) |
+| idem | `fields[]` | `type` | `kind` |
+| idem | `versions[]` | `version_number` | `number` |
+| `POST /api/projects/{project_id}/stages/{stage_id}/versions` | resposta 201 | `version_number` | `number` |
+| `GET /api/deliverable-versions/{version_id}/receipt` | `stage` | `position` | `order` |
+
+`items[].type` **não** mudou, e o corpo do envio também não.
+
+**Fazer:** trocar os nomes nas telas de entrega e de comprovante.
+
+---
+
 ## Checklist rápido
 
 - [ ] Remover `PUT .../project`; criar os 3 passos (desafio, dados, categoria)
@@ -313,6 +334,7 @@ SWOT (`type: "SWOT"`): uma lista de textos por quadrante, **ao menos um texto em
 - [ ] Tela de admin de domínios de e-mail
 - [ ] `institution` com máximo de 150 caracteres
 - [ ] Entrega: tipos `CANVAS` e `SWOT`, item com `content`, limites de 5000 caracteres e 20 itens, texto puro
+- [ ] Trocar os nomes de campo das entregas e do comprovante (item 11)
 
 ## Pontos em aberto (confirmar com o backend)
 

@@ -7,6 +7,8 @@ from apps.accounts.models import User
 from apps.accounts.rules import ensure_actor_is_admin
 from apps.editions.models import Edition
 from apps.editions.rules import ensure_edition_not_closed
+from apps.notifications.models import NotificationType
+from apps.notifications.services import create_notification
 from apps.results.models import ProjectResult
 from apps.results.rules import (
     ensure_has_finalists,
@@ -43,3 +45,36 @@ def approve_finalists(*, actor: User, edition: Edition) -> None:
     ProjectResult.objects.filter(
         project__edition=edition, final_score__isnull=False
     ).update(approved_at=now, updated_at=now)
+    _notify_results_approved(edition=edition)
+
+
+def _notify_results_approved(*, edition: Edition) -> None:
+    results = ProjectResult.objects.filter(
+        project__edition=edition,
+        final_score__isnull=False,
+    ).select_related("project__team")
+    for result in results:
+        project = result.project
+        if result.finalist:
+            title = "Projeto classificado para a final!"
+            message = (
+                f"O projeto {project.title} foi homologado como finalista da edição."
+            )
+        else:
+            title = "Resultado da edição publicado"
+            message = (
+                f"O resultado do projeto {project.title} foi homologado "
+                f"({result.course_rank}º lugar no curso)."
+            )
+
+        members = project.team.members.filter(active=True).select_related(
+            "student__user"
+        )
+        for member in members:
+            create_notification(
+                user=member.student.user,
+                notification_type=NotificationType.RESULT,
+                title=title,
+                message=message,
+                link=f"/projects/{project.id}/scores",
+            )

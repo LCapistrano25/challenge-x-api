@@ -1,10 +1,11 @@
 from rest_framework import serializers
 
-from apps.teams.enums import InvitationStatus, RequestStatus
+from apps.teams.enums import InvitationStatus, RequestStatus, TeamStatus
 from apps.teams.models import (
     Invitation,
     JoinRequest,
     LeadershipRequest,
+    MemberNote,
     Team,
     TeamMember,
 )
@@ -31,6 +32,71 @@ class TeamMemberSerializer(serializers.ModelSerializer):
                 "name": obj.student.course.name,
             },
         }
+
+
+class MemberNoteCreateSerializer(serializers.Serializer):
+    member_id = serializers.IntegerField(min_value=1)
+    text = serializers.CharField(
+        min_length=1,
+        allow_blank=False,
+        trim_whitespace=True,
+    )
+
+
+class MemberNoteSerializer(serializers.ModelSerializer):
+    member = serializers.SerializerMethodField()
+    author = serializers.SerializerMethodField()
+
+    class Meta:
+        model = MemberNote
+        fields = ["id", "member", "author", "text", "created_at"]
+
+    def get_member(self, obj):
+        return {
+            "user_id": obj.member.student.user_id,
+            "name": obj.member.student.user.name,
+        }
+
+    def get_author(self, obj):
+        return {
+            "user_id": obj.author.user_id,
+            "name": obj.author.user.name,
+        }
+
+
+class AdminTeamDetailSerializer(serializers.ModelSerializer):
+    edition_id = serializers.IntegerField(read_only=True)
+    disqualified_by = serializers.IntegerField(
+        source="disqualified_by_id",
+        read_only=True,
+        allow_null=True,
+    )
+    members = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Team
+        fields = [
+            "id",
+            "edition_id",
+            "name",
+            "code",
+            "status",
+            "situation",
+            "disqualification_reason",
+            "disqualified_at",
+            "disqualified_by",
+            "formation_extended_until",
+            "members",
+            "created_at",
+            "updated_at",
+        ]
+
+    def get_members(self, obj):
+        members = obj.members.filter(active=True).select_related(
+            "student__user",
+            "student__course",
+        )
+        return TeamMemberSerializer(members, many=True).data
 
 
 class TeamSerializer(serializers.ModelSerializer):
@@ -248,3 +314,52 @@ class LeadershipRequestSerializer(serializers.ModelSerializer):
             "user_id": obj.teacher.user_id,
             "name": obj.teacher.user.name,
         }
+
+
+class DisqualifyTeamSerializer(serializers.Serializer):
+    reason = serializers.CharField(
+        min_length=1,
+        allow_blank=False,
+        trim_whitespace=True,
+    )
+
+
+class AdminTeamListQuerySerializer(serializers.Serializer):
+    edition_id = serializers.IntegerField(required=False, min_value=1)
+    status = serializers.ChoiceField(
+        choices=TeamStatus.choices,
+        required=False,
+    )
+    search = serializers.CharField(required=False, allow_blank=True)
+
+
+class ProjectRefSerializer(serializers.Serializer):
+    id = serializers.IntegerField(read_only=True)
+    title = serializers.CharField(read_only=True)
+
+
+class AdminTeamListItemSerializer(serializers.ModelSerializer):
+    edition_id = serializers.IntegerField(read_only=True)
+    member_count = serializers.IntegerField(read_only=True)
+    project = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Team
+        fields = [
+            "id",
+            "edition_id",
+            "name",
+            "code",
+            "status",
+            "situation",
+            "member_count",
+            "project",
+        ]
+
+    def get_project(self, obj):
+        project = getattr(obj, "project", None)
+
+        if project is None:
+            return None
+
+        return ProjectRefSerializer(project).data

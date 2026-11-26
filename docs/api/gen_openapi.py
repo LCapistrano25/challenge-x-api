@@ -496,12 +496,18 @@ SC["LeadershipRequest"] = obj({
 SC["LeadershipDecision"] = obj({"status": STR(ex="APPROVED", enum=["APPROVED", "REJECTED"]),
                                 "decision_justification": TXT(ex="Integrante ativo e com participação regular.", minLength=1)},
                                ["status", "decision_justification"], strict=True)
-SC["MemberNoteCreate"] = obj({"member_id": INT("Vínculo (team_member) observado.", 103), "text": TXT(ex="Não participou das duas últimas reuniões.", minLength=1)},
-                             ["member_id", "text"], strict=True)
+SC["MemberNoteCreate"] = obj({
+    "member_id": INT("Vínculo (team_member) observado.", 103),
+    "text": TXT(ex="Não participou das duas últimas reuniões.", minLength=1),
+}, ["member_id", "text"], strict=True)
 SC["MemberNoteCreated"] = obj({"id": INT(ex=17), "created_at": DT()}, ["id", "created_at"], desc="Não retorna o conteúdo: o líder não pode visualizá-lo (RF33).")
-SC["MemberNote"] = obj({"id": INT(ex=17), "member": ref("UserSummary"), "author": ref("UserSummary"),
-                        "text": TXT(ex="Não participou das duas últimas reuniões."), "created_at": DT()},
-                       ["id", "member", "author", "text", "created_at"])
+SC["MemberNote"] = obj({
+    "id": INT(ex=17),
+    "member": ref("UserSummary"),
+    "author": ref("UserSummary"),
+    "text": TXT(ex="Não participou das duas últimas reuniões."),
+    "created_at": DT(),
+}, ["id", "member", "author", "text", "created_at"])
 
 # ---------------------------------------------------------------- projects
 SC["Project"] = obj({
@@ -1109,10 +1115,11 @@ op("post", "/api/leadership-requests/{leadership_request_id}/decide", "teamsDeci
    pend=["P-24"])
 op("post", "/api/teams/{team_id}/member-notes", "teamsCreateMemberNote", "teams", "Registrar observação sobre integrante", ["RF33"], ["STUDENT"],
    "Registra observação confidencial sobre um integrante.", params=["TeamId"], body=ref("MemberNoteCreate"), ok=ref("MemberNoteCreated"),
-   ok_code="201", ok_desc="Observação registrada.", errs=["404"], authz=LEADER,
+   ok_code="201", ok_desc="Observação registrada.", errs=["400", "403", "404"],
+   authz=LEADER + " Erro 403: not_team_leader.",
    rules=["O integrante deve pertencer à equipe.", "O conteúdo não é retornado nem consultável pelo líder ou pelos alunos."])
 op("get", "/api/teams/{team_id}/member-notes", "teamsListMemberNotes", "teams", "Consultar observações sobre integrantes", ["RF39"], ["TEACHER", "ADMIN"],
-   "Lista as observações registradas pelo líder.", params=["TeamId"], ok=arr(ref("MemberNote")), errs=["404"],
+   "Lista as observações confidenciais registradas pelos líderes da equipe.", params=["TeamId"], ok=arr(ref("MemberNote")), errs=["404"],
    authz="TEACHER com vínculo ativo no curso do desafio do projeto; ADMIN.")
 op("get", "/api/admin/teams", "teamsAdminList", "teams", "Listar equipes (administração)", ["RF13"], ["ADMIN"], "Lista equipes com situação.",
    params=["EditionFilter", "TeamStatusFilter", "Search"] + PAGE, ok=PAdminTeam)
