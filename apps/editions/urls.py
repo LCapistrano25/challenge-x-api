@@ -41,6 +41,11 @@ urlpatterns = [
         name="edition-publish",
     ),
     path(
+        "editions/<int:edition_id>/close",
+        views.EditionCloseView.as_view(),
+        name="edition-close",
+    ),
+    path(
         "editions/<int:edition_id>",
         views.EditionDetailView.as_view(),
         name="edition-detail",

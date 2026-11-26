@@ -39,6 +39,7 @@ from apps.editions.serializers import (
     ChallengeWriteSerializer,
     CriterionSerializer,
     CriterionWriteSerializer,
+    EditionCloseSerializer,
     EditionCreateSerializer,
     EditionPublishSerializer,
     EditionReviewerCreateSerializer,
@@ -53,6 +54,7 @@ from apps.editions.serializers import (
     StageSerializer,
     StageWriteSerializer,
 )
+from apps.editions.use_cases.close_edition import close_edition
 from apps.editions.use_cases.configure_stage_criteria import (
     configure_stage_criteria,
 )
@@ -391,6 +393,19 @@ class EditionPublishView(APIView):
             public_origin=request.build_absolute_uri("/").rstrip("/"),
             **serializer.validated_data,
         )
+        return Response(EditionSerializer(edition).data)
+
+
+class EditionCloseView(APIView):
+    """POST encerra a edição de forma irreversível (RF47, P-45)."""
+
+    permission_classes = [IsAdmin]
+    parser_classes = [JSONParser]
+
+    def post(self, request, edition_id):
+        edition = get_object_or_404(Edition, pk=edition_id)
+        EditionCloseSerializer(data=request.data).is_valid(raise_exception=True)
+        edition = close_edition(actor=request.user, edition=edition)
         return Response(EditionSerializer(edition).data)
 
 
