@@ -31,7 +31,7 @@ Data-base: 25/11/2026, `developer` em `1166905` (#221 mesclada).
 
 | Ordem | Decisão | Onde | Depende de |
 |---|---|---|---|
-| A | **D-02** escala dos critérios (#228) | Tirar `ensure_criterion_fits_stage` (`apps/editions/rules.py`); `recalculate_stage_score` proporcional (soma dos points ÷ soma dos max_score × `Stage.max_score`, média entre professores); descrições no `gen_openapi.py` | — (destrava a #226) |
+| A | ~~**D-02** escala dos critérios (#228)~~ feito | Tirar `ensure_criterion_fits_stage` (`apps/editions/rules.py`); `recalculate_stage_score` proporcional (soma dos points ÷ soma dos max_score × `Stage.max_score`, média entre professores); descrições no `gen_openapi.py` | — (destrava a #226) |
 | B | **D-06** categoria obrigatória (#229) | `category` em `ensure_project_complete`; testes e factories de teams e projects | #219 |
 | C | **D-01** pódio por categoria na edição (#230) | Trazer `compute_awards` da branch de emergência com o grupo por `category_id`; homologação depois da avaliação externa e do pódio (pendência 3 da #220); texto da rota `winners`; `list_edition_winners` | A, B |
 | D | Convite `student_id` ou `email` (#231) | `InvitationCreate` com `oneOf` no gerador; código não muda | — |

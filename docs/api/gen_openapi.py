@@ -377,9 +377,9 @@ SC["StageUpdate"] = obj({
     "max_score": nul(DEC(ex="3.00")), "min_evaluations": INT(ex=2, minimum=1),
     "submission_fields": arr(ref("DeliverableFieldWrite"), description="Quando informado, substitui o conjunto de campos da etapa."),
 }, desc="Ao menos um campo deve ser informado.", strict=True, minProperties=1)
-SC["StageCriterion"] = obj({"id": INT(ex=51), "criterion": obj({"id": INT(ex=21), "name": STR(ex="Inovação")}, ["id", "name"]), "max_score": DEC(ex="1.50")},
+SC["StageCriterion"] = obj({"id": INT(ex=51), "criterion": obj({"id": INT(ex=21), "name": STR(ex="Inovação")}, ["id", "name"]), "max_score": DEC("Pontuação máxima do critério na etapa. Padrão 10 (escala do Quadro 1); funciona como peso, sem somar o valor da etapa (D-02).", "10.00")},
                            ["id", "criterion", "max_score"])
-SC["StageCriteriaUpdate"] = obj({"items": arr(obj({"criterion_id": INT(ex=21), "max_score": DEC(ex="1.50")}, ["criterion_id", "max_score"], strict=True),
+SC["StageCriteriaUpdate"] = obj({"items": arr(obj({"criterion_id": INT(ex=21), "max_score": DEC("Pontuação máxima do critério na etapa. Padrão 10 (escala do Quadro 1); funciona como peso, sem somar o valor da etapa (D-02).", "10.00")}, ["criterion_id", "max_score"], strict=True),
                                               description="Conjunto completo de critérios da etapa.")}, ["items"], strict=True)
 SC["FinalQuestion"] = obj({"id": INT(ex=61), "order": INT(ex=1), "prompt": TXT(ex="Clareza e qualidade do pitch"), "kind": ref("QuestionType"),
                            "max_score": nul(DEC(ex="10.00"))}, ["id", "order", "prompt", "kind", "max_score"])
@@ -606,7 +606,7 @@ SC["TeacherProjectRow"] = obj({
     "deliverable_status": ref("DeliverableStatus"), "evaluation_count": INT("Avaliações finalizadas na etapa.", 1),
     "min_evaluations": INT(ex=2), "my_evaluation_status": ref("MyEvaluationStatus"),
 }, ["project", "team", "challenge_course", "stage", "deliverable_status", "evaluation_count", "min_evaluations", "my_evaluation_status"])
-SC["EvaluationItem"] = obj({"stage_criterion_id": INT(ex=51), "points": DEC(ex="1.25"), "comment": nul(TXT(ex="Boa fundamentação."))},
+SC["EvaluationItem"] = obj({"stage_criterion_id": INT(ex=51), "points": DEC("Nota do critério, de 0 ao max_score do critério (padrão 10).", "8.00"), "comment": nul(TXT(ex="Boa fundamentação."))},
                            ["stage_criterion_id", "points", "comment"])
 SC["Evaluation"] = obj({"id": INT(ex=201), "project_id": INT(ex=40), "stage_id": INT(ex=7), "status": ref("EvaluationStatus"),
                         "comment": nul(TXT(ex="Projeto bem estruturado; detalhar custos.")), "items": arr(ref("EvaluationItem")),
@@ -616,10 +616,10 @@ SC["EvaluationForm"] = obj({
     "project": ref("ProjectRef"), "stage": obj({"id": INT(ex=7), "name": STR(ex="Entrega Preliminar"), "max_score": DEC(ex="3.00")}, ["id", "name", "max_score"]),
     "criteria": arr(obj({"stage_criterion_id": INT(ex=51), "criterion": obj({"id": INT(ex=21), "name": STR(ex="Inovação"),
                                                                              "rubric": nul(TXT(ex="Avalia o grau de originalidade..."))}, ["id", "name", "rubric"]),
-                         "max_score": DEC(ex="1.50")}, ["stage_criterion_id", "criterion", "max_score"])),
+                         "max_score": DEC(ex="10.00")}, ["stage_criterion_id", "criterion", "max_score"])),
     "evaluation": nul(ref("Evaluation")),
 }, ["project", "stage", "criteria", "evaluation"])
-SC["EvaluationItemWrite"] = obj({"stage_criterion_id": INT(ex=51), "points": DEC(ex="1.25"), "comment": nul(TXT(ex="Boa fundamentação."))},
+SC["EvaluationItemWrite"] = obj({"stage_criterion_id": INT(ex=51), "points": DEC("Nota do critério, de 0 ao max_score do critério (padrão 10).", "8.00"), "comment": nul(TXT(ex="Boa fundamentação."))},
                                 ["stage_criterion_id", "points"], strict=True)
 SC["EvaluationWrite"] = obj({"status": STR("DRAFT salva rascunho; FINALIZED conclui e torna a avaliação imutável.", "FINALIZED", enum=["DRAFT", "FINALIZED"]),
                              "comment": nul(TXT(ex="Projeto bem estruturado; detalhar custos.")),
@@ -637,12 +637,12 @@ SC["Rectification"] = obj({
 }, ["id", "evaluation_id", "stage_criterion_id", "previous_points", "new_points", "reason", "rectified_by", "rectified_at", "stage_score"])
 SC["StageScoreDetail"] = obj({
     "stage": ref("StageRef"), "max_score": DEC(ex="3.00"), "status": ref("ScoreStatus"),
-    "value": nul(DEC("Média aritmética das avaliações finalizadas; exibida quando DEFINITIVE. Zero quando ZERO_NO_SUBMISSION.", "2.40")),
+    "value": nul(DEC("Cada avaliação finalizada vale (soma dos points / soma dos max_score dos critérios) × max_score da etapa; o valor é a média entre elas (D-02). Exibida quando DEFINITIVE. Zero quando ZERO_NO_SUBMISSION.", "2.40")),
     "evaluation_count": INT(ex=2), "min_evaluations": INT(ex=2), "deliverable_status": ref("DeliverableStatus"),
-    "criteria": arr(obj({"criterion": ref("CriterionRef"), "max_score": DEC(ex="1.50"), "average": nul(DEC(ex="1.20"))}, ["criterion", "max_score", "average"]),
+    "criteria": arr(obj({"criterion": ref("CriterionRef"), "max_score": DEC(ex="10.00"), "average": nul(DEC(ex="8.00"))}, ["criterion", "max_score", "average"]),
                     description="Média por critério entre as avaliações finalizadas."),
     "feedback": arr(obj({"comment": nul(TXT(ex="Projeto bem estruturado; detalhar custos.")),
-                         "items": arr(obj({"criterion_name": STR(ex="Inovação"), "points": DEC(ex="1.25"), "comment": nul(TXT(ex="Boa fundamentação."))},
+                         "items": arr(obj({"criterion_name": STR(ex="Inovação"), "points": DEC(ex="8.00"), "comment": nul(TXT(ex="Boa fundamentação."))},
                                           ["criterion_name", "points", "comment"]))}, ["comment", "items"]),
                     description="Feedbacks das avaliações finalizadas, sem identificar o professor (P-44)."),
 }, ["stage", "max_score", "status", "value", "evaluation_count", "min_evaluations", "deliverable_status", "criteria", "feedback"])
@@ -914,7 +914,7 @@ op("patch", "/api/admin/editions/{edition_id}", "editionsUpdate", "editions", "A
 op("post", "/api/admin/editions/{edition_id}/publish", "editionsPublish", "editions", "Publicar edital da edição", ["RF09"], ["ADMIN"],
    "Valida as parametrizações obrigatórias, armazena o PDF do edital e muda o status para PUBLISHED.",
    params=["EditionId"], body=ref("EditionPublish"), ct="multipart/form-data", ok=ref("Edition"), errs=["404"],
-   rules=["Pré-condições: cursos ativos, ODS habilitadas, desafios, categorias, limites, critérios, etapas pontuadas somando 10,00 e critérios por etapa somando o valor de cada etapa.",
+   rules=["Pré-condições: cursos ativos, ODS habilitadas, desafios, categorias, limites, critérios, etapas pontuadas somando 10,00 e critérios vinculados às etapas pontuadas.",
           "Após publicar, congela etapas, pontuação, critérios por etapa e limites de equipe."],
    conflicts=[("edition_not_in_setup", "Somente edições em configuração podem ser publicadas."),
               ("publication_requirements_not_met", "Há parametrizações obrigatórias pendentes; ver details.")], pend=["P-16", "P-43"])
@@ -983,7 +983,7 @@ op("get", "/api/admin/stages/{stage_id}/criteria", "editionsListStageCriteria", 
 op("put", "/api/admin/stages/{stage_id}/criteria", "editionsSetStageCriteria", "editions", "Definir critérios e pontuações da etapa", ["RF08"], ["ADMIN"],
    "Substitui os critérios vinculados à etapa pontuada e suas pontuações máximas.", params=["StageId"], body=ref("StageCriteriaUpdate"),
    ok=arr(ref("StageCriterion")), errs=["404"],
-   rules=["Somente etapas pontuadas.", "max_score > 0.", "Soma dos max_score dos critérios igual ao max_score da etapa (400 stage_criteria_sum_mismatch).",
+   rules=["Somente etapas pontuadas.", "max_score > 0.", "Cada critério vale 10 por padrão e funciona como peso; a soma dos critérios não precisa igualar o max_score da etapa (D-02).",
           "Critério e etapa da mesma edição."], conflicts=[FROZEN, CLOSED])
 op("get", "/api/admin/editions/{edition_id}/final-form", "editionsGetFinalForm", "editions", "Consultar formulário da etapa final", ["RF12"], ["ADMIN"],
    "Retorna o formulário de avaliação dos avaliadores externos.", params=["EditionId"], ok=ref("FinalForm"), errs=["404"])

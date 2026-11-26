@@ -123,7 +123,8 @@ def test_retificacao_recalcula_a_nota_da_etapa(admin, item):
     rectify_score(actor=admin, item=item, new_points=Decimal("1.50"), reason="Recurso.")
 
     nota = StageScore.objects.get(project=avaliacao.project, stage=avaliacao.stage)
-    assert nota.value == Decimal("1.50")
+    # 1,50 de 2 no critério, numa etapa de 3 pontos (D-02).
+    assert nota.value == Decimal("2.25")
 
 
 def test_avaliacao_em_rascunho_nao_pode_ser_retificada(admin):
