@@ -12,7 +12,7 @@ from apps.editions.models import Edition
 from apps.teams.enums import MemberRole, TeamStatus
 from apps.teams.models import Team, TeamMember
 from apps.teams.rules import get_open_formation_stage
-from apps.teams.use_cases.invite_member import InvitationRejected, invite_member
+from apps.teams.use_cases.invite_member import invite_member
 
 
 class TeamCreationRejected(BusinessRuleViolation):
@@ -24,6 +24,26 @@ class TeamInvitationsRequired(TeamCreationRejected):
 
     code = "team_invitations_required"
     http_status = HTTPStatus.BAD_REQUEST
+
+
+class NoCurrentEdition(TeamCreationRejected):
+    code = "no_current_edition"
+    http_status = HTTPStatus.CONFLICT
+
+
+class FormationClosed(TeamCreationRejected):
+    code = "formation_closed"
+    http_status = HTTPStatus.CONFLICT
+
+
+class StudentAlreadyInTeam(TeamCreationRejected):
+    code = "student_already_in_team"
+    http_status = HTTPStatus.CONFLICT
+
+
+class TeamNameTaken(TeamCreationRejected):
+    code = "team_name_taken"
+    http_status = HTTPStatus.CONFLICT
 
 
 def _generate_team_code() -> str:
@@ -58,21 +78,19 @@ def create_team(
 
     edition = Edition.objects.filter(pk=edition_id).first()
     if edition is None:
-        raise TeamCreationRejected("Edição não encontrada.")
+        raise NoCurrentEdition("Edição não encontrada.")
 
     formation_open = get_open_formation_stage(edition, now) is not None
 
     if not formation_open:
-        raise TeamCreationRejected(
-            "Não existe prazo de formação aberto para esta edição."
-        )
+        raise FormationClosed("Não existe prazo de formação aberto para esta edição.")
 
     if TeamMember.objects.filter(
         edition=edition,
         student=student,
         active=True,
     ).exists():
-        raise TeamCreationRejected(
+        raise StudentAlreadyInTeam(
             "Você já participa de uma equipe ativa nesta edição."
         )
 
@@ -85,7 +103,7 @@ def create_team(
         .exclude(status=TeamStatus.DISBANDED)
         .exists()
     ):
-        raise TeamCreationRejected("Já existe uma equipe com esse nome nesta edição.")
+        raise TeamNameTaken("Já existe uma equipe com esse nome nesta edição.")
 
     invitations = invitations or []
     # O líder já é o primeiro integrante; o mínimo nunca deixa a equipe com 1 pessoa.
@@ -123,8 +141,6 @@ def create_team(
         ) from error
 
     for data in invitations:
-        try:
-            invite_member(actor=actor, team_id=team.pk, **data)
-        except InvitationRejected as error:
-            raise TeamCreationRejected(str(error)) from error
+        invite_member(actor=actor, team_id=team.pk, **data)
+
     return team
