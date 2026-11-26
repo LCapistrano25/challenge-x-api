@@ -124,13 +124,15 @@ def test_patch_invalido_nao_aplica_edicao_parcial(client, challenge):
 
 
 @pytest.mark.parametrize("catalog", ["course", "sdg"])
-def test_patch_de_texto_preserva_vinculo_inativo_omitido(client, challenge, catalog):
+@pytest.mark.parametrize("resend_id", [False, True], ids=["omitido", "reenviado"])
+def test_patch_de_texto_preserva_vinculo_inativo(client, challenge, catalog, resend_id):
     linked = getattr(challenge, catalog)
     linked.active = False
     linked.save(update_fields=["active"])
-    response = client.patch(
-        detail(challenge), {"description": "  Outro texto  "}, format="json"
-    )
+    payload = {"description": "  Outro texto  "}
+    if resend_id:
+        payload[f"{catalog}_id"] = linked.pk
+    response = client.patch(detail(challenge), payload, format="json")
     assert response.status_code == 200
     challenge.refresh_from_db()
     assert challenge.description == "Outro texto"
@@ -145,6 +147,7 @@ def test_erro_de_ods_usa_sdg_id(client, challenge, active, method):
     replacement = SdgFactory(number=number, active=active)
     if not active:
         EditionSdgFactory(edition=challenge.edition, sdg=replacement)
+    original_description = challenge.description
     payload = {"sdg_id": replacement.pk, "description": "Outro texto"}
     if method == "post":
         payload["course_id"] = challenge.course_id
@@ -156,6 +159,7 @@ def test_erro_de_ods_usa_sdg_id(client, challenge, active, method):
     assert set(error["details"]) == {"sdg_id"}
     challenge.refresh_from_db()
     assert challenge.sdg_id != replacement.pk
+    assert challenge.description == original_description
 
 
 @pytest.mark.parametrize("description", ["", "   "])
