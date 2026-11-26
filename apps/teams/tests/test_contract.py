@@ -52,6 +52,16 @@ def test_detalhe_da_equipe_segue_o_contrato():
     assert mismatches(response.data, schema("Team")) == []
 
 
+def test_equipe_inexistente_responde_not_found():
+    client = APIClient()
+    client.force_authenticate(user=StudentFactory().user)
+
+    response = client.get("/api/teams/999999")
+
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "not_found"
+
+
 def test_criacao_de_equipe_segue_o_contrato():
     student = StudentFactory()
     invited_students = StudentFactory.create_batch(2)

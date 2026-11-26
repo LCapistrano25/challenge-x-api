@@ -4,7 +4,7 @@ from apps.core.exceptions import AppError, BusinessRuleViolation
 
 
 class TeamNotFound(AppError):
-    code = "team_not_found"
+    code = "not_found"
     http_status = HTTPStatus.NOT_FOUND
 
 
