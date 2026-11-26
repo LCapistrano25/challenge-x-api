@@ -3,7 +3,27 @@ from collections.abc import Mapping
 from rest_framework import serializers
 
 from apps.core.models import Sdg
-from apps.editions.models import Challenge, Edition, EditionReviewer
+from apps.editions.models import Category, Challenge, Edition, EditionReviewer
+
+
+class CategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Category
+        fields = [
+            "id",
+            "edition_id",
+            "name",
+            "description",
+            "active",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = fields
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data["description"] = data["description"] or None
+        return data
 
 
 class EvaluatorSummarySerializer(serializers.Serializer):
@@ -128,6 +148,19 @@ class StrictBooleanField(serializers.BooleanField):
         if not isinstance(data, bool):
             self.fail("invalid", input=data)
         return super().to_internal_value(data)
+
+
+class CategoryWriteSerializer(RejectUnknownFieldsMixin, serializers.Serializer):
+    name = StrictCharField(max_length=150)
+    description = StrictCharField(
+        required=False, allow_null=True, allow_blank=True, trim_whitespace=False
+    )
+    active = StrictBooleanField(required=False)
+
+    def validate(self, attrs):
+        if self.partial and not attrs:
+            raise serializers.ValidationError("Informe ao menos um campo.")
+        return attrs
 
 
 class ChallengeWriteSerializer(RejectUnknownFieldsMixin, serializers.Serializer):
