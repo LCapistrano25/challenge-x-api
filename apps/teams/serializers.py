@@ -156,7 +156,6 @@ class TeamCreateSerializer(serializers.Serializer):
 class InvitationSerializer(serializers.ModelSerializer):
     team = serializers.SerializerMethodField()
     student = serializers.SerializerMethodField()
-    invited_email = serializers.SerializerMethodField()
 
     class Meta:
         model = Invitation
@@ -164,7 +163,6 @@ class InvitationSerializer(serializers.ModelSerializer):
             "id",
             "team",
             "student",
-            "invited_email",
             "status",
             "created_at",
             "responded_at",
@@ -182,9 +180,6 @@ class InvitationSerializer(serializers.ModelSerializer):
             "user_id": obj.student.user_id,
             "name": obj.student.user.name,
         }
-
-    def get_invited_email(self, obj):
-        return None
 
 
 class InvitationStatusFilterSerializer(serializers.Serializer):
@@ -363,3 +358,32 @@ class AdminTeamListItemSerializer(serializers.ModelSerializer):
             return None
 
         return ProjectRefSerializer(project).data
+
+
+class InvitableStudentQuerySerializer(serializers.Serializer):
+    search = serializers.CharField(min_length=3, trim_whitespace=True)
+
+
+class InvitableStudentSerializer(serializers.Serializer):
+    """Aluno para o popup de convite: sem e-mail, matrícula ou período (LGPD)."""
+
+    id = serializers.IntegerField(source="pk")
+    name = serializers.CharField(source="user.name")
+    course = serializers.SerializerMethodField()
+
+    def get_course(self, obj):
+        return {"id": obj.course_id, "name": obj.course.name}
+
+
+class TeamUpdateSerializer(serializers.Serializer):
+    """Só o nome é editável (#233); outros campos são recusados."""
+
+    name = serializers.CharField(max_length=150, trim_whitespace=True)
+
+    def validate(self, attrs):
+        extra = set(self.initial_data) - set(self.fields)
+        if extra:
+            raise serializers.ValidationError(
+                {field: "Campo não permitido." for field in sorted(extra)}
+            )
+        return attrs

@@ -1,3 +1,5 @@
+from http import HTTPStatus
+
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
@@ -13,6 +15,13 @@ from apps.teams.rules import is_formation_open_for_team
 
 class InvitationRejected(BusinessRuleViolation):
     """O convite não pôde ser enviado por uma regra de negócio."""
+
+
+class InvitedStudentNotFound(InvitationRejected):
+    """Convidado inexistente, inativo ou sem e-mail confirmado: 404 (#231)."""
+
+    code = "not_found"
+    http_status = HTTPStatus.NOT_FOUND
 
 
 @transaction.atomic
@@ -84,14 +93,16 @@ def invite_member(
         raise InvitationRejected("Informe o ID ou o e-mail do estudante.")
 
     if invited_student is None:
-        raise InvitationRejected("Estudante não encontrado.")
+        raise InvitedStudentNotFound("Estudante não encontrado.")
 
     if (
         invited_student.user.role != UserRole.STUDENT
         or not invited_student.user.is_active
         or not invited_student.user.email_confirmed
     ):
-        raise InvitationRejected("O estudante não possui cadastro ativo e confirmado.")
+        raise InvitedStudentNotFound(
+            "O estudante não possui cadastro ativo e confirmado."
+        )
 
     already_in_team = TeamMember.objects.filter(
         edition=team.edition,

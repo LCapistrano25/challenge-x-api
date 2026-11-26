@@ -443,6 +443,8 @@ SC["Team"] = obj({
     desc="formation_extended_until: fim da janela extra para repor a vaga, concedida uma vez quando uma saída nas últimas 24 horas do prazo deixa a equipe abaixo do mínimo; nulo se não houve.")
 SC["TeamLeave"] = obj({"confirm": BOOL("Confirma a saída que deixa a equipe abaixo do mínimo de integrantes. Corpo opcional; sem ele, confirm é false.", False)},
                       description="Corpo opcional.", strict=True)
+SC["TeamUpdate"] = obj({"name": STR(ex="Equipe Aurora", maxLength=150, minLength=1)}, ["name"], strict=True,
+                       desc="Só o nome é editável; integrantes, liderança e projeto têm rotas próprias.")
 SC["TeamCreate"] = obj({"name": STR(ex="Equipe Aurora", maxLength=150),
                         "invitations": arr(ref("InvitationCreate"), minItems=1,
                                            description="Alunos a convidar, por student_id ou email. De min_members - 1 a max_members - 1 (nunca menos de 1).")},
@@ -455,7 +457,15 @@ SC["AdminTeamListItem"] = obj({"id": INT(ex=12), "edition_id": INT(ex=3), "name"
                                "project": nul(ref("ProjectRef"))},
                               ["id", "edition_id", "name", "code", "status", "situation", "member_count", "project"])
 SC["TeamDisqualify"] = obj({"reason": TXT("Justificativa obrigatória.", "Plágio comprovado na entrega preliminar.", minLength=1)}, ["reason"], strict=True)
-SC["InvitationCreate"] = obj({"student_id": USER_ID("Aluno cadastrado a ser convidado.")}, ["student_id"], strict=True)
+SC["InvitableStudent"] = obj({"id": USER_ID("Use como student_id no convite.", 42), "name": STR(ex="Maria Souza"), "course": ref("CourseSummary")},
+                            ["id", "name", "course"], desc="Sem e-mail, matrícula ou período (LGPD).")
+SC["InvitationCreate"] = {
+    "oneOf": [
+        obj({"student_id": USER_ID("Aluno cadastrado a ser convidado.")}, ["student_id"], strict=True),
+        obj({"email": EMAIL("E-mail de aluno cadastrado, ativo e com e-mail confirmado.")}, ["email"], strict=True),
+    ],
+    "description": "Um aluno, por student_id ou por email, nunca os dois (400 validation_error).",
+}
 SC["Invitation"] = obj(
     {
         "id": INT(ex=88),
@@ -717,7 +727,7 @@ SC["Notification"] = obj({"id": UUID(ex="c1d2e3f4-a5b6-4c7d-8e9f-0a1b2c3d4e5f"),
 # ---------------------------------------------------------------- paginated
 PStudent = paginated("StudentAdmin"); PTeacher = paginated("TeacherAdmin"); PEval = paginated("ExternalEvaluatorAdmin")
 PPublicProject = paginated("PublicProject"); PTeamListing = paginated("TeamListing"); PAdminTeam = paginated("AdminTeamListItem")
-PTeacherRow = paginated("TeacherProjectRow"); PFinalist = paginated("FinalistRow"); PLeader = paginated("LeadershipRequest")
+PInvitable = paginated("InvitableStudent"); PTeacherRow = paginated("TeacherProjectRow"); PFinalist = paginated("FinalistRow"); PLeader = paginated("LeadershipRequest")
 PTicket = paginated("SupportTicket"); PTicketAdmin = paginated("SupportTicketAdmin"); PNotif = paginated("Notification")
 
 # ---------------------------------------------------------------- parameters
@@ -751,6 +761,8 @@ PARAMS = {
     "Page": qp("page", {"type": "integer", "minimum": 1, "default": 1}, "Número da página (P-38)."),
     "PageSize": qp("page_size", {"type": "integer", "minimum": 1, "maximum": 100, "default": 20}, "Itens por página (P-38)."),
     "Search": qp("search", {"type": "string"}, "Busca textual."),
+    "StudentNameSearch": {"name": "search", "in": "query", "required": True, "description": "Parte do nome do aluno, com pelo menos 3 caracteres.",
+                          "schema": {"type": "string", "minLength": 3}},
     "ActiveFilter": qp("active", {"type": "boolean"}, "Filtra pelo status de ativação."),
     "InstitutionalRoleFilter": qp("role", {"type": "string", "enum": ["STUDENT", "TEACHER"]}, "Filtra pelo perfil institucional."),
     "CourseFilter": qp("course_id", {"type": "integer"}, "Filtra por curso."),
@@ -1063,13 +1075,26 @@ op("get", "/api/teams", "teamsListAvailable", "teams", "Consultar equipes com va
 op("get", "/api/teams/{team_id}", "teamsGet", "teams", "Consultar equipe", ["RF13", "RF20"], ["STUDENT", "TEACHER", "ADMIN"],
    "Retorna a equipe com integrantes ativos e situação.", params=["TeamId"], ok=ref("Team"), errs=["404"],
    authz="STUDENT: integrante ativo. TEACHER: vínculo ativo com o curso do desafio do projeto da equipe. ADMIN: qualquer equipe. Sem acesso retorna 404.")
+op("patch", "/api/teams/{team_id}", "teamsUpdate", "teams", "Editar o nome da equipe", ["RF21"], ["STUDENT"],
+   "Altera o nome da equipe durante a formação (Art. 15 § 1º: até o prazo, só o líder atualiza a inscrição).",
+   params=["TeamId"], body=ref("TeamUpdate"), ok=ref("Team"), errs=["404"], authz=LEADER + " Erro 403: not_team_leader.",
+   rules=["Somente durante o prazo da etapa FORMATION.", "Nome único na edição (equipe desfeita libera o nome); de 1 a 150 caracteres, sem espaços nas pontas.",
+          "Equipe desclassificada não edita."],
+   conflicts=[FORM_CLOSED, ("team_name_taken", "Já existe equipe com este nome na edição."), ("team_disqualified", "A equipe está desclassificada.")])
 op("post", "/api/teams/{team_id}/invitations", "teamsCreateInvitation", "teams", "Enviar convite", ["RF22"], ["STUDENT"],
    "Convida um aluno (por identificador ou e-mail institucional).", params=["TeamId"], body=ref("InvitationCreate"),
    req_ex={"student_id": 42}, ok=ref("Invitation"), ok_code="201", ok_desc="Convite enviado.", errs=["404"],
    authz=LEADER,
    rules=["Somente durante a formação.", "Total de integrantes atual < max_members.", "Convidado não pode estar em outra equipe da edição.",
+          "Por e-mail, o aluno precisa estar cadastrado, ativo e com e-mail confirmado; senão, 404.",
           "Não pode haver convite PENDING para o mesmo aluno/e-mail e equipe.", "Gera notificação TEAM ao convidado quando ele já possui usuário (P-13)."],
    conflicts=[FORM_CLOSED, TEAM_FULL, IN_TEAM, ("invitation_pending_exists", "Já existe convite pendente para este aluno.")], pend=["P-13"])
+op("get", "/api/teams/{team_id}/invitable-students", "teamsListInvitableStudents", "teams", "Buscar alunos para convidar", ["RF22"], ["STUDENT"],
+   "Lista os alunos que a equipe pode convidar, para o popup de convite; o convite vai com o id como student_id.",
+   params=["TeamId", "StudentNameSearch"] + PAGE, ok=PInvitable, errs=["404"], authz=LEADER + " Erro 403: not_team_leader.",
+   rules=["search é obrigatório, com pelo menos 3 caracteres, e busca pelo nome (400 validation_error).",
+          "Só alunos ativos, com e-mail confirmado e sem equipe ativa na edição da equipe (as regras do convite); quem já tem convite pendente desta equipe fica de fora.",
+          "Sem restrição por curso. Ordenado por nome."], pend=["P-13"])
 op("get", "/api/teams/{team_id}/invitations", "teamsListInvitations", "teams", "Listar convites enviados pela equipe", ["RF22"], ["STUDENT"],
    "Lista os convites da equipe.", params=["TeamId", "InvitationStatusFilter"], ok=arr(ref("Invitation")), errs=["404"], authz=LEADER)
 op("get", "/api/me/invitations", "teamsListMyInvitations", "teams", "Listar convites recebidos", ["RF23"], ["STUDENT"],
