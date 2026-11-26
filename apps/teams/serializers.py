@@ -358,3 +358,18 @@ class AdminTeamListItemSerializer(serializers.ModelSerializer):
             return None
 
         return ProjectRefSerializer(project).data
+
+
+class InvitableStudentQuerySerializer(serializers.Serializer):
+    search = serializers.CharField(min_length=3, trim_whitespace=True)
+
+
+class InvitableStudentSerializer(serializers.Serializer):
+    """Aluno para o popup de convite: sem e-mail, matrícula ou período (LGPD)."""
+
+    id = serializers.IntegerField(source="pk")
+    name = serializers.CharField(source="user.name")
+    course = serializers.SerializerMethodField()
+
+    def get_course(self, obj):
+        return {"id": obj.course_id, "name": obj.course.name}

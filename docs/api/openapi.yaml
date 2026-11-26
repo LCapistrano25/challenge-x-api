@@ -7466,6 +7466,64 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+  /api/teams/{team_id}/invitable-students:
+    get:
+      tags:
+      - teams
+      operationId: teamsListInvitableStudents
+      summary: Buscar alunos para convidar
+      description: |-
+        Lista os alunos que a equipe pode convidar, para o popup de convite; o convite vai com o id como student_id.
+
+        **Requisitos:** RF22
+
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
+
+        **Perfis permitidos:** STUDENT
+
+        **Autorização adicional:** O usuário deve ser o LEADER ativo da equipe. Erro 403: not_team_leader.
+
+        **Regras de negócio:**
+        - search é obrigatório, com pelo menos 3 caracteres, e busca pelo nome (400 validation_error).
+        - Só alunos ativos, com e-mail confirmado e sem equipe ativa na edição da equipe (as regras do convite); quem já tem convite pendente desta equipe fica de fora.
+        - Sem restrição por curso. Ordenado por nome.
+
+        **Pendências relacionadas (api-pendencias.md):** P-13
+      x-status: confirmed
+      x-requirements:
+      - RF22
+      x-roles:
+      - STUDENT
+      x-pendencias:
+      - P-13
+      parameters:
+      - $ref: '#/components/parameters/TeamId'
+      - $ref: '#/components/parameters/StudentNameSearch'
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Operação concluída.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedInvitableStudent'
+              example:
+                count: 1
+                next: null
+                previous: null
+                results:
+                - id: 42
+                  name: Maria Souza
+                  course:
+                    id: 1
+                    name: Engenharia de Software
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/teams/{team_id}/invitations:
     post:
       tags:
@@ -8806,6 +8864,14 @@ components:
       description: Busca textual.
       schema:
         type: string
+    StudentNameSearch:
+      name: search
+      in: query
+      required: true
+      description: Parte do nome do aluno, com pelo menos 3 caracteres.
+      schema:
+        type: string
+        minLength: 3
     ActiveFilter:
       name: active
       in: query
@@ -11590,6 +11656,26 @@ components:
       required:
       - reason
       additionalProperties: false
+    InvitableStudent:
+      type: object
+      description: Sem e-mail, matrícula ou período (LGPD).
+      properties:
+        id:
+          type: integer
+          description: Use como student_id no convite.
+          minimum: 1
+          examples:
+          - 42
+        name:
+          type: string
+          examples:
+          - Maria Souza
+        course:
+          $ref: '#/components/schemas/CourseSummary'
+      required:
+      - id
+      - name
+      - course
     InvitationCreate:
       oneOf:
       - type: object
@@ -13792,6 +13878,40 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/AdminTeamListItem'
+      required:
+      - count
+      - next
+      - previous
+      - results
+    PaginatedInvitableStudent:
+      type: object
+      description: Página de resultados de InvitableStudent.
+      properties:
+        count:
+          type: integer
+          description: Total de registros.
+          examples:
+          - 1
+        next:
+          type:
+          - string
+          - 'null'
+          description: URL da próxima página.
+          format: uri
+          examples:
+          - null
+        previous:
+          type:
+          - string
+          - 'null'
+          description: URL da página anterior.
+          format: uri
+          examples:
+          - null
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/InvitableStudent'
       required:
       - count
       - next

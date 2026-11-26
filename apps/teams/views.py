@@ -1,5 +1,6 @@
 from django.db.models import Count, F, Q
 from rest_framework import status
+from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -10,6 +11,7 @@ from apps.accounts.permissions import IsAdmin, IsStudent, IsTeacher
 from apps.editions.enums import EditionStatus
 from apps.editions.models import Edition
 from apps.projects.models import Project
+from apps.projects.rules import ensure_actor_is_team_leader
 from apps.teams.enums import (
     MemberRole,
     TeamStatus,
@@ -23,11 +25,14 @@ from apps.teams.models import (
     Team,
     TeamMember,
 )
+from apps.teams.selectors import list_invitable_students
 from apps.teams.serializers import (
     AdminTeamDetailSerializer,
     AdminTeamListItemSerializer,
     AdminTeamListQuerySerializer,
     DisqualifyTeamSerializer,
+    InvitableStudentQuerySerializer,
+    InvitableStudentSerializer,
     InvitationCreateSerializer,
     InvitationResponseSerializer,
     InvitationSerializer,
@@ -965,4 +970,27 @@ class AdminTeamDisqualifyView(APIView):
         return Response(
             AdminTeamDetailSerializer(team).data,
             status=status.HTTP_200_OK,
+        )
+
+
+class InvitableStudentsView(APIView):
+    """Alunos que o líder pode convidar, para o popup de convite (#232)."""
+
+    permission_classes = [IsAuthenticated, IsStudent]
+
+    def get(self, request, team_id):
+        team = Team.objects.select_related("edition").filter(pk=team_id).first()
+        if team is None:
+            raise NotFound("Equipe não encontrada.")
+        ensure_actor_is_team_leader(team, request.user)
+        query = InvitableStudentQuerySerializer(data=request.query_params)
+        query.is_valid(raise_exception=True)
+
+        students = list_invitable_students(
+            team=team, search=query.validated_data["search"]
+        )
+        paginator = DefaultPagination()
+        page = paginator.paginate_queryset(students, request, view=self)
+        return paginator.get_paginated_response(
+            InvitableStudentSerializer(page, many=True).data
         )
