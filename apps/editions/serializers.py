@@ -13,6 +13,7 @@ from apps.editions.models import (
     Edition,
     EditionReviewer,
     Stage,
+    StageCriterion,
     StageSubmissionField,
 )
 
@@ -358,6 +359,31 @@ class StageScoreField(serializers.Field):
         ):
             self.fail("invalid")
         return Decimal(data)
+
+
+class StageCriterionSerializer(serializers.ModelSerializer):
+    """Critério da etapa com sua pontuação máxima (StageCriterion do contrato)."""
+
+    criterion = serializers.SerializerMethodField()
+
+    class Meta:
+        model = StageCriterion
+        fields = ["id", "criterion", "max_score"]
+        read_only_fields = fields
+
+    def get_criterion(self, obj):
+        return {"id": obj.criterion_id, "name": obj.criterion.name}
+
+
+class StageCriterionItemSerializer(RejectUnknownFieldsMixin, serializers.Serializer):
+    criterion_id = serializers.IntegerField(min_value=1)
+    max_score = StageScoreField()
+
+
+class StageCriteriaUpdateSerializer(RejectUnknownFieldsMixin, serializers.Serializer):
+    """Conjunto completo de critérios da etapa (StageCriteriaUpdate)."""
+
+    items = StageCriterionItemSerializer(many=True)
 
 
 class StageSubmissionFieldWriteSerializer(

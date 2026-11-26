@@ -10,6 +10,11 @@ urlpatterns = [
     ),
     path("stages/<int:stage_id>", views.StageDetailView.as_view(), name="stage-detail"),
     path(
+        "stages/<int:stage_id>/criteria",
+        views.StageCriteriaView.as_view(),
+        name="stage-criteria",
+    ),
+    path(
         "criteria/<int:criterion_id>",
         views.CriterionDetailView.as_view(),
         name="criterion-detail",
