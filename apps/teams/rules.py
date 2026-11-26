@@ -45,21 +45,42 @@ def compute_unmet_requirements(team) -> list[str]:
     Calculado na hora, sem gravar: a `situation` congelada no fim do prazo de
     formação diz se está incompleta, esta lista diz por quê.
     """
+    return [message for _, message in _unmet_requirements(team)]
+
+
+def unmet_requirement_codes(team) -> list[str]:
+    """Os mesmos requisitos com os códigos do enum IncompleteRequirement do contrato.
+
+    Acima do máximo de integrantes não tem código no contrato e fica de fora.
+    """
+    codes = []
+    for code, _ in _unmet_requirements(team):
+        if code and code not in codes:
+            codes.append(code)
+    return codes
+
+
+def _unmet_requirements(team) -> list[tuple[str | None, str]]:
     edition = team.edition
     unmet = []
     members = team.members.filter(active=True).count()
     if members < edition.min_members:
-        unmet.append(f"{members} integrantes; o mínimo é {edition.min_members}.")
+        unmet.append(
+            ("MIN_MEMBERS", f"{members} integrantes; o mínimo é {edition.min_members}.")
+        )
     if members > edition.max_members:
-        unmet.append(f"{members} integrantes; o máximo é {edition.max_members}.")
+        unmet.append(
+            (None, f"{members} integrantes; o máximo é {edition.max_members}.")
+        )
     # Lê o projeto pela relação reversa: teams não importa de projects (cadeia).
     project = getattr(team, "project", None)
     if project is None or not project.challenge_id:
-        unmet.append("Sem desafio escolhido.")
+        unmet.append(("CHALLENGE_NOT_SELECTED", "Sem desafio escolhido."))
     if project is None or not project.title:
-        unmet.append("Projeto sem título.")
+        unmet.append(("PROJECT_DATA_MISSING", "Projeto sem título."))
     if project is None or not project.summary:
-        unmet.append("Projeto sem resumo.")
+        unmet.append(("PROJECT_DATA_MISSING", "Projeto sem resumo."))
+    # Categoria obrigatória (D-06); o contrato a conta como dado do projeto.
     if project is None or not project.category_id:
-        unmet.append("Projeto sem categoria.")
+        unmet.append(("PROJECT_DATA_MISSING", "Projeto sem categoria."))
     return unmet

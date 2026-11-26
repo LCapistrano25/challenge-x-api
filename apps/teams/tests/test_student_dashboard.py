@@ -242,6 +242,23 @@ def test_equipe_incompleta_apenas_por_dados_do_projeto():
     assert dashboard["incomplete_requirements"] == ["PROJECT_DATA_MISSING"]
 
 
+def test_equipe_incompleta_apenas_por_falta_de_categoria():
+    # D-06: categoria obrigatória; o contrato a conta como dado do projeto.
+    edition = EditionFactory(status=EditionStatus.PUBLISHED, min_members=1)
+    team = TeamFactory(edition=edition, incomplete=True)
+    leader = team.members.get(role=MemberRole.LEADER, active=True)
+    project = ProjectFactory(team=team, edition=edition, category=None)
+
+    dashboard = get_student_dashboard(actor=leader.student.user)
+
+    assert dashboard["incomplete_requirements"] == ["PROJECT_DATA_MISSING"]
+    assert {
+        "kind": "PROJECT_DATA_PENDING",
+        "description": "Preencha os dados obrigatórios do projeto.",
+        "reference_id": project.pk,
+    } in dashboard["pending_actions"]
+
+
 def test_academico_sem_edicao_publicada_tem_dashboard_vazio():
     EditionFactory(status=EditionStatus.SETUP)
     student = StudentFactory()

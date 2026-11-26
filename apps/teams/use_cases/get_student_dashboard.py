@@ -13,7 +13,7 @@ from apps.teams.enums import (
     TeamSituation,
 )
 from apps.teams.models import Invitation, JoinRequest, TeamMember
-from apps.teams.rules import compute_unmet_requirements
+from apps.teams.rules import unmet_requirement_codes
 from apps.teams.serializers import AdminTeamDetailSerializer
 
 
@@ -24,19 +24,7 @@ def _get_incomplete_requirements(team) -> list[str]:
     }:
         return []
 
-    unmet = compute_unmet_requirements(team)
-    requirements = []
-
-    if any("mínimo é" in item for item in unmet):
-        requirements.append("MIN_MEMBERS")
-
-    if "Sem desafio escolhido." in unmet:
-        requirements.append("CHALLENGE_NOT_SELECTED")
-
-    if any(item in unmet for item in ("Projeto sem título.", "Projeto sem resumo.")):
-        requirements.append("PROJECT_DATA_MISSING")
-
-    return requirements
+    return unmet_requirement_codes(team)
 
 
 def _serialize_edition(edition):
@@ -140,7 +128,13 @@ def _get_pending_actions(actor, edition, team, project, is_leader):
                 }
             )
 
-    if team and (project is None or not project.title or not project.summary):
+    project_data_missing = (
+        project is None
+        or not project.title
+        or not project.summary
+        or not project.category_id  # D-06
+    )
+    if team and project_data_missing:
         actions.append(
             {
                 "kind": "PROJECT_DATA_PENDING",
