@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.forms.models import BaseInlineFormSet
 
+from apps.editions.exceptions import EditionClosed
 from apps.editions.models import (
     Category,
     Challenge,
@@ -12,7 +13,10 @@ from apps.editions.models import (
     StageCriterion,
     StageSubmissionField,
 )
-from apps.editions.rules import ensure_sdg_not_used_by_challenges
+from apps.editions.rules import (
+    ensure_edition_not_closed,
+    ensure_sdg_not_used_by_challenges,
+)
 
 
 class EditionSdgFormSet(BaseInlineFormSet):
@@ -82,3 +86,13 @@ class CriterionAdmin(admin.ModelAdmin):
     list_filter = ("edition",)
     list_select_related = ("edition",)
     search_fields = ("name",)
+
+    def has_delete_permission(self, request, obj=None):
+        if not super().has_delete_permission(request, obj):
+            return False
+        if obj is not None:
+            try:
+                ensure_edition_not_closed(obj.edition)
+            except EditionClosed:
+                return False
+        return True

@@ -3,7 +3,33 @@ from collections.abc import Mapping
 from rest_framework import serializers
 
 from apps.core.models import Sdg
-from apps.editions.models import Category, Challenge, Edition, EditionReviewer
+from apps.editions.models import (
+    Category,
+    Challenge,
+    Criterion,
+    Edition,
+    EditionReviewer,
+)
+
+
+class CriterionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Criterion
+        fields = [
+            "id",
+            "edition_id",
+            "name",
+            "rubric",
+            "tiebreak_order",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = fields
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data["rubric"] = data["rubric"] or None
+        return data
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -148,6 +174,21 @@ class StrictBooleanField(serializers.BooleanField):
         if not isinstance(data, bool):
             self.fail("invalid", input=data)
         return super().to_internal_value(data)
+
+
+class CriterionWriteSerializer(RejectUnknownFieldsMixin, serializers.Serializer):
+    name = StrictCharField(max_length=150)
+    rubric = StrictCharField(
+        required=False, allow_null=True, allow_blank=True, trim_whitespace=False
+    )
+    tiebreak_order = StrictIntegerField(
+        required=False, allow_null=True, min_value=1, max_value=32767
+    )
+
+    def validate(self, attrs):
+        if self.partial and not attrs:
+            raise serializers.ValidationError("Informe ao menos um campo.")
+        return attrs
 
 
 class CategoryWriteSerializer(RejectUnknownFieldsMixin, serializers.Serializer):

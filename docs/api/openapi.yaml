@@ -10791,6 +10791,7 @@ components:
           - integer
           - 'null'
           minimum: 1
+          maximum: 32767
           examples:
           - 1
       required:
@@ -10816,6 +10817,7 @@ components:
           - integer
           - 'null'
           minimum: 1
+          maximum: 32767
           examples:
           - null
       additionalProperties: false

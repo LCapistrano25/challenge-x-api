@@ -341,8 +341,8 @@ SC["Criterion"] = obj({
     "created_at": DT(), "updated_at": DT(),
 }, ["id", "edition_id", "name", "rubric", "tiebreak_order", "created_at", "updated_at"])
 SC["CriterionCreate"] = obj({"name": STR(ex="Inovação", maxLength=150), "rubric": nul(TXT(ex="Avalia o grau de originalidade da solução...")),
-                             "tiebreak_order": nul(INT(ex=1, minimum=1))}, ["name"], strict=True)
-SC["CriterionUpdate"] = obj({"name": STR(ex="Inovação", maxLength=150), "rubric": nul(TXT(ex="Faixas revisadas.")), "tiebreak_order": nul(INT(ex=None, minimum=1))},
+                             "tiebreak_order": nul(INT(ex=1, minimum=1, maximum=32767))}, ["name"], strict=True)
+SC["CriterionUpdate"] = obj({"name": STR(ex="Inovação", maxLength=150), "rubric": nul(TXT(ex="Faixas revisadas.")), "tiebreak_order": nul(INT(ex=None, minimum=1, maximum=32767))},
                             desc="Ao menos um campo deve ser informado.", strict=True, minProperties=1)
 SC["DeliverableField"] = obj({
     "id": INT(ex=31), "kind": ref("FieldType"), "label": STR(ex="Relatório técnico (PDF)"), "required": BOOL(ex=True),

@@ -2,10 +2,13 @@ from decimal import Decimal
 
 from django.apps import apps
 from django.core.exceptions import ValidationError
-from django.db.models import Sum
+from django.db.models import Sum, Value
+from django.db.models.functions import Lower
 
 from apps.editions.enums import EditionStatus
 from apps.editions.exceptions import (
+    CriterionInUseByEvaluations,
+    CriterionNameTaken,
     EditionAlreadyExists,
     EditionClosed,
     EditionNotInSetup,
@@ -13,6 +16,7 @@ from apps.editions.exceptions import (
     InvalidTeamLimits,
     PublicationRequirementsNotMet,
     TeamLimitsLocked,
+    TiebreakOrderTaken,
 )
 
 # Os models importam estas regras; por isso elas pegam os models pelo registro
@@ -152,3 +156,68 @@ def ensure_edition_ready_for_publication(edition) -> None:
 
     if pending:
         raise PublicationRequirementsNotMet(pending)
+
+
+def ensure_criterion_values_are_valid(*, name: str, tiebreak_order: int | None) -> None:
+    errors = {}
+    if not isinstance(name, str) or not 1 <= len(name.strip()) <= 150:
+        errors["name"] = "Informe um nome de 1 a 150 caracteres."
+    if tiebreak_order is not None and (
+        type(tiebreak_order) is not int or not 1 <= tiebreak_order <= 32767
+    ):
+        errors["tiebreak_order"] = "Informe uma ordem de desempate de 1 a 32767."
+    if errors:
+        raise ValidationError(errors)
+
+
+def ensure_criterion_values_are_unique(
+    *,
+    edition_id: int,
+    name: str,
+    tiebreak_order: int | None,
+    criterion_id: int | None = None,
+) -> None:
+    """Confere nome e posição de desempate no escopo da edição."""
+    criteria = apps.get_model("editions", "Criterion").objects.filter(
+        edition_id=edition_id
+    )
+    if criterion_id is not None:
+        criteria = criteria.exclude(pk=criterion_id)
+    if (
+        criteria.alias(normalized_name=Lower("name"))
+        .filter(normalized_name=Lower(Value(name)))
+        .exists()
+    ):
+        raise CriterionNameTaken()
+    if (
+        tiebreak_order is not None
+        and criteria.filter(tiebreak_order=tiebreak_order).exists()
+    ):
+        raise TiebreakOrderTaken()
+
+
+def ensure_criterion_has_no_evaluations(criterion_id: int) -> None:
+    """Bloqueia a alteração se uma etapa vinculada já tiver avaliações."""
+    evaluations = apps.get_model("evaluations", "Evaluation").objects
+    if evaluations.filter(stage__criterion_links__criterion_id=criterion_id).exists():
+        raise CriterionInUseByEvaluations()
+
+
+def ensure_criterion_can_be_saved(
+    *, criterion_id: int | None, edition_id: int | None
+) -> None:
+    """Valida a edição de origem e a de destino no formulário do critério."""
+    criteria = apps.get_model("editions", "Criterion").objects
+    edition_ids = {edition_id}
+    if criterion_id is not None:
+        previous_edition_id = (
+            criteria.filter(pk=criterion_id)
+            .values_list("edition_id", flat=True)
+            .first()
+        )
+        edition_ids.add(previous_edition_id)
+    editions = apps.get_model("editions", "Edition").objects.filter(pk__in=edition_ids)
+    for edition in editions:
+        ensure_edition_not_closed(edition)
+    if criterion_id is not None:
+        ensure_criterion_has_no_evaluations(criterion_id)

@@ -11,11 +11,18 @@ from rest_framework.views import APIView
 
 from apps.accounts.permissions import IsAdmin
 from apps.editions.enums import EditionStatus
-from apps.editions.models import Category, Challenge, Edition, EditionReviewer
+from apps.editions.models import (
+    Category,
+    Challenge,
+    Criterion,
+    Edition,
+    EditionReviewer,
+)
 from apps.editions.regulation_files import open_regulation
 from apps.editions.selectors import (
     list_edition_categories,
     list_edition_challenges,
+    list_edition_criteria,
     list_edition_reviewers,
     list_edition_sdgs,
     list_editions,
@@ -26,6 +33,8 @@ from apps.editions.serializers import (
     ChallengeFiltersSerializer,
     ChallengeSerializer,
     ChallengeWriteSerializer,
+    CriterionSerializer,
+    CriterionWriteSerializer,
     EditionCreateSerializer,
     EditionPublishSerializer,
     EditionReviewerCreateSerializer,
@@ -38,15 +47,62 @@ from apps.editions.serializers import (
 )
 from apps.editions.use_cases.create_category import create_category
 from apps.editions.use_cases.create_challenge import create_challenge
+from apps.editions.use_cases.create_criterion import create_criterion
 from apps.editions.use_cases.create_edition import create_edition
 from apps.editions.use_cases.delete_category import delete_category
+from apps.editions.use_cases.delete_criterion import delete_criterion
 from apps.editions.use_cases.link_reviewer_to_edition import link_reviewer_to_edition
 from apps.editions.use_cases.publish_regulation import publish_regulation
 from apps.editions.use_cases.set_edition_sdgs import set_edition_sdgs
 from apps.editions.use_cases.update_category import update_category
 from apps.editions.use_cases.update_challenge import update_challenge
+from apps.editions.use_cases.update_criterion import update_criterion
 from apps.editions.use_cases.update_edition import update_edition
 from apps.editions.use_cases.update_reviewer_scope import update_reviewer_scope
+
+
+class EditionCriteriaView(APIView):
+    """Lista e cadastra critérios de avaliação da edição (RF06)."""
+
+    permission_classes = [IsAdmin]
+    parser_classes = [JSONParser]
+
+    def get(self, request, edition_id):
+        edition = get_object_or_404(Edition, pk=edition_id)
+        criteria = list_edition_criteria(edition.pk)
+        return Response(CriterionSerializer(criteria, many=True).data)
+
+    def post(self, request, edition_id):
+        edition = get_object_or_404(Edition, pk=edition_id)
+        serializer = CriterionWriteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        criterion = create_criterion(
+            actor=request.user, edition=edition, **serializer.validated_data
+        )
+        return Response(
+            CriterionSerializer(criterion).data, status=status.HTTP_201_CREATED
+        )
+
+
+class CriterionDetailView(APIView):
+    """Atualiza ou exclui um critério de avaliação da edição (RF06)."""
+
+    permission_classes = [IsAdmin]
+    parser_classes = [JSONParser]
+
+    def patch(self, request, criterion_id):
+        criterion = get_object_or_404(Criterion, pk=criterion_id)
+        serializer = CriterionWriteSerializer(data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        criterion = update_criterion(
+            actor=request.user, criterion=criterion, **serializer.validated_data
+        )
+        return Response(CriterionSerializer(criterion).data)
+
+    def delete(self, request, criterion_id):
+        criterion = get_object_or_404(Criterion, pk=criterion_id)
+        delete_criterion(actor=request.user, criterion=criterion)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class EditionCategoriesView(APIView):
