@@ -6,7 +6,8 @@ from apps.accounts.models import User
 from apps.accounts.rules import ensure_actor_is_admin
 from apps.editions.models import Challenge, Edition
 from apps.editions.rules import (
-    ensure_challenge_catalog_is_valid,
+    ensure_challenge_sdg_is_valid,
+    ensure_course_is_active,
     ensure_edition_not_closed,
 )
 
@@ -25,7 +26,8 @@ def create_challenge(
     # Serializa com alterações das ODS habilitadas da edição.
     edition = Edition.objects.select_for_update().get(pk=edition.pk)
     ensure_edition_not_closed(edition)
-    ensure_challenge_catalog_is_valid(edition.pk, course_id, sdg_id)
+    ensure_course_is_active(course_id)
+    ensure_challenge_sdg_is_valid(edition.pk, sdg_id)
     return Challenge.objects.create(
         edition=edition,
         course_id=course_id,

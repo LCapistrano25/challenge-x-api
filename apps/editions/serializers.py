@@ -133,7 +133,7 @@ class StrictBooleanField(serializers.BooleanField):
 class ChallengeWriteSerializer(RejectUnknownFieldsMixin, serializers.Serializer):
     course_id = StrictIntegerField()
     sdg_id = StrictIntegerField()
-    description = StrictCharField(allow_blank=True, trim_whitespace=False)
+    description = StrictCharField()
     active = StrictBooleanField(required=False)
 
     def validate(self, attrs):

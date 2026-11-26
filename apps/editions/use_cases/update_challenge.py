@@ -6,7 +6,8 @@ from apps.accounts.models import User
 from apps.accounts.rules import ensure_actor_is_admin
 from apps.editions.models import Challenge, Edition
 from apps.editions.rules import (
-    ensure_challenge_catalog_is_valid,
+    ensure_challenge_sdg_is_valid,
+    ensure_course_is_active,
     ensure_edition_not_closed,
 )
 
@@ -26,6 +27,11 @@ def update_challenge(
     ensure_edition_not_closed(edition)
     challenge = Challenge.objects.select_for_update().get(pk=challenge.pk)
 
+    if course_id is not None:
+        ensure_course_is_active(course_id)
+    if sdg_id is not None:
+        ensure_challenge_sdg_is_valid(edition.pk, sdg_id)
+
     updates = {
         "course_id": course_id,
         "sdg_id": sdg_id,
@@ -35,7 +41,6 @@ def update_challenge(
     updates = {field: value for field, value in updates.items() if value is not None}
     for field, value in updates.items():
         setattr(challenge, field, value)
-    ensure_challenge_catalog_is_valid(edition.pk, challenge.course_id, challenge.sdg_id)
     if updates:
         challenge.save(update_fields=[*updates, "updated_at"])
     return challenge

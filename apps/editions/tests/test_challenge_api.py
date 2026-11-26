@@ -123,16 +123,71 @@ def test_patch_invalido_nao_aplica_edicao_parcial(client, challenge):
     assert challenge.description == original
 
 
-def test_patch_revalida_ods_inativa_mesmo_quando_omitida(client, challenge):
-    original = challenge.description
-    challenge.sdg.active = False
-    challenge.sdg.save(update_fields=["active"])
+@pytest.mark.parametrize("catalog", ["course", "sdg"])
+def test_patch_de_texto_preserva_vinculo_inativo_omitido(client, challenge, catalog):
+    linked = getattr(challenge, catalog)
+    linked.active = False
+    linked.save(update_fields=["active"])
     response = client.patch(
-        detail(challenge), {"description": "Outro texto"}, format="json"
+        detail(challenge), {"description": "  Outro texto  "}, format="json"
     )
-    assert response.status_code == 400
+    assert response.status_code == 200
     challenge.refresh_from_db()
-    assert challenge.description == original
+    assert challenge.description == "Outro texto"
+    assert getattr(challenge, f"{catalog}_id") == linked.pk
+
+
+@pytest.mark.parametrize("active", [False, True])
+@pytest.mark.parametrize("method", ["post", "patch"])
+def test_erro_de_ods_usa_sdg_id(client, challenge, active, method):
+    # Uma ODS ativa mas não habilitada e uma inativa habilitada falham no mesmo campo.
+    number = 6 if challenge.sdg.number == 4 else 4
+    replacement = SdgFactory(number=number, active=active)
+    if not active:
+        EditionSdgFactory(edition=challenge.edition, sdg=replacement)
+    payload = {"sdg_id": replacement.pk, "description": "Outro texto"}
+    if method == "post":
+        payload["course_id"] = challenge.course_id
+    path = collection(challenge) if method == "post" else detail(challenge)
+    response = getattr(client, method)(path, payload, format="json")
+    assert response.status_code == 400
+    error = response.json()["error"]
+    assert error["code"] == "validation_error"
+    assert set(error["details"]) == {"sdg_id"}
+    challenge.refresh_from_db()
+    assert challenge.sdg_id != replacement.pk
+
+
+@pytest.mark.parametrize("description", ["", "   "])
+@pytest.mark.parametrize("method", ["post", "patch"])
+def test_descricao_em_branco_rejeitada(client, challenge, description, method):
+    payload = {"description": description}
+    if method == "post":
+        payload.update(course_id=challenge.course_id, sdg_id=challenge.sdg_id)
+    path = collection(challenge) if method == "post" else detail(challenge)
+    response = getattr(client, method)(path, payload, format="json")
+    assert response.status_code == 400
+    assert "description" in response.json()["error"]["details"]
+
+
+def test_admin_associa_erro_ao_campo_sdg(admin_client, challenge):
+    number = 6 if challenge.sdg.number == 4 else 4
+    unlinked = SdgFactory(number=number)
+    response = admin_client.post(
+        f"/admin/editions/challenge/{challenge.pk}/change/",
+        {
+            "edition": challenge.edition_id,
+            "course": challenge.course_id,
+            "sdg": unlinked.pk,
+            "description": challenge.description,
+            "active": "on",
+        },
+        HTTP_HOST="localhost",
+    )
+    assert response.status_code == 200
+    assert "sdg" in response.context["adminform"].form.errors
+    challenge.refresh_from_db()
+    assert challenge.sdg_id != unlinked.pk
 
 
 @pytest.mark.parametrize("payload", [{}, {"active": "false"}, {"edition_id": 2}])

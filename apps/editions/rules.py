@@ -19,25 +19,24 @@ from apps.editions.exceptions import (
 # do Django (como a FK por string), sem import que fecharia o ciclo.
 
 
-def ensure_sdg_enabled_in_edition(edition_id: int, sdg_id: int) -> None:
+def ensure_sdg_enabled_in_edition(
+    edition_id: int, sdg_id: int, *, error_field: str = "sdg"
+) -> None:
     """Exige que a ODS esteja entre as aceitas na edição (RN09)."""
     edition_sdgs = apps.get_model("editions", "EditionSdg").objects
     if not edition_sdgs.filter(edition_id=edition_id, sdg_id=sdg_id).exists():
-        raise ValidationError({"sdg": "A ODS não está habilitada nesta edição."})
+        raise ValidationError({error_field: "A ODS não está habilitada nesta edição."})
 
 
-def ensure_challenge_catalog_is_valid(
-    edition_id: int, course_id: int, sdg_id: int
-) -> None:
-    """Exige curso ativo e ODS ativa habilitada para o desafio (RF05, RN09)."""
-    ensure_course_is_active(course_id)
+def ensure_challenge_sdg_is_valid(edition_id: int, sdg_id: int) -> None:
+    """Exige ODS ativa e habilitada no cadastro ou na troca de vínculo (RF05)."""
     if (
         not apps.get_model("core", "Sdg")
         .objects.filter(pk=sdg_id, active=True)
         .exists()
     ):
         raise ValidationError({"sdg_id": "A ODS deve existir e estar ativa."})
-    ensure_sdg_enabled_in_edition(edition_id, sdg_id)
+    ensure_sdg_enabled_in_edition(edition_id, sdg_id, error_field="sdg_id")
 
 
 def ensure_sdg_not_used_by_challenges(edition_id: int, sdg_id: int) -> None:
