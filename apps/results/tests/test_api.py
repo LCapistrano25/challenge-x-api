@@ -55,7 +55,7 @@ def test_fluxo_completo_200(admin, edition, make_project):
     assert row["project"] == {"id": project.pk, "title": project.title}
     assert row["team"]["id"] == project.team_id
     assert row["course"]["id"] == project.challenge.course_id
-    assert row["category"] is None
+    assert row["category"] == {"id": project.category_id, "name": project.category.name}
     assert row["final_score"] == "5.50"
     assert row["course_rank"] == 1
     assert row["finalist"] is True

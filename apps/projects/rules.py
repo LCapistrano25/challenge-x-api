@@ -49,9 +49,10 @@ def ensure_project_in_team_edition(project) -> None:
 
 
 def ensure_project_complete(project) -> None:
-    """Só entrega projeto com desafio, título e resumo (RF30, RF31, RF51)."""
+    """Só entrega projeto com desafio, categoria, título e resumo (RF30, RF31, D-06)."""
     filled = {
         "challenge": project.challenge_id,
+        "category": project.category_id,
         "title": project.title,
         "summary": project.summary,
     }
