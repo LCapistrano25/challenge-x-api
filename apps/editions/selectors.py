@@ -18,6 +18,10 @@ def get_locked_criterion(criterion_id: int) -> Criterion:
         raise CriterionNotFound() from error
 
 
+def list_edition_criteria(edition_id: int) -> QuerySet[Criterion]:
+    return Criterion.objects.filter(edition_id=edition_id).order_by("id")
+
+
 def list_edition_categories(edition_id: int) -> QuerySet[Category]:
     """Lista as categorias cadastradas na edição (RF49)."""
     return Category.objects.filter(edition_id=edition_id).order_by("id")
