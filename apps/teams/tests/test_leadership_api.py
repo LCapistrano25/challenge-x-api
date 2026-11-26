@@ -9,6 +9,7 @@ from apps.accounts.factories import (
     TeacherFactory,
     UserFactory,
 )
+from apps.editions.enums import EditionStatus
 from apps.projects.factories import ProjectFactory
 from apps.teams.enums import MemberRole, RequestStatus, TeamStatus
 from apps.teams.factories import (
@@ -179,6 +180,23 @@ def test_aluno_solicita_lideranca_pela_api():
     assert response.data["team"]["id"] == team.id
 
 
+def test_aluno_nao_solicita_lideranca_com_edicao_encerrada():
+    team, project, student = create_team_without_leader()
+    team.edition.status = EditionStatus.CLOSED
+    team.edition.save(update_fields=["status"])
+
+    client = authenticated_client(student.user)
+
+    response = client.post(
+        f"/api/teams/{team.id}/leadership-requests",
+        {"justification": "Quero assumir a liderança."},
+        format="json",
+    )
+
+    assert response.status_code == 409
+    assert response.data["error"]["code"] == "edition_closed"
+
+
 def test_aluno_nao_solicita_lideranca_de_equipe_com_lider_ativo():
     team = TeamFactory()
     project = ProjectFactory(team=team)
@@ -199,7 +217,7 @@ def test_aluno_nao_solicita_lideranca_de_equipe_com_lider_ativo():
     )
 
     assert response.status_code == 409
-    assert response.data["error"]["code"] == "leadership_request_rejected"
+    assert response.data["error"]["code"] == "team_has_leader"
 
 
 def test_professor_nao_solicita_lideranca_pela_api():
@@ -268,11 +286,34 @@ def test_nao_permite_duas_solicitacoes_pendentes_pela_api():
 
     assert first_response.status_code == 201
     assert second_response.status_code == 409
-    assert second_response.data["error"]["code"] == "leadership_request_rejected"
+    assert second_response.data["error"]["code"] == "leadership_request_pending_exists"
 
 
 def test_equipe_desclassificada_nao_aceita_solicitacao_de_lideranca():
     team = TeamFactory(disqualified=True, leader=False)
+    project = ProjectFactory(team=team)
+    student = StudentFactory(course=project.challenge.course)
+
+    TeamMemberFactory(
+        team=team,
+        student=student,
+        role=MemberRole.MEMBER,
+    )
+
+    client = authenticated_client(student.user)
+
+    response = client.post(
+        f"/api/teams/{team.id}/leadership-requests",
+        {"justification": "Quero assumir a liderança."},
+        format="json",
+    )
+
+    assert response.status_code == 409
+    assert response.data["error"]["code"] == "leadership_request_rejected"
+
+
+def test_equipe_desfeita_nao_aceita_solicitacao_de_lideranca():
+    team = TeamFactory(status=TeamStatus.DISBANDED, leader=False)
     project = ProjectFactory(team=team)
     student = StudentFactory(course=project.challenge.course)
 
@@ -758,3 +799,35 @@ def test_professor_nao_decide_solicitacao_de_equipe_com_lider_ativo():
     leadership_request.refresh_from_db()
     assert leadership_request.status == RequestStatus.PENDING
     assert leadership_request.teacher is None
+
+
+def test_aluno_nao_consulta_solicitacoes_de_lideranca_destinadas_a_professores():
+    student = StudentFactory()
+    client = authenticated_client(student.user)
+
+    response = client.get("/api/teacher/leadership-requests")
+
+    assert response.status_code == 403
+
+
+def test_aluno_nao_decide_solicitacao_de_lideranca():
+    team, _, student = create_team_without_leader()
+    leadership_request = LeadershipRequestFactory(
+        team=team,
+        requester=student,
+        status=RequestStatus.PENDING,
+    )
+
+    another_student = StudentFactory()
+    client = authenticated_client(another_student.user)
+
+    response = client.post(
+        f"/api/leadership-requests/{leadership_request.id}/decide",
+        {
+            "approve": True,
+            "justification": "Tentativa de decisão por aluno.",
+        },
+        format="json",
+    )
+
+    assert response.status_code == 403
