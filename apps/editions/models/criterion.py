@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models.functions import Lower
 
 from apps.core.models import TimeStampedModel
 
@@ -18,6 +19,9 @@ class Criterion(TimeStampedModel):
         verbose_name = "critério"
         verbose_name_plural = "critérios"
         constraints = [
+            models.UniqueConstraint(
+                Lower("name"), "edition", name="unique_criterion_name_per_edition"
+            ),
             models.UniqueConstraint(
                 fields=["edition", "tiebreak_order"],
                 name="unique_tiebreak_order_per_edition",
