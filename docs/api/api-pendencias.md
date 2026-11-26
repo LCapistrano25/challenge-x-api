@@ -24,13 +24,13 @@
 | P-06 | Status de chamado divergentes — **resolvida** | Alta | `support` |
 | P-07 | Justificativa de recusa e histórico do chamado — **resolvida** | Média | `support` |
 | P-08 | `WAITING_USER` sem canal de resposta do usuário — **resolvida** | Média | `support` |
-| P-09 | Tipo de solicitação e prioridade do chamado | Baixa | `support` |
+| P-09 | Tipo de solicitação e prioridade do chamado — **resolvida** | Baixa | `support` |
 | P-10 | Quem abre e quem atende chamados — **resolvida** | Média | `support` |
-| P-11 | Nomes de campos do chamado na API | Baixa | `support` |
+| P-11 | Nomes de campos do chamado na API — **resolvida** | Baixa | `support` |
 | P-12 | Regra de `resolved_at` — **resolvida** | Baixa | `support` |
 | P-13 | Notificação de convite por e-mail sem usuário | Média | `teams`, notificações |
-| P-14 | Formato do `link` da notificação | Baixa | notificações |
-| P-15 | Ação de exclusão das FKs novas | Baixa | `support`, notificações |
+| P-14 | Formato do `link` da notificação — **resolvida** | Baixa | notificações |
+| P-15 | Ação de exclusão das FKs novas — **resolvida** | Baixa | `support`, notificações |
 | P-16 | Transição para `IN_PROGRESS` da edição | Média | `editions` |
 | P-17 | "Código/sigla" do curso × `slug` | Baixa | `core` |
 | P-18 | Conteúdo da pré-carga da edição | Média | `editions` (seed) |
@@ -56,10 +56,10 @@
 | P-38 | Paginação das listagens — **resolvida** | Baixa | listagens |
 | P-39 | Decimais serializados como string — **resolvida** | Baixa | notas e pontuações |
 | P-40 | 400 × 422 para erros de validação — **resolvida** | Baixa | todos |
-| P-41 | Definição de "edição vigente" | Média | `public`, `teams`, `auth` |
+| P-41 | Definição de "edição vigente" — **resolvida** | Média | `public`, `teams`, `auth` |
 | P-42 | Campo `profile_completed` na sessão Microsoft — **resolvida** | Média | `auth` |
-| P-43 | Formato multipart dos uploads | Média | `editions`, `projects`, `results` |
-| P-44 | Anonimato do professor nos feedbacks | Média | `evaluations` |
+| P-43 | Formato multipart dos uploads — **resolvida** | Média | `editions`, `projects`, `results` |
+| P-44 | Anonimato do professor nos feedbacks — **resolvida** | Média | `evaluations` |
 | P-45 | Confirmação explícita no encerramento da edição | Baixa | `editions` |
 | P-46 | Emissão de certificados e endpoints de resultados ausentes | Alta | `results` |
 | P-47 | Campos de entrega Canvas e SWOT: modelos fixos e escopo | Média | `editions`, `projects` |
@@ -131,6 +131,7 @@
 ### P-09 — Tipo de solicitação e prioridade · Baixa
 - O RFXX (Aluno/Professor) recebe um "tipo de solicitação", mas não existe campo para isso no DBML.
 - `priority` existe no DBML, mas nenhum requisito diz quem define (usuário ou Admin) nem se pode ser alterada.
+- **Resolvida (26/11/2026, #73):** sem tipo de solicitação. O chamado abre com `priority = MEDIUM`, e só o admin altera a prioridade ao atender (`answer_ticket`).
 
 ### P-10 — Quem abre e quem atende · Média
 - O RF e o contrato falam em **alunos e professores**, enquanto a nota do DBML fala em "authenticated users". Avaliadores externos e admins também podem abrir chamados?
@@ -141,6 +142,7 @@
 ### P-11 — Nomes de campos na API · Baixa
 - O contrato usa `subject` e `response`, enquanto o DBML usa `title` e `support_response`.
 - **Suposição:** a API segue o DBML.
+- **Resolvida (26/11/2026, #73):** a API usa `title` e `support_response`, como o banco, e o contrato foi alinhado a esses nomes.
 
 ### P-12 — Regra de `resolved_at` · Baixa
 - Não há regra nem CHECK dizendo quando `resolved_at` é preenchido (apenas em `RESOLVED`? também em `CLOSED`?) e se volta a nulo em caso de reabertura.
@@ -157,10 +159,12 @@
 
 ### P-14 — Formato do `link` · Baixa
 - Não está definido se `link` guarda uma rota do frontend ou o caminho de um recurso da API. Também não há referência estruturada à entidade de origem (convite, solicitação etc.).
+- **Resolvida (26/11/2026, #74):** `link` é uma rota do frontend (ex.: `/projects/{id}/deliverables`), opcional, sem referência estruturada à origem.
 
 ### P-15 — Ação de exclusão das FKs novas · Baixa
 - `notification.user_id`, `support_ticket.user_id` e `support_ticket.assigned_to` não definem `delete`/`update`, enquanto todas as outras referências definem.
 - **Suposição:** `RESTRICT`, já que usuários nunca são excluídos fisicamente.
+- **Resolvida (26/11/2026, #74):** `notification.user` e `support_ticket.requester` usam `CASCADE`; `support_ticket.assigned_to` usa `SET_NULL`. Usuários não são excluídos fisicamente, então o efeito prático é nenhum.
 
 ---
 
@@ -328,6 +332,7 @@ Estas são convenções que a especificação adota para ficar completa. Cada um
 ### P-41 — Definição de "edição vigente" · Média
 - RF20, RF21, RF24, RF41 e RF44 dependem da "edição vigente", mas nenhum requisito a define.
 - **Suposição:** a única edição com status `PUBLISHED` ou `IN_PROGRESS`. Também é preciso decidir se pode haver mais de uma ao mesmo tempo (o modelo não impede) e o que a API retorna quando não há nenhuma (a especificação usa 404 no painel público e 409 `no_current_edition` na criação de equipe).
+- **Resolvida (26/11/2026, #71):** edição vigente é a edição com status `PUBLISHED` (contrato, #197; `get_current_edition` em `apps/public/selectors.py`).
 
 ### P-42 — `profile_completed` na sessão Microsoft · Média
 - O contrato de auth exige que o aluno conclua o autocadastro (RF19) e que o professor configure seus cursos (RF36.1) no primeiro acesso, mas não diz como o frontend descobre que isso ainda falta.
@@ -343,13 +348,16 @@ Estas são convenções que a especificação adota para ficar completa. Cada um
 - Também é preciso definir onde os arquivos são armazenados (ex.: Azure Blob) e se as URLs devolvidas (`notice_url`, `file_url`, `template_url`) são públicas ou assinadas e com validade. Entregas e certificados não devem ficar com URL pública permanente.
 - **Atualização (#108):** o comprovante tem consulta própria (`GET /api/deliverable-versions/{version_id}/receipt`; aluno integrante e admin). O `file_url` do comprovante segue nulo até o PDF ser gerado; quando existir, usa o armazenamento privado e o download autenticado, nunca URL pública.
 - **Pendente (21/11/2026):** a entrega de etapa está pronta. Faltam o upload do edital (RF09, #123) e do modelo de certificado (RF17, #112), e a escolha do armazenamento definitivo (#99, #102).
+- **Resolvida (26/11/2026, #71):** entrega de etapa e edital (#226) usam multipart, com armazenamento privado e download autenticado ou por token. O modelo de certificado segue a D-07 (adiada). A escolha do armazenamento definitivo fica com o deploy (#99, #102).
 
 ### P-44 — Anonimato do professor nos feedbacks · Média
 - O RF32 exibe ao aluno os feedbacks dos professores, mas não diz se o professor é identificado.
 - **Suposição:** os feedbacks são exibidos **sem** o nome do professor. Confirmar.
+- **Resolvida (26/11/2026, #71):** os feedbacks aparecem ao aluno **sem** o nome do professor (só comentário e itens).
 
 ### P-45 — Confirmação no encerramento da edição · Baixa
 - O encerramento (RF47) é irreversível. A especificação exige `{"confirm": true}` no corpo para evitar disparo acidental. Isso é uma proposta e não está nos requisitos.
+- **Pendente com a #130:** o encerramento da edição ainda não tem rota; a confirmação entra com ela.
 
 ### P-46 — Emissão de certificados e endpoints de resultados ausentes · Alta
 - **Não foram incluídos** na especificação, porque dependem de regras não definidas:
