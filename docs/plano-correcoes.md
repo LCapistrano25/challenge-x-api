@@ -17,6 +17,8 @@ Data-base: 25/11/2026, `developer` em `1166905` (#221 mesclada).
 
 ## Passo 1 — ordem de merge das PRs abertas
 
+**Concluído em 26/11/2026:** todas as PRs desta tabela foram mescladas, com os ajustes indicados.
+
 | Ordem | PR | Situação | O que fazer no merge |
 |---|---|---|---|
 | 1 | #225 cursos | De acordo | Mesclar. |
@@ -28,6 +30,8 @@ Data-base: 25/11/2026, `developer` em `1166905` (#221 mesclada).
 | 7 | ~~#226 edital~~ ajustado | Fere D-02 | Esperar a PR da D-02. Depois: tirar a exigência "critérios de cada etapa somam o valor dela"; registrar a rota `GET /api/public/editions/{id}/regulation/{uuid}` no contrato (P-43); falha de armazenamento como `503 storage_unavailable`; responder a pergunta do `durable=True`. |
 
 ## Passo 2 — decisões ainda não aplicadas (uma PR cada)
+
+**Concluído em 26/11/2026:** A a C nas PRs #237, #238 e #240; D a F na #241.
 
 | Ordem | Decisão | Onde | Depende de |
 |---|---|---|---|
