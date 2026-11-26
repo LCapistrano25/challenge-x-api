@@ -244,7 +244,7 @@ class JoinRequestCreateView(APIView):
         ).exists()
 
         if not leader:
-            raise TeamNotFound()
+            raise NotFound("Solicitações da equipe não encontradas.")
 
         filter_serializer = JoinRequestStatusFilterSerializer(
             data=request.query_params,
