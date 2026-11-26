@@ -64,14 +64,60 @@ class EmailDomainCreateSerializer(serializers.Serializer):
     active = serializers.BooleanField(default=True)
 
 
-class EmailDomainUpdateSerializer(serializers.Serializer):
-    name = serializers.CharField(max_length=100, required=False)
-    role = serializers.ChoiceField(choices=INSTITUTIONAL_ROLE_CHOICES, required=False)
-    active = serializers.BooleanField(required=False)
-
+class AtLeastOneFieldSerializer(serializers.Serializer):
     def validate(self, attrs):
         if not attrs:
             raise serializers.ValidationError(
                 "Informe ao menos um campo para atualizar."
             )
         return attrs
+
+
+class AdminUserFilterSerializer(serializers.Serializer):
+    search = serializers.CharField(required=False, allow_blank=True)
+    active = serializers.BooleanField(required=False, allow_null=True, default=None)
+    course_id = serializers.IntegerField(required=False)
+
+
+class StudentAdminUpdateSerializer(AtLeastOneFieldSerializer):
+    name = serializers.CharField(max_length=150, required=False)
+    registration_number = serializers.CharField(max_length=30, required=False)
+    course_id = serializers.IntegerField(required=False)
+    term = serializers.IntegerField(min_value=1, required=False)
+
+
+class TeacherCourseLinkWriteSerializer(serializers.Serializer):
+    course_id = serializers.IntegerField()
+    active = serializers.BooleanField()
+
+
+class TeacherAdminUpdateSerializer(AtLeastOneFieldSerializer):
+    name = serializers.CharField(max_length=150, required=False)
+    courses = TeacherCourseLinkWriteSerializer(many=True, required=False)
+
+    def validate_courses(self, value):
+        ids = [link["course_id"] for link in value]
+        if len(set(ids)) != len(ids):
+            raise serializers.ValidationError("Curso repetido.")
+        return value
+
+
+class ExternalEvaluatorAdminUpdateSerializer(AtLeastOneFieldSerializer):
+    name = serializers.CharField(max_length=150, required=False)
+    # Anulável no contrato; o model guarda vazio.
+    institution = serializers.CharField(
+        max_length=150, required=False, allow_blank=True, allow_null=True
+    )
+
+    def validate_institution(self, value):
+        return value or ""
+
+
+class EmailDomainUpdateSerializer(AtLeastOneFieldSerializer):
+    name = serializers.CharField(max_length=100, required=False)
+    role = serializers.ChoiceField(choices=INSTITUTIONAL_ROLE_CHOICES, required=False)
+    active = serializers.BooleanField(required=False)
+
+
+class UserStatusUpdateSerializer(serializers.Serializer):
+    active = serializers.BooleanField()
