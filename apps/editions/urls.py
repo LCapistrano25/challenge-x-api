@@ -3,6 +3,11 @@ from django.urls import path
 from apps.editions import views
 
 urlpatterns = [
+    path(
+        "challenges/<int:challenge_id>",
+        views.ChallengeDetailView.as_view(),
+        name="challenge-detail",
+    ),
     path("editions", views.EditionListView.as_view(), name="edition-list"),
     path(
         "editions/<int:edition_id>/publish",
@@ -13,6 +18,11 @@ urlpatterns = [
         "editions/<int:edition_id>",
         views.EditionDetailView.as_view(),
         name="edition-detail",
+    ),
+    path(
+        "editions/<int:edition_id>/challenges",
+        views.EditionChallengesView.as_view(),
+        name="edition-challenges",
     ),
     path(
         "editions/<int:edition_id>/sdgs",
