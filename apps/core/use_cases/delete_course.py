@@ -1,28 +1,26 @@
-from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.db.models.deletion import ProtectedError
 
+from apps.accounts.rules import ensure_actor_is_admin
+from apps.core.exceptions import CourseInUse
 from apps.core.models import Course
 
 
 @transaction.atomic
 def delete_course(*, actor, course_id: int) -> None:
-    """
-    Exclui um curso existente.
-    Regra: Não exclui curso com professores ou projetos vinculados.
-    """
-    if not actor.is_staff and not actor.is_superuser:
-        raise PermissionError("Apenas administradores podem excluir cursos.")
+    """Exclui fisicamente um curso apenas quando não possui vínculos (RF03)."""
+    ensure_actor_is_admin(actor)
 
     course = Course.objects.get(id=course_id)
 
-    # Verifica os vínculos de forma segura (usando o padrão _set do Django)
-    has_professors = hasattr(course, "professor_set") and course.professor_set.exists()
-    has_projects = hasattr(course, "project_set") and course.project_set.exists()
+    if (
+        course.students.exists()
+        or course.teachers.exists()
+        or course.challenges.exists()
+    ):
+        raise CourseInUse()
 
-    if has_professors or has_projects:
-        raise ValidationError(
-            "Não é possível excluir este curso pois possui "
-            "professores ou projetos vinculados."
-        )
-
-    course.delete()
+    try:
+        course.delete()
+    except ProtectedError as exc:
+        raise CourseInUse() from exc

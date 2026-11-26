@@ -2,7 +2,11 @@ from decimal import Decimal
 
 import pytest
 
-from apps.editions.factories import StageFactory
+from apps.editions.factories import (
+    CriterionFactory,
+    StageCriterionFactory,
+    StageFactory,
+)
 from apps.evaluations.enums import ScoreStatus
 from apps.evaluations.factories import (
     EvaluationFactory,
@@ -123,6 +127,34 @@ def test_desempate_usa_a_media_dos_avaliadores_somada_entre_etapas(
     rate(a, "0.60", finalized=True)
     rate(a, "1.00")  # rascunho não conta
     rate(b, "0.60", finalized=True)
+
+    standings = by_id(edition)
+
+    assert standings[b.pk].course_rank == 1
+    assert standings[a.pk].course_rank == 2
+
+
+def test_desempate_normaliza_o_criterio_pelo_valor_na_etapa(
+    edition, stages, make_project
+):
+    # O mesmo critério vale 2 na primeira etapa e 1 na segunda: 1,6 de 2 (8 em 10)
+    # perde para 1,0 de 1 (10 em 10), embora tenha mais pontos brutos.
+    criterion = CriterionFactory(edition=edition, tiebreak_order=1)
+    worth_two = StageCriterionFactory(
+        stage=stages[0], criterion=criterion, max_score=Decimal("2.00")
+    )
+    worth_one = StageCriterionFactory(
+        stage=stages[1], criterion=criterion, max_score=Decimal("1.00")
+    )
+    a = make_project("2.00", "2.00")
+    b = make_project("2.00", "2.00")
+    for project, link, points in ((a, worth_two, "1.60"), (b, worth_one, "1.00")):
+        evaluation = EvaluationFactory(
+            project=project, stage=link.stage, finalized=True
+        )
+        EvaluationItemFactory(
+            evaluation=evaluation, stage_criterion=link, points=Decimal(points)
+        )
 
     standings = by_id(edition)
 

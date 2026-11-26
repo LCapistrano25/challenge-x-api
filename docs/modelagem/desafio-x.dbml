@@ -615,25 +615,6 @@ CHECK project_result_final_score_0_to_10: (final_score is null OR (final_score >
 CHECK project_result_award_1_to_3: (award is null OR award in [1, 2, 3])'''
 }
 
-Table results_studentscore [headercolor: #4a6b1e] {
-	id bigint [ pk, increment, note: 'ID' ]
-	created_at timestamptz [ not null ]
-	updated_at timestamptz [ not null ]
-	project_id bigint [ not null ]
-	student_id bigint [ not null ]
-	term smallint [ not null ]
-	points numeric(4,2) [ not null ]
-	calculated_at timestamptz
-
-	indexes {
-		(project_id, student_id) [ unique, name: 'unique_score_per_student' ]
-	}
-
-	Note: '''pontuação do aluno (results.StudentScore)
-CHECK student_score_term_1_to_10: (term >= 1 AND term <= 10)
-CHECK student_score_points_gte_0: points >= 0'''
-}
-
 Table results_certificatetemplate [headercolor: #4a6b1e] {
 	id bigint [ pk, increment, note: 'ID' ]
 	created_at timestamptz [ not null ]
@@ -681,6 +662,27 @@ Table notifications_notification [headercolor: #555555] {
 	read_at timestamptz
 
 	Note: 'notificação (notifications.Notification)'
+}
+
+Table support_supportticket [headercolor: #555555] {
+	id uuid [ pk, note: '(padrão: uuid4)' ]
+	requester_id bigint [ not null, note: 'solicitante' ]
+	assigned_to_id bigint [ note: 'responsável' ]
+	title varchar(150) [ not null, note: 'título' ]
+	description text [ not null, note: 'descrição' ]
+	status support_supportticket_status [ not null, default: 'OPEN' ]
+	priority support_supportticket_priority [ not null, default: 'MEDIUM', note: 'prioridade' ]
+	support_response text [ note: 'resposta do suporte' ]
+	created_at timestamptz [ not null, note: 'criado em' ]
+	updated_at timestamptz [ not null, note: 'atualizado em' ]
+	resolved_at timestamptz [ note: 'resolvido em' ]
+
+	indexes {
+		(requester_id, created_at) [ name: 'support_sup_request_c5e90e_idx' ]
+		(status, priority, created_at) [ name: 'support_sup_status_9e6ce4_idx' ]
+	}
+
+	Note: 'chamado de suporte (support.SupportTicket)'
 }
 
 Enum accounts_user_role {
@@ -805,6 +807,21 @@ Enum notifications_notification_type {
 	CERTIFICATE [ note: 'Certificado' ]
 }
 
+Enum support_supportticket_status {
+	OPEN [ note: 'Aberto' ]
+	IN_PROGRESS [ note: 'Em análise' ]
+	WAITING_USER [ note: 'Aguardando usuário' ]
+	RESOLVED [ note: 'Atendido' ]
+	CLOSED [ note: 'Recusado' ]
+}
+
+Enum support_supportticket_priority {
+	LOW [ note: 'Baixa' ]
+	MEDIUM [ note: 'Média' ]
+	HIGH [ note: 'Alta' ]
+	URGENT [ note: 'Urgente' ]
+}
+
 Ref: accounts_student.user_id - accounts_user.id [ delete: cascade ]
 Ref: accounts_student.course_id > core_course.id [ delete: restrict ]
 Ref: accounts_teacher.user_id - accounts_user.id [ delete: cascade ]
@@ -870,9 +887,9 @@ Ref: evaluations_finalanswer.question_id > evaluations_finalquestion.id [ delete
 Ref: evaluations_scorerectification.item_id > evaluations_evaluationitem.id [ delete: restrict ]
 Ref: evaluations_scorerectification.rectified_by_id > accounts_user.id [ delete: restrict ]
 Ref: results_projectresult.project_id - projects_project.id [ delete: restrict ]
-Ref: results_studentscore.project_id > projects_project.id [ delete: restrict ]
-Ref: results_studentscore.student_id > accounts_student.user_id [ delete: restrict ]
 Ref: results_certificatetemplate.edition_id > editions_edition.id [ delete: restrict ]
 Ref: results_certificate.template_id > results_certificatetemplate.id [ delete: restrict ]
 Ref: results_certificate.user_id > accounts_user.id [ delete: restrict ]
 Ref: notifications_notification.user_id > accounts_user.id [ delete: cascade ]
+Ref: support_supportticket.requester_id > accounts_user.id [ delete: cascade ]
+Ref: support_supportticket.assigned_to_id > accounts_user.id [ delete: set null ]

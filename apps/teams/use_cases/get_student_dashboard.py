@@ -14,7 +14,7 @@ from apps.teams.enums import (
 )
 from apps.teams.models import Invitation, JoinRequest, TeamMember
 from apps.teams.rules import compute_unmet_requirements
-from apps.teams.serializers import StudentDashboardTeamSerializer
+from apps.teams.serializers import AdminTeamDetailSerializer
 
 
 def _get_incomplete_requirements(team) -> list[str]:
@@ -214,7 +214,8 @@ def get_student_dashboard(*, actor: User) -> dict:
 
     dashboard.update(
         {
-            "team": StudentDashboardTeamSerializer(team).data,
+            # O schema Team do contrato é o mesmo da administração.
+            "team": AdminTeamDetailSerializer(team).data,
             "is_leader": is_leader,
             "incomplete_requirements": _get_incomplete_requirements(team),
             "project": ProjectSerializer(project).data if project else None,

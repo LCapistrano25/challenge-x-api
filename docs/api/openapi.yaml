@@ -865,6 +865,112 @@ paths:
                       code: edition_closed
                       message: A edição está encerrada e não pode ser alterada.
                       details: null
+  /api/admin/editions/{edition_id}/awards/calculate:
+    post:
+      tags:
+      - results
+      operationId: resultsCalculateAwards
+      summary: Calcular o pódio
+      description: |-
+        **Status: PROPOSTO** — o contrato depende da decisão de P-30 e pode mudar.
+
+        Calcula e grava o pódio: 1º a 3º por categoria na edição inteira, entre os finalistas (Art. 26, D-01). Pode repetir até a homologação.
+
+        **Requisitos:** RF49
+
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
+
+        **Perfis permitidos:** ADMIN
+
+        **Regras de negócio:**
+        - Ordem: média das avaliações externas EVALUATED (soma das respostas de nota), depois final_score, depois os critérios do Art. 24; empate total divide a posição.
+        - Finalista sem categoria ou sem avaliação externa finalizada fica sem posição (category_rank e award nulos).
+        - Grava category_rank de todos os finalistas com posição e award (1 a 3) nos três primeiros de cada categoria.
+
+        **Pendências relacionadas (api-pendencias.md):** P-30
+      x-status: proposed
+      x-requirements:
+      - RF49
+      x-roles:
+      - ADMIN
+      x-pendencias:
+      - P-30
+      parameters:
+      - $ref: '#/components/parameters/EditionId'
+      responses:
+        '200':
+          description: Operação concluída.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EditionResults'
+              example:
+                edition_id: 3
+                approved_at: null
+                results:
+                - project:
+                    id: 40
+                    title: Monitoramento inteligente do consumo de água
+                  team:
+                    id: 12
+                    name: Equipe Aurora
+                    code: DXA7K2
+                  course:
+                    id: 1
+                    name: Engenharia de Software
+                  category:
+                    id: 2
+                    name: Protótipos e Artefatos
+                  final_score: '7.50'
+                  course_rank: 1
+                  finalist: true
+                  category_rank: 1
+                  award: 1
+                excluded:
+                - project_id: 40
+                  team_id: 12
+                  reason: DISQUALIFIED
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Conflito com uma regra de negócio.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                results_not_calculated:
+                  summary: Calcule os resultados antes.
+                  value:
+                    error:
+                      code: results_not_calculated
+                      message: Calcule os resultados antes.
+                      details: null
+                no_finalists:
+                  summary: Escolha os finalistas antes.
+                  value:
+                    error:
+                      code: no_finalists
+                      message: Escolha os finalistas antes.
+                      details: null
+                results_already_approved:
+                  summary: O resultado da edição já foi homologado.
+                  value:
+                    error:
+                      code: results_already_approved
+                      message: O resultado da edição já foi homologado.
+                      details: null
+                edition_closed:
+                  summary: A edição está encerrada e não pode ser alterada.
+                  value:
+                    error:
+                      code: edition_closed
+                      message: A edição está encerrada e não pode ser alterada.
+                      details: null
   /api/admin/editions/{edition_id}/categories:
     get:
       tags:
@@ -1851,6 +1957,120 @@ paths:
                       code: edition_closed
                       message: A edição está encerrada e não pode ser alterada.
                       details: null
+  /api/admin/editions/{edition_id}/finalists:
+    post:
+      tags:
+      - results
+      operationId: resultsSelectFinalists
+      summary: Escolher os finalistas
+      description: |-
+        Marca como finalistas exatamente os projetos da lista; sem lista, os 3 primeiros de cada curso (Cap. VIII IV).
+
+        **Requisitos:** RF15, RF42
+
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
+
+        **Perfis permitidos:** ADMIN
+
+        **Regras de negócio:**
+        - Sem project_ids, ficam os de course_rank ≤ 3; empate na 3ª posição leva todos os empatados, e a comissão ajusta mandando a lista.
+        - Todo projeto da lista precisa estar no ranking da edição; lista vazia, repetida ou com projeto fora do ranking: 400 validation_error.
+        - Finalista que já recebeu avaliação final não sai da lista.
+
+        **Pendências relacionadas (api-pendencias.md):** P-46
+      x-status: confirmed
+      x-requirements:
+      - RF15
+      - RF42
+      x-roles:
+      - ADMIN
+      x-pendencias:
+      - P-46
+      parameters:
+      - $ref: '#/components/parameters/EditionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FinalistsSelect'
+            example: {}
+      responses:
+        '200':
+          description: Operação concluída.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EditionResults'
+              example:
+                edition_id: 3
+                approved_at: null
+                results:
+                - project:
+                    id: 40
+                    title: Monitoramento inteligente do consumo de água
+                  team:
+                    id: 12
+                    name: Equipe Aurora
+                    code: DXA7K2
+                  course:
+                    id: 1
+                    name: Engenharia de Software
+                  category:
+                    id: 2
+                    name: Protótipos e Artefatos
+                  final_score: '7.50'
+                  course_rank: 1
+                  finalist: true
+                  category_rank: 1
+                  award: 1
+                excluded:
+                - project_id: 40
+                  team_id: 12
+                  reason: DISQUALIFIED
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Conflito com uma regra de negócio.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                results_not_calculated:
+                  summary: Calcule os resultados antes.
+                  value:
+                    error:
+                      code: results_not_calculated
+                      message: Calcule os resultados antes.
+                      details: null
+                finalist_already_evaluated:
+                  summary: Um finalista retirado já foi avaliado.
+                  value:
+                    error:
+                      code: finalist_already_evaluated
+                      message: Um finalista retirado já foi avaliado.
+                      details: null
+                results_already_approved:
+                  summary: O resultado da edição já foi homologado.
+                  value:
+                    error:
+                      code: results_already_approved
+                      message: O resultado da edição já foi homologado.
+                      details: null
+                edition_closed:
+                  summary: A edição está encerrada e não pode ser alterada.
+                  value:
+                    error:
+                      code: edition_closed
+                      message: A edição está encerrada e não pode ser alterada.
+                      details: null
   /api/admin/editions/{edition_id}/publish:
     post:
       tags:
@@ -1867,7 +2087,7 @@ paths:
         **Perfis permitidos:** ADMIN
 
         **Regras de negócio:**
-        - Pré-condições: cursos ativos, ODS habilitadas, desafios, categorias, limites, critérios, etapas pontuadas somando 10,00 e critérios por etapa somando o valor de cada etapa.
+        - Pré-condições: cursos ativos, ODS habilitadas, desafios, categorias, limites, critérios, etapas pontuadas somando 10,00 e critérios vinculados às etapas pontuadas.
         - Após publicar, congela etapas, pontuação, critérios por etapa e limites de equipe.
 
         **Pendências relacionadas (api-pendencias.md):** P-16, P-43
@@ -1936,6 +2156,229 @@ paths:
                       code: publication_requirements_not_met
                       message: Há parametrizações obrigatórias pendentes; ver details.
                       details: null
+  /api/admin/editions/{edition_id}/results/calculate:
+    post:
+      tags:
+      - results
+      operationId: resultsCalculate
+      summary: Calcular nota final e ranking
+      description: |-
+        Calcula e grava a nota final e a posição no curso de cada projeto da edição. Pode repetir até a homologação.
+
+        **Requisitos:** RF15
+
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
+
+        **Perfis permitidos:** ADMIN
+
+        **Regras de negócio:**
+        - Nota final = soma das etapas de entrega pontuadas; o projeto só entra no ranking com todas elas DEFINITIVE ou ZERO_NO_SUBMISSION.
+        - Fora do ranking: equipe ou projeto desclassificado, projeto sem desafio, nota pendente (lista em excluded). Equipe desfeita não aparece.
+        - Desempate (Art. 24): critérios com tiebreak_order, na ordem; nota do critério em escala 0 a 10 por etapa, média dos professores, soma entre etapas.
+        - Recalcular preserva os finalistas ainda classificados; quem sai do ranking perde nota, posição e a marca de finalista.
+        - O sistema não calcula pontos do aluno na disciplina (D-04).
+
+        **Pendências relacionadas (api-pendencias.md):** P-46
+      x-status: confirmed
+      x-requirements:
+      - RF15
+      x-roles:
+      - ADMIN
+      x-pendencias:
+      - P-46
+      parameters:
+      - $ref: '#/components/parameters/EditionId'
+      responses:
+        '200':
+          description: Operação concluída.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EditionResults'
+              example:
+                edition_id: 3
+                approved_at: null
+                results:
+                - project:
+                    id: 40
+                    title: Monitoramento inteligente do consumo de água
+                  team:
+                    id: 12
+                    name: Equipe Aurora
+                    code: DXA7K2
+                  course:
+                    id: 1
+                    name: Engenharia de Software
+                  category:
+                    id: 2
+                    name: Protótipos e Artefatos
+                  final_score: '7.50'
+                  course_rank: 1
+                  finalist: true
+                  category_rank: 1
+                  award: 1
+                excluded:
+                - project_id: 40
+                  team_id: 12
+                  reason: DISQUALIFIED
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Conflito com uma regra de negócio.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                no_scored_stages:
+                  summary: A edição não tem etapa de entrega pontuada.
+                  value:
+                    error:
+                      code: no_scored_stages
+                      message: A edição não tem etapa de entrega pontuada.
+                      details: null
+                results_already_approved:
+                  summary: O resultado da edição já foi homologado.
+                  value:
+                    error:
+                      code: results_already_approved
+                      message: O resultado da edição já foi homologado.
+                      details: null
+                edition_closed:
+                  summary: A edição está encerrada e não pode ser alterada.
+                  value:
+                    error:
+                      code: edition_closed
+                      message: A edição está encerrada e não pode ser alterada.
+                      details: null
+  /api/admin/editions/{edition_id}/results/homologate:
+    post:
+      tags:
+      - results
+      operationId: resultsApprove
+      summary: Homologar o resultado
+      description: |-
+        Grava a homologação em todos os projetos classificados. É o último passo: depois das notas, dos finalistas, da avaliação externa e do pódio. Depois dela o resultado não muda.
+
+        **Requisitos:** RF15
+
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
+
+        **Perfis permitidos:** ADMIN
+
+        **Regras de negócio:**
+        - Não recalcula: se as notas mudaram depois do cálculo, recusa com results_outdated.
+        - Recusa enquanto houver projeto com nota de etapa pendente (results_pending_scores), para nenhuma equipe sair do resultado por atraso na avaliação.
+
+        **Pendências relacionadas (api-pendencias.md):** P-46
+      x-status: confirmed
+      x-requirements:
+      - RF15
+      x-roles:
+      - ADMIN
+      x-pendencias:
+      - P-46
+      parameters:
+      - $ref: '#/components/parameters/EditionId'
+      responses:
+        '200':
+          description: Operação concluída.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EditionResults'
+              example:
+                edition_id: 3
+                approved_at: null
+                results:
+                - project:
+                    id: 40
+                    title: Monitoramento inteligente do consumo de água
+                  team:
+                    id: 12
+                    name: Equipe Aurora
+                    code: DXA7K2
+                  course:
+                    id: 1
+                    name: Engenharia de Software
+                  category:
+                    id: 2
+                    name: Protótipos e Artefatos
+                  final_score: '7.50'
+                  course_rank: 1
+                  finalist: true
+                  category_rank: 1
+                  award: 1
+                excluded:
+                - project_id: 40
+                  team_id: 12
+                  reason: DISQUALIFIED
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Conflito com uma regra de negócio.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                results_not_calculated:
+                  summary: Calcule os resultados antes.
+                  value:
+                    error:
+                      code: results_not_calculated
+                      message: Calcule os resultados antes.
+                      details: null
+                no_finalists:
+                  summary: Escolha os finalistas antes.
+                  value:
+                    error:
+                      code: no_finalists
+                      message: Escolha os finalistas antes.
+                      details: null
+                results_pending_scores:
+                  summary: Há projeto com nota de etapa pendente.
+                  value:
+                    error:
+                      code: results_pending_scores
+                      message: Há projeto com nota de etapa pendente.
+                      details: null
+                awards_not_calculated:
+                  summary: Calcule o pódio antes de homologar.
+                  value:
+                    error:
+                      code: awards_not_calculated
+                      message: Calcule o pódio antes de homologar.
+                      details: null
+                results_outdated:
+                  summary: As notas mudaram depois do cálculo; calcule de novo.
+                  value:
+                    error:
+                      code: results_outdated
+                      message: As notas mudaram depois do cálculo; calcule de novo.
+                      details: null
+                results_already_approved:
+                  summary: O resultado da edição já foi homologado.
+                  value:
+                    error:
+                      code: results_already_approved
+                      message: O resultado da edição já foi homologado.
+                      details: null
+                edition_closed:
+                  summary: A edição está encerrada e não pode ser alterada.
+                  value:
+                    error:
+                      code: edition_closed
+                      message: A edição está encerrada e não pode ser alterada.
+                      details: null
   /api/admin/editions/{edition_id}/sdgs:
     get:
       tags:
@@ -1997,7 +2440,7 @@ paths:
         **Perfis permitidos:** ADMIN
 
         **Regras de negócio:**
-        - Somente ODS ativas.
+        - Somente ODS ativas podem ser incluídas; as já habilitadas permanecem mesmo se inativadas no catálogo.
         - Uma ODS usada por desafio da edição não pode ser removida.
       x-status: confirmed
       x-requirements:
@@ -3137,7 +3580,7 @@ paths:
                 criterion:
                   id: 21
                   name: Inovação
-                max_score: '1.50'
+                max_score: '10.00'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -3161,7 +3604,7 @@ paths:
         **Regras de negócio:**
         - Somente etapas pontuadas.
         - max_score > 0.
-        - Soma dos max_score dos critérios igual ao max_score da etapa (400 stage_criteria_sum_mismatch).
+        - Cada critério vale 10 por padrão e funciona como peso; a soma dos critérios não precisa igualar o max_score da etapa (D-02).
         - Critério e etapa da mesma edição.
       x-status: confirmed
       x-requirements:
@@ -3179,7 +3622,7 @@ paths:
             example:
               items:
               - criterion_id: 21
-                max_score: '1.50'
+                max_score: '10.00'
       responses:
         '200':
           description: Operação concluída.
@@ -3194,7 +3637,7 @@ paths:
                 criterion:
                   id: 21
                   name: Inovação
-                max_score: '1.50'
+                max_score: '10.00'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -5834,13 +6277,13 @@ paths:
                   - criterion:
                       id: 21
                       name: Inovação
-                    max_score: '1.50'
-                    average: '1.20'
+                    max_score: '10.00'
+                    average: '8.00'
                   feedback:
                   - comment: Projeto bem estruturado; detalhar custos.
                     items:
                     - criterion_name: Inovação
-                      points: '1.25'
+                      points: '8.00'
                       comment: Boa fundamentação.
         '401':
           $ref: '#/components/responses/Unauthorized'
@@ -5893,7 +6336,7 @@ paths:
                     id: 21
                     name: Inovação
                     rubric: Avalia o grau de originalidade...
-                  max_score: '1.50'
+                  max_score: '10.00'
                 evaluation:
                   id: 201
                   project_id: 40
@@ -5902,7 +6345,7 @@ paths:
                   comment: Projeto bem estruturado; detalhar custos.
                   items:
                   - stage_criterion_id: 51
-                    points: '1.25'
+                    points: '8.00'
                     comment: Boa fundamentação.
                   total: '2.40'
                   created_at: '2026-10-22T16:00:00Z'
@@ -5966,7 +6409,7 @@ paths:
               comment: Projeto bem estruturado; detalhar custos.
               items:
               - stage_criterion_id: 51
-                points: '1.25'
+                points: '8.00'
                 comment: Boa fundamentação.
       responses:
         '200':
@@ -5983,7 +6426,7 @@ paths:
                 comment: Projeto bem estruturado; detalhar custos.
                 items:
                 - stage_criterion_id: 51
-                  points: '1.25'
+                  points: '8.00'
                   comment: Boa fundamentação.
                 total: '2.40'
                 created_at: '2026-10-22T16:00:00Z'
@@ -6036,7 +6479,7 @@ paths:
         - Arquivo: extensão permitida pelos formatos do campo (400 file_format_not_allowed), até o tamanho máximo do campo e do servidor (400 file_too_large), não vazio e com conteúdo que combine com a extensão. Executáveis e scripts nunca entram.
         - JSON aceita links, canvas e SWOT. Arquivos exigem multipart/form-data: `items` em string JSON, com `file_index` apontando para `files[]`; arquivo sobrando ou índice inexistente é 400.
         - Os arquivos ficam em armazenamento privado, sem URL pública; o download é por GET /api/deliverable-items/{item_id}/file.
-        - O projeto precisa ter desafio, título e resumo (400 validation_error).
+        - O projeto precisa ter desafio, categoria, título e resumo (400 validation_error; D-06).
         - Cada envio cria number sequencial; versões anteriores são preservadas.
         - Equipe desclassificada ou incompleta não envia (P-23).
 
@@ -6284,7 +6727,7 @@ paths:
       description: |-
         **Status: PROPOSTO** — o contrato depende da decisão de P-30 e pode mudar.
 
-        Pódio (1º a 3º) por curso e categoria de uma edição encerrada e homologada.
+        Pódio (1º a 3º) por categoria, na edição inteira, de uma edição encerrada e homologada (D-01). Ordenado por categoria e colocação.
 
         **Requisitos:** RF35, RF46
 
@@ -7668,7 +8111,7 @@ paths:
 
         **Perfis permitidos:** STUDENT
 
-        **Autorização adicional:** O usuário deve ser o LEADER ativo da equipe.
+        **Autorização adicional:** O usuário deve ser o LEADER ativo da equipe. Erro 403: not_team_leader.
 
         **Regras de negócio:**
         - O integrante deve pertencer à equipe.
@@ -7713,7 +8156,7 @@ paths:
       operationId: teamsListMemberNotes
       summary: Consultar observações sobre integrantes
       description: |-
-        Lista as observações registradas pelo líder.
+        Lista as observações confidenciais registradas pelos líderes da equipe.
 
         **Requisitos:** RF39
 
@@ -8616,6 +9059,13 @@ components:
       - DRAFT
       - FINALIZED
       description: Situação da avaliação do professor (enum EvaluationStatus).
+    ResultExclusionReason:
+      type: string
+      enum:
+      - DISQUALIFIED
+      - NO_CHALLENGE
+      - PENDING_SCORE
+      description: Por que o projeto ficou fora do ranking da edição (calculado, não gravado).
     ScoreStatus:
       type: string
       enum:
@@ -10453,10 +10903,12 @@ components:
           - name
         max_score:
           type: string
+          description: Pontuação máxima do critério na etapa. Padrão 10 (escala do Quadro 1); funciona como peso, sem somar
+            o valor da etapa (D-02).
           format: decimal
           pattern: ^\d{1,3}(\.\d{1,2})?$
           examples:
-          - '1.50'
+          - '10.00'
       required:
       - id
       - criterion
@@ -10475,10 +10927,12 @@ components:
                 - 21
               max_score:
                 type: string
+                description: Pontuação máxima do critério na etapa. Padrão 10 (escala do Quadro 1); funciona como peso, sem
+                  somar o valor da etapa (D-02).
                 format: decimal
                 pattern: ^\d{1,3}(\.\d{1,2})?$
                 examples:
-                - '1.50'
+                - '10.00'
             required:
             - criterion_id
             - max_score
@@ -12164,10 +12618,11 @@ components:
           - 51
         points:
           type: string
+          description: Nota do critério, de 0 ao max_score do critério (padrão 10).
           format: decimal
           pattern: ^\d{1,3}(\.\d{1,2})?$
           examples:
-          - '1.25'
+          - '8.00'
         comment:
           type:
           - string
@@ -12295,7 +12750,7 @@ components:
                 format: decimal
                 pattern: ^\d{1,3}(\.\d{1,2})?$
                 examples:
-                - '1.50'
+                - '10.00'
             required:
             - stage_criterion_id
             - criterion
@@ -12318,10 +12773,11 @@ components:
           - 51
         points:
           type: string
+          description: Nota do critério, de 0 ao max_score do critério (padrão 10).
           format: decimal
           pattern: ^\d{1,3}(\.\d{1,2})?$
           examples:
-          - '1.25'
+          - '8.00'
         comment:
           type:
           - string
@@ -12469,7 +12925,8 @@ components:
           type:
           - string
           - 'null'
-          description: Média aritmética das avaliações finalizadas; exibida quando DEFINITIVE. Zero quando ZERO_NO_SUBMISSION.
+          description: Cada avaliação finalizada vale (soma dos points / soma dos max_score dos critérios) × max_score da
+            etapa; o valor é a média entre elas (D-02). Exibida quando DEFINITIVE. Zero quando ZERO_NO_SUBMISSION.
           format: decimal
           pattern: ^\d{1,3}(\.\d{1,2})?$
           examples:
@@ -12496,7 +12953,7 @@ components:
                 format: decimal
                 pattern: ^\d{1,3}(\.\d{1,2})?$
                 examples:
-                - '1.50'
+                - '10.00'
               average:
                 type:
                 - string
@@ -12504,7 +12961,7 @@ components:
                 format: decimal
                 pattern: ^\d{1,3}(\.\d{1,2})?$
                 examples:
-                - '1.20'
+                - '8.00'
             required:
             - criterion
             - max_score
@@ -12535,7 +12992,7 @@ components:
                       format: decimal
                       pattern: ^\d{1,3}(\.\d{1,2})?$
                       examples:
-                      - '1.25'
+                      - '8.00'
                     comment:
                       type:
                       - string
@@ -12722,6 +13179,126 @@ components:
       - status
       - answers
       additionalProperties: false
+    ResultRow:
+      type: object
+      properties:
+        project:
+          $ref: '#/components/schemas/ProjectRef'
+        team:
+          $ref: '#/components/schemas/TeamRef'
+        course:
+          $ref: '#/components/schemas/CourseSummary'
+        category:
+          oneOf:
+          - $ref: '#/components/schemas/CategoryRef'
+          - type: 'null'
+        final_score:
+          type: string
+          description: Soma das notas das etapas de entrega pontuadas (0 a 10).
+          format: decimal
+          pattern: ^\d{1,3}(\.\d{1,2})?$
+          examples:
+          - '7.50'
+        course_rank:
+          type: integer
+          description: Posição no curso; empate total divide a posição (1, 1, 3).
+          minimum: 1
+          examples:
+          - 1
+        finalist:
+          type: boolean
+          examples:
+          - true
+        category_rank:
+          type:
+          - integer
+          - 'null'
+          description: Posição do finalista na categoria, na edição inteira (D-01); nula até o pódio ser calculado ou sem
+            avaliação externa.
+          minimum: 1
+          examples:
+          - 1
+        award:
+          type:
+          - integer
+          - 'null'
+          description: Colocação premiada (1 a 3) na categoria; nula quando não premiado.
+          enum:
+          - 1
+          - 2
+          - 3
+          examples:
+          - 1
+      required:
+      - project
+      - team
+      - course
+      - category
+      - final_score
+      - course_rank
+      - finalist
+      - category_rank
+      - award
+    ResultExcluded:
+      type: object
+      properties:
+        project_id:
+          type: integer
+          examples:
+          - 40
+        team_id:
+          type: integer
+          examples:
+          - 12
+        reason:
+          $ref: '#/components/schemas/ResultExclusionReason'
+      required:
+      - project_id
+      - team_id
+      - reason
+    EditionResults:
+      type: object
+      description: Ranking gravado da edição, por curso, e os projetos que estão fora dele agora.
+      properties:
+        edition_id:
+          type: integer
+          examples:
+          - 3
+        approved_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+          examples:
+          - null
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResultRow'
+        excluded:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResultExcluded'
+      required:
+      - edition_id
+      - approved_at
+      - results
+      - excluded
+    FinalistsSelect:
+      type: object
+      properties:
+        project_ids:
+          type: array
+          items:
+            type: integer
+            minimum: 1
+            examples:
+            - 40
+          minItems: 1
+          uniqueItems: true
+          description: 'Lista completa de finalistas. Omitida: os 3 primeiros de cada curso (course_rank ≤ 3).'
+      additionalProperties: false
+      description: Corpo opcional.
     CertificateTemplate:
       type: object
       properties:

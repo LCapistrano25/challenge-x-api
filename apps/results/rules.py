@@ -1,10 +1,13 @@
 from django.apps import apps
 from django.core.exceptions import ValidationError
 
+from apps.results.enums import ResultExclusionReason
 from apps.results.exceptions import (
+    AwardsNotCalculated,
     FinalistAlreadyEvaluated,
     NoFinalists,
     NoScoredStages,
+    PendingScores,
     ResultsAlreadyApproved,
     ResultsNotCalculated,
     ResultsOutdated,
@@ -12,15 +15,6 @@ from apps.results.exceptions import (
 
 # Os models importam estas regras; por isso elas pegam os models pelo registro
 # do Django (como a FK por string), sem import que fecharia o ciclo.
-
-
-def ensure_student_in_project_team(score) -> None:
-    """Só pontua quem integrou a equipe do projeto (RF16)."""
-    members = apps.get_model("teams", "TeamMember").objects
-    if not members.filter(
-        team_id=score.project.team_id, student_id=score.student_id
-    ).exists():
-        raise ValidationError({"student": "O aluno não integrou a equipe do projeto."})
 
 
 def ensure_edition_has_scored_stages(edition) -> None:
@@ -86,3 +80,18 @@ def _results(edition):
 
 def _ranked(edition):
     return _results(edition).filter(final_score__isnull=False)
+
+
+def ensure_no_pending_scores(standings) -> None:
+    """Homologar exige todas as notas de etapa fechadas (decisão de 25/11, #230).
+
+    Sem isso, o projeto com nota pendente ficaria fora do resultado para sempre.
+    """
+    if any(s.exclusion == ResultExclusionReason.PENDING_SCORE for s in standings):
+        raise PendingScores()
+
+
+def ensure_awards_calculated(edition) -> None:
+    """A homologação vem depois do pódio (D-01)."""
+    if not _ranked(edition).filter(award__isnull=False).exists():
+        raise AwardsNotCalculated()

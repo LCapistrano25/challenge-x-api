@@ -14,14 +14,20 @@ from apps.teams.enums import (
     MemberRole,
     TeamStatus,
 )
+from apps.teams.exceptions import MemberNoteError
 from apps.teams.models import (
     Invitation,
     JoinRequest,
     LeadershipRequest,
+    MemberNote,
+    Team,
     TeamMember,
 )
-from apps.teams.models.team import Team
 from apps.teams.serializers import (
+    AdminTeamDetailSerializer,
+    AdminTeamListItemSerializer,
+    AdminTeamListQuerySerializer,
+    DisqualifyTeamSerializer,
     InvitationCreateSerializer,
     InvitationResponseSerializer,
     InvitationSerializer,
@@ -33,13 +39,17 @@ from apps.teams.serializers import (
     LeadershipRequestDecisionSerializer,
     LeadershipRequestSerializer,
     LeadershipTransferSerializer,
+    MemberNoteCreateSerializer,
+    MemberNoteSerializer,
     TeamAvailabilitySerializer,
     TeamCreateSerializer,
     TeamLeaveSerializer,
     TeamMemberSerializer,
     TeamSerializer,
 )
+from apps.teams.use_cases.add_member_note import add_member_note
 from apps.teams.use_cases.create_team import create_team
+from apps.teams.use_cases.disqualify_team import disqualify_team
 from apps.teams.use_cases.get_student_dashboard import get_student_dashboard
 from apps.teams.use_cases.invite_member import invite_member
 from apps.teams.use_cases.leave_team import (
@@ -70,6 +80,7 @@ from apps.teams.use_cases.transfer_leadership import (
     LeadershipTransferRejected,
     transfer_leadership,
 )
+from config.pagination import DefaultPagination
 
 
 class StudentDashboardView(APIView):
@@ -785,5 +796,173 @@ class LeadershipRequestReviewView(APIView):
 
         return Response(
             LeadershipRequestSerializer(leadership_request).data,
+            status=status.HTTP_200_OK,
+        )
+
+
+class TeamMemberNotesView(APIView):
+    def get_permissions(self):
+        if self.request.method == "POST":
+            permission_classes = [IsAuthenticated, IsStudent]
+        elif self.request.method == "GET":
+            permission_classes = [IsAuthenticated, IsTeacher | IsAdmin]
+        else:
+            permission_classes = [IsAuthenticated]
+
+        return [permission() for permission in permission_classes]
+
+    def post(self, request, team_id):
+
+        serializer = MemberNoteCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            note = add_member_note(
+                actor=request.user,
+                team_id=team_id,
+                **serializer.validated_data,
+            )
+        except MemberNoteError as error:
+            return Response(
+                {
+                    "error": {
+                        "code": error.code,
+                        "message": str(error),
+                        "details": None,
+                    }
+                },
+                status=error.http_status,
+            )
+
+        return Response(
+            {
+                "id": note.pk,
+                "created_at": note.created_at,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+    def get(self, request, team_id):
+        team = Team.objects.filter(pk=team_id).first()
+
+        if team is None:
+            return Response(
+                {
+                    "error": {
+                        "code": "not_found",
+                        "message": "Equipe não encontrada.",
+                        "details": None,
+                    }
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if request.user.role == UserRole.TEACHER:
+            has_course_access = Project.objects.filter(
+                team=team,
+                challenge__course__teacher_links__teacher__user=request.user,
+                challenge__course__teacher_links__active=True,
+            ).exists()
+
+            if not has_course_access:
+                return Response(
+                    {
+                        "error": {
+                            "code": "permission_denied",
+                            "message": (
+                                "Você não possui vínculo ativo com o curso "
+                                "do desafio desta equipe."
+                            ),
+                            "details": None,
+                        }
+                    },
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+        notes = (
+            MemberNote.objects.filter(member__team=team)
+            .select_related(
+                "member__student__user",
+                "author__user",
+            )
+            .order_by("created_at", "pk")
+        )
+
+        return Response(
+            MemberNoteSerializer(notes, many=True).data,
+            status=status.HTTP_200_OK,
+        )
+
+
+class AdminTeamListView(APIView):
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    def get(self, request):
+        query_serializer = AdminTeamListQuerySerializer(data=request.query_params)
+        query_serializer.is_valid(raise_exception=True)
+        filters = query_serializer.validated_data
+
+        teams = (
+            Team.objects.all()
+            .select_related("edition", "project")
+            .annotate(
+                member_count=Count(
+                    "members",
+                    filter=Q(members__active=True),
+                    distinct=True,
+                )
+            )
+            .order_by("name")
+        )
+
+        edition_id = filters.get("edition_id")
+        if edition_id is not None:
+            teams = teams.filter(edition_id=edition_id)
+
+        team_status = filters.get("status")
+        if team_status:
+            teams = teams.filter(status=team_status)
+
+        search = filters.get("search")
+        if search:
+            teams = teams.filter(
+                Q(name__icontains=search)
+                | Q(code__icontains=search)
+                | Q(project__title__icontains=search)
+            )
+
+        paginator = DefaultPagination()
+        page = paginator.paginate_queryset(teams, request, view=self)
+
+        serializer = AdminTeamListItemSerializer(page, many=True)
+
+        return paginator.get_paginated_response(serializer.data)
+
+
+class AdminTeamDisqualifyView(APIView):
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    def post(self, request, team_id):
+        serializer = DisqualifyTeamSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        team = disqualify_team(
+            actor=request.user,
+            team_id=team_id,
+            reason=serializer.validated_data["reason"],
+        )
+
+        team = (
+            Team.objects.filter(pk=team.pk)
+            .select_related("edition", "disqualified_by")
+            .prefetch_related(
+                "members__student__user",
+                "members__student__course",
+            )
+            .get()
+        )
+
+        return Response(
+            AdminTeamDetailSerializer(team).data,
             status=status.HTTP_200_OK,
         )
