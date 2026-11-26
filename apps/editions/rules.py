@@ -1,11 +1,13 @@
+from datetime import datetime
 from decimal import Decimal
 
 from django.apps import apps
 from django.core.exceptions import ValidationError
 from django.db.models import Sum, Value
 from django.db.models.functions import Lower
+from django.utils import timezone
 
-from apps.editions.enums import EditionStatus
+from apps.editions.enums import EditionStatus, FieldKind, StageKind
 from apps.editions.exceptions import (
     CriterionInUseByEvaluations,
     CriterionNameTaken,
@@ -15,6 +17,7 @@ from apps.editions.exceptions import (
     EditionPublished,
     InvalidTeamLimits,
     PublicationRequirementsNotMet,
+    StagePositionTaken,
     TeamLimitsLocked,
     TiebreakOrderTaken,
 )
@@ -221,3 +224,151 @@ def ensure_criterion_can_be_saved(
         ensure_edition_not_closed(edition)
     if criterion_id is not None:
         ensure_criterion_has_no_evaluations(criterion_id)
+
+
+def ensure_stage_edition_is_editable(edition) -> None:
+    """A API de configuração aceita escrita só antes da publicação."""
+    ensure_edition_not_closed(edition)
+    if edition.status == EditionStatus.PUBLISHED:
+        raise EditionPublished()
+
+
+def ensure_stage_values_are_valid(stage) -> None:
+    """Valida o estado final da etapa (UC07, RF07)."""
+    errors = {}
+    for field in ("order", "min_evaluations"):
+        value = getattr(stage, field)
+        if type(value) is not int or not 1 <= value <= 32767:
+            errors[field] = "Informe um inteiro entre 1 e 32767."
+    if not isinstance(stage.name, str) or not 1 <= len(stage.name.strip()) <= 100:
+        errors["name"] = "Informe um nome de 1 a 100 caracteres."
+    if stage.kind not in StageKind.values:
+        errors["kind"] = "Informe um tipo de etapa válido."
+    if type(stage.scored) is not bool:
+        errors["scored"] = "Informe se a etapa é pontuada."
+    elif stage.scored and stage.kind in (StageKind.FINAL, StageKind.FORMATION):
+        errors["scored"] = "Etapas de formação e finais não podem ser pontuadas."
+
+    score = stage.max_score
+    if stage.scored is True:
+        if (
+            not isinstance(score, Decimal)
+            or not score.is_finite()
+            or score.as_tuple().exponent < -2
+            or not 0 < score <= MAX_FINAL_SCORE
+        ):
+            errors["max_score"] = (
+                "Informe uma pontuação positiva de até 10, com até duas casas decimais."
+            )
+    elif stage.scored is False and score is not None:
+        errors["max_score"] = "Etapa não pontuada deve ter pontuação nula."
+
+    for field in ("starts_at", "ends_at", "evaluation_ends_at"):
+        value = getattr(stage, field)
+        if field == "evaluation_ends_at" and value is None and stage.scored is not True:
+            continue
+        if not isinstance(value, datetime) or timezone.is_naive(value):
+            errors[field] = "Informe uma data e hora com fuso."
+    if (
+        not {"starts_at", "ends_at"} & errors.keys()
+        and stage.ends_at <= stage.starts_at
+    ):
+        errors["ends_at"] = "O fim das entregas deve ser posterior ao início."
+    if (
+        not {"ends_at", "evaluation_ends_at"} & errors.keys()
+        and stage.evaluation_ends_at is not None
+        and stage.evaluation_ends_at <= stage.ends_at
+    ):
+        errors["evaluation_ends_at"] = (
+            "O prazo de avaliação deve ser posterior ao fim das entregas."
+        )
+    if errors:
+        raise ValidationError(errors)
+
+
+def ensure_stage_position_is_free(stage) -> None:
+    stages = apps.get_model("editions", "Stage").objects
+    if (
+        stages.filter(edition_id=stage.edition_id, order=stage.order)
+        .exclude(pk=stage.pk)
+        .exists()
+    ):
+        raise StagePositionTaken()
+
+
+def ensure_formation_stage_is_unique(stage) -> None:
+    """Confere a etapa de formação com a edição já travada pelo chamador."""
+    if stage.kind != StageKind.FORMATION:
+        return
+    stages = apps.get_model("editions", "Stage").objects
+    if (
+        stages.filter(edition_id=stage.edition_id, kind=StageKind.FORMATION)
+        .exclude(pk=stage.pk)
+        .exists()
+    ):
+        raise ValidationError({"kind": "Já existe uma etapa de formação nesta edição."})
+
+
+def ensure_stage_submission_field_is_valid(field) -> None:
+    max_size = field.max_size_mb
+    if (
+        field.kind not in FieldKind.values
+        or not isinstance(field.label, str)
+        or len(field.label) > 150
+        or type(field.required) is not bool
+        or not isinstance(field.formats, str)
+        or len(field.formats) > 200
+    ):
+        raise ValidationError(
+            {"submission_fields": "Informe campos de entrega válidos."}
+        )
+    if max_size is not None and (
+        type(max_size) is not int or not 1 <= max_size <= 32767
+    ):
+        raise ValidationError(
+            {"submission_fields": "O tamanho deve estar entre 1 e 32767 MB."}
+        )
+    if field.kind != FieldKind.FILE and (field.formats or max_size is not None):
+        raise ValidationError(
+            {"submission_fields": "Formato e tamanho só se aplicam a arquivos."}
+        )
+
+
+def apply_stage_submission_field_values(field, data) -> None:
+    """Valida e aplica somente os campos informados no estado em memória."""
+    if (
+        not isinstance(data, dict)
+        or "kind" not in data
+        or set(data)
+        - {
+            "kind",
+            "label",
+            "required",
+            "formats",
+            "max_size_mb",
+        }
+    ):
+        raise ValidationError(
+            {"submission_fields": "Informe campos de entrega válidos."}
+        )
+    for name, value in data.items():
+        setattr(field, name, "" if name == "formats" and value is None else value)
+    ensure_stage_submission_field_is_valid(field)
+
+
+def ensure_stage_submission_fields_are_unused(field_ids) -> None:
+    if (
+        apps.get_model("projects", "SubmissionItem")
+        .objects.filter(field_id__in=field_ids)
+        .exists()
+    ):
+        raise ValidationError(
+            {"submission_fields": "Campo com entrega: preserve o campo e seu tipo."}
+        )
+
+
+def ensure_stage_scoring_can_change(stage, *, previously_scored: bool) -> None:
+    if previously_scored and not stage.scored and stage.criterion_links.exists():
+        raise ValidationError(
+            {"scored": "Remova os critérios vinculados antes de desativar a pontuação."}
+        )
