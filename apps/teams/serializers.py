@@ -36,7 +36,6 @@ class TeamMemberSerializer(serializers.ModelSerializer):
 class TeamSerializer(serializers.ModelSerializer):
     edition_id = serializers.IntegerField(read_only=True)
     members = serializers.SerializerMethodField()
-    qualification = serializers.SerializerMethodField()
 
     class Meta:
         model = Team
@@ -46,8 +45,10 @@ class TeamSerializer(serializers.ModelSerializer):
             "name",
             "code",
             "status",
-            "qualification",
+            "situation",
             "disqualification_reason",
+            "disqualified_at",
+            "disqualified_by",
             "formation_extended_until",
             "members",
             "created_at",
@@ -61,21 +62,29 @@ class TeamSerializer(serializers.ModelSerializer):
         )
         return TeamMemberSerializer(members, many=True).data
 
-    def get_qualification(self, obj):
-        return None
-
 
 class InvitationCreateSerializer(serializers.Serializer):
-    student_id = serializers.IntegerField(required=False)
+    student_id = serializers.IntegerField(min_value=1, required=False)
     email = serializers.EmailField(required=False)
 
-    def validate(self, attrs):
-        student_id = attrs.get("student_id")
-        email = attrs.get("email")
+    def to_internal_value(self, data):
+        if isinstance(data, dict):
+            unknown_fields = set(data) - set(self.fields)
 
-        if bool(student_id) == bool(email):
+            if unknown_fields:
+                raise serializers.ValidationError(
+                    {field: "Campo não permitido." for field in unknown_fields}
+                )
+
+        return super().to_internal_value(data)
+
+    def validate(self, attrs):
+        has_student_id = "student_id" in attrs
+        has_email = "email" in attrs
+
+        if has_student_id == has_email:
             raise serializers.ValidationError(
-                "Informe student_id ou email, mas não ambos."
+                "Informe student_id ou email, nunca os dois."
             )
 
         return attrs
@@ -83,8 +92,17 @@ class InvitationCreateSerializer(serializers.Serializer):
 
 class TeamCreateSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=150)
-    # A quantidade exigida depende da edição; o caso de uso confere e explica.
-    invitations = InvitationCreateSerializer(many=True, required=False)
+    invitations = InvitationCreateSerializer(many=True, min_length=1)
+
+    def validate(self, attrs):
+        unknown_fields = set(self.initial_data) - set(self.fields)
+
+        if unknown_fields:
+            raise serializers.ValidationError(
+                {field: "Campo não permitido." for field in unknown_fields}
+            )
+
+        return attrs
 
 
 class InvitationSerializer(serializers.ModelSerializer):
@@ -129,7 +147,12 @@ class InvitationStatusFilterSerializer(serializers.Serializer):
 
 
 class InvitationResponseSerializer(serializers.Serializer):
-    accept = serializers.BooleanField()
+    status = serializers.ChoiceField(
+        choices=[
+            InvitationStatus.ACCEPTED,
+            InvitationStatus.DECLINED,
+        ],
+    )
 
 
 class JoinRequestSerializer(serializers.ModelSerializer):
@@ -158,6 +181,10 @@ class JoinRequestSerializer(serializers.ModelSerializer):
         return {
             "user_id": obj.student.user_id,
             "name": obj.student.user.name,
+            "course": {
+                "id": obj.student.course_id,
+                "name": obj.student.course.name,
+            },
         }
 
 
@@ -169,30 +196,47 @@ class JoinRequestStatusFilterSerializer(serializers.Serializer):
 
 
 class JoinRequestResponseSerializer(serializers.Serializer):
-    approve = serializers.BooleanField()
+    status = serializers.ChoiceField(
+        choices=[
+            RequestStatus.APPROVED,
+            RequestStatus.REJECTED,
+        ],
+    )
 
 
 class TeamAvailabilitySerializer(serializers.ModelSerializer):
-    edition_id = serializers.IntegerField(read_only=True)
-    members_count = serializers.SerializerMethodField()
-    available_vacancies = serializers.SerializerMethodField()
+    member_count = serializers.IntegerField(
+        source="active_members_count",
+        read_only=True,
+    )
+    available_slots = serializers.SerializerMethodField()
+    courses = serializers.SerializerMethodField()
 
     class Meta:
         model = Team
         fields = [
             "id",
-            "edition_id",
             "name",
             "code",
-            "members_count",
-            "available_vacancies",
+            "member_count",
+            "available_slots",
+            "courses",
         ]
 
-    def get_members_count(self, obj):
-        return obj.active_members_count
-
-    def get_available_vacancies(self, obj):
+    def get_available_slots(self, obj):
         return obj.edition.max_members - obj.active_members_count
+
+    def get_courses(self, obj):
+        courses = (
+            obj.members.filter(active=True)
+            .values_list("student__course_id", "student__course__name")
+            .distinct()
+            .order_by("student__course__name")
+        )
+
+        return [
+            {"id": course_id, "name": course_name} for course_id, course_name in courses
+        ]
 
 
 class LeadershipTransferSerializer(serializers.Serializer):
