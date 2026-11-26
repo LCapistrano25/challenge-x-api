@@ -201,3 +201,23 @@ def ensure_criterion_has_no_evaluations(criterion_id: int) -> None:
     evaluations = apps.get_model("evaluations", "Evaluation").objects
     if evaluations.filter(stage__criterion_links__criterion_id=criterion_id).exists():
         raise CriterionInUseByEvaluations()
+
+
+def ensure_criterion_can_be_saved(
+    *, criterion_id: int | None, edition_id: int | None
+) -> None:
+    """Valida a edição de origem e a de destino no formulário do critério."""
+    criteria = apps.get_model("editions", "Criterion").objects
+    edition_ids = {edition_id}
+    if criterion_id is not None:
+        previous_edition_id = (
+            criteria.filter(pk=criterion_id)
+            .values_list("edition_id", flat=True)
+            .first()
+        )
+        edition_ids.add(previous_edition_id)
+    editions = apps.get_model("editions", "Edition").objects.filter(pk__in=edition_ids)
+    for edition in editions:
+        ensure_edition_not_closed(edition)
+    if criterion_id is not None:
+        ensure_criterion_has_no_evaluations(criterion_id)

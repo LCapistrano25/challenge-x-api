@@ -1,7 +1,13 @@
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models.functions import Lower
 
 from apps.core.models import TimeStampedModel
+from apps.editions.exceptions import EditionError
+from apps.editions.rules import (
+    ensure_criterion_can_be_saved,
+    ensure_criterion_values_are_valid,
+)
 
 
 class Criterion(TimeStampedModel):
@@ -27,6 +33,19 @@ class Criterion(TimeStampedModel):
                 name="unique_tiebreak_order_per_edition",
             ),
         ]
+
+    def clean(self):
+        super().clean()
+        ensure_criterion_values_are_valid(
+            name=self.name, tiebreak_order=self.tiebreak_order
+        )
+        self.name = self.name.strip()
+        try:
+            ensure_criterion_can_be_saved(
+                criterion_id=self.pk, edition_id=self.edition_id
+            )
+        except EditionError as error:
+            raise ValidationError(str(error), code=error.code) from error
 
     def __str__(self):
         return self.name
