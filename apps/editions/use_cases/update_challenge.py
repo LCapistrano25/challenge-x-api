@@ -27,9 +27,9 @@ def update_challenge(
     ensure_edition_not_closed(edition)
     challenge = Challenge.objects.select_for_update().get(pk=challenge.pk)
 
-    if course_id is not None:
+    if course_id is not None and course_id != challenge.course_id:
         ensure_course_is_active(course_id)
-    if sdg_id is not None:
+    if sdg_id is not None and sdg_id != challenge.sdg_id:
         ensure_challenge_sdg_is_valid(edition.pk, sdg_id)
 
     updates = {
