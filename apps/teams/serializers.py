@@ -146,10 +146,6 @@ class TeamCreateSerializer(serializers.Serializer):
 class InvitationSerializer(serializers.ModelSerializer):
     team = serializers.SerializerMethodField()
     student = serializers.SerializerMethodField()
-    invited_email = serializers.EmailField(
-        source="student.user.email",
-        read_only=True,
-    )
 
     class Meta:
         model = Invitation
@@ -157,7 +153,6 @@ class InvitationSerializer(serializers.ModelSerializer):
             "id",
             "team",
             "student",
-            "invited_email",
             "status",
             "created_at",
             "responded_at",
@@ -286,8 +281,8 @@ class LeadershipRequestCreateSerializer(serializers.Serializer):
 
 
 class LeadershipRequestDecisionSerializer(serializers.Serializer):
-    approve = serializers.BooleanField()
-    justification = serializers.CharField()
+    status = serializers.ChoiceField(choices=("APPROVED", "REJECTED"))
+    decision_justification = serializers.CharField()
 
 
 class LeadershipRequestSerializer(serializers.ModelSerializer):
