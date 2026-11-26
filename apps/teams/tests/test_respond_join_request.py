@@ -59,7 +59,7 @@ def test_lider_aprova_solicitacao_com_sucesso():
     response = respond_join_request(
         actor=leader,
         join_request_id=join_request.id,
-        approve=True,
+        status=RequestStatus.APPROVED,
     )
 
     join_request.refresh_from_db()
@@ -97,7 +97,7 @@ def test_lider_rejeita_solicitacao_com_sucesso():
     response = respond_join_request(
         actor=leader,
         join_request_id=join_request.id,
-        approve=False,
+        status=RequestStatus.REJECTED,
     )
 
     join_request.refresh_from_db()
@@ -136,7 +136,7 @@ def test_usuario_que_nao_e_aluno_nao_pode_responder_solicitacao():
         respond_join_request(
             actor=user,
             join_request_id=join_request.id,
-            approve=True,
+            status=RequestStatus.APPROVED,
         )
 
     join_request.refresh_from_db()
@@ -158,7 +158,7 @@ def test_aluno_sem_perfil_nao_pode_responder_solicitacao():
         respond_join_request(
             actor=user,
             join_request_id=join_request.id,
-            approve=True,
+            status=RequestStatus.APPROVED,
         )
 
     join_request.refresh_from_db()
@@ -181,7 +181,7 @@ def test_integrante_que_nao_e_lider_nao_pode_responder_solicitacao():
         respond_join_request(
             actor=user,
             join_request_id=join_request.id,
-            approve=True,
+            status=RequestStatus.APPROVED,
         )
 
     join_request.refresh_from_db()
@@ -211,7 +211,7 @@ def test_ex_lider_nao_pode_responder_solicitacao():
         respond_join_request(
             actor=leader,
             join_request_id=join_request.id,
-            approve=True,
+            status=RequestStatus.APPROVED,
         )
 
     join_request.refresh_from_db()
@@ -231,7 +231,7 @@ def test_solicitacao_inexistente_nao_pode_ser_respondida():
         respond_join_request(
             actor=leader,
             join_request_id=999999,
-            approve=True,
+            status=RequestStatus.APPROVED,
         )
 
     assert JoinRequest.objects.count() == 0
@@ -250,7 +250,7 @@ def test_solicitacao_ja_respondida_nao_pode_ser_respondida_novamente():
         respond_join_request(
             actor=leader,
             join_request_id=join_request.id,
-            approve=True,
+            status=RequestStatus.APPROVED,
         )
 
     join_request.refresh_from_db()
@@ -283,7 +283,7 @@ def test_lider_nao_pode_aprovar_solicitacao_com_equipe_cheia():
         respond_join_request(
             actor=leader,
             join_request_id=join_request.id,
-            approve=True,
+            status=RequestStatus.APPROVED,
         )
 
     join_request.refresh_from_db()
@@ -309,7 +309,7 @@ def test_lider_nao_pode_aprovar_aluno_que_ja_esta_em_outra_equipe():
         respond_join_request(
             actor=leader,
             join_request_id=join_request.id,
-            approve=True,
+            status=RequestStatus.APPROVED,
         )
 
     join_request.refresh_from_db()
@@ -335,7 +335,7 @@ def test_lider_nao_pode_aprovar_solicitacao_com_formacao_encerrada():
         respond_join_request(
             actor=leader,
             join_request_id=join_request.id,
-            approve=True,
+            status=RequestStatus.APPROVED,
         )
 
     join_request.refresh_from_db()
@@ -370,7 +370,7 @@ def test_lider_nao_pode_responder_solicitacao_de_equipe_desclassificada():
         respond_join_request(
             actor=leader,
             join_request_id=join_request.id,
-            approve=True,
+            status=RequestStatus.APPROVED,
         )
 
     join_request.refresh_from_db()
@@ -392,7 +392,7 @@ def test_lider_nao_pode_aprovar_solicitacao_de_aluno_inativo():
         respond_join_request(
             actor=leader,
             join_request_id=join_request.id,
-            approve=True,
+            status=RequestStatus.APPROVED,
         )
 
     join_request.refresh_from_db()
@@ -415,7 +415,7 @@ def test_lider_nao_pode_aprovar_solicitacao_de_aluno_com_email_nao_confirmado():
         respond_join_request(
             actor=leader,
             join_request_id=join_request.id,
-            approve=True,
+            status=RequestStatus.APPROVED,
         )
 
     join_request.refresh_from_db()
@@ -439,7 +439,7 @@ def test_aprovacao_cancela_outras_solicitacoes_pendentes_na_mesma_edicao():
     respond_join_request(
         actor=leader,
         join_request_id=join_request.id,
-        approve=True,
+        status=RequestStatus.APPROVED,
     )
 
     join_request.refresh_from_db()
@@ -465,7 +465,7 @@ def test_aprovacao_cancela_convites_pendentes_na_mesma_edicao():
     respond_join_request(
         actor=leader,
         join_request_id=join_request.id,
-        approve=True,
+        status=RequestStatus.APPROVED,
     )
 
     invitation.refresh_from_db()
@@ -495,7 +495,7 @@ def test_rejeicao_mantem_outros_convites_e_solicitacoes_pendentes():
     respond_join_request(
         actor=leader,
         join_request_id=join_request.id,
-        approve=False,
+        status=RequestStatus.REJECTED,
     )
 
     join_request.refresh_from_db()
@@ -515,7 +515,7 @@ def test_rejeicao_nao_adiciona_aluno_a_equipe():
     respond_join_request(
         actor=leader,
         join_request_id=join_request.id,
-        approve=False,
+        status=RequestStatus.REJECTED,
     )
 
     assert not TeamMember.objects.filter(
@@ -539,7 +539,7 @@ def test_lider_de_outra_equipe_nao_pode_responder_solicitacao():
         respond_join_request(
             actor=other_leader,
             join_request_id=join_request.id,
-            approve=True,
+            status=RequestStatus.APPROVED,
         )
 
     join_request.refresh_from_db()
@@ -563,7 +563,7 @@ def test_erro_ao_criar_integrante_impede_aprovacao():
             respond_join_request(
                 actor=leader,
                 join_request_id=join_request.id,
-                approve=True,
+                status=RequestStatus.APPROVED,
             )
 
     join_request.refresh_from_db()

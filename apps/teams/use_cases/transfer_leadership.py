@@ -1,15 +1,35 @@
+from http import HTTPStatus
+
 from django.db import transaction
 
 from apps.accounts.enums import UserRole
 from apps.accounts.models import Student, User
+from apps.core.exceptions import BusinessRuleViolation
 from apps.notifications.models import NotificationType
 from apps.notifications.services import create_notification
 from apps.teams.enums import MemberRole, TeamStatus
 from apps.teams.models import Team, TeamMember
 
 
-class LeadershipTransferRejected(Exception):
+class LeadershipTransferRejected(BusinessRuleViolation):
     """A transferência de liderança foi rejeitada por uma regra de negócio."""
+
+    code = "leadership_transfer_rejected"
+    http_status = HTTPStatus.CONFLICT
+
+
+class LeadershipTransferNotFound(LeadershipTransferRejected):
+    """Equipe ou perfil de aluno não encontrado."""
+
+    code = "not_found"
+    http_status = HTTPStatus.NOT_FOUND
+
+
+class LeadershipTransferPermissionDenied(LeadershipTransferRejected):
+    """Usuário não possui permissão para transferir a liderança."""
+
+    code = "permission_denied"
+    http_status = HTTPStatus.FORBIDDEN
 
 
 @transaction.atomic
@@ -26,12 +46,12 @@ def transfer_leadership(
     current_student = Student.objects.filter(user=actor).first()
 
     if current_student is None:
-        raise LeadershipTransferRejected("O perfil de aluno não foi encontrado.")
+        raise LeadershipTransferNotFound("O perfil de aluno não foi encontrado.")
 
     team = Team.objects.select_for_update().filter(pk=team_id).first()
 
     if team is None:
-        raise LeadershipTransferRejected("Equipe não encontrada.")
+        raise LeadershipTransferNotFound("Equipe não encontrada.")
 
     if team.status != TeamStatus.ACTIVE:
         raise LeadershipTransferRejected(
@@ -50,7 +70,7 @@ def transfer_leadership(
     )
 
     if current_membership is None:
-        raise LeadershipTransferRejected(
+        raise LeadershipTransferPermissionDenied(
             "Somente o líder ativo da equipe pode transferir a liderança."
         )
 

@@ -10,7 +10,7 @@ Formato de erro de todas as rotas: `{"error": {"code", "message", "details"}}`.
 
 ## 0. Mudanças de 24 a 26/11/2026 (decisões da #217)
 
-Tudo abaixo já está na `developer` e no contrato. As decisões estão na seção 0 do `docs/decisoes-regulamento.md`.
+As mudanças desta seção já estão na `developer` e no contrato, com exceção das subseções das #127 e #128, que ainda não estão na `developer`. As decisões estão na seção 0 do `docs/decisoes-regulamento.md`.
 
 ### Equipes
 
@@ -73,6 +73,37 @@ Ordem do fluxo: **calcular → finalistas → avaliação externa → pódio →
   Trate-o como falha na montagem do corpo da requisição. Dados inválidos
   retornam `validation_error` e corpos acima do limite retornam
   `request_too_large`.
+
+### Critérios de avaliação (#127, ainda fora da `developer`)
+
+| O quê | Chamada | Para o front |
+|---|---|---|
+| Listar | `GET /api/admin/editions/{edition_id}/criteria` | `200` com array de `Criterion`. |
+| Criar | `POST /api/admin/editions/{edition_id}/criteria` | `201` com `Criterion`. Exige `name`. |
+| Atualizar | `PATCH /api/admin/criteria/{criterion_id}` | `200` com `Criterion`. Envie pelo menos um campo. `409 criterion_in_use_by_evaluations` quando etapa vinculada já tem avaliação. |
+| Excluir | `DELETE /api/admin/criteria/{criterion_id}` | `204` sem corpo. `409 criterion_linked_to_stage` se estiver vinculado a etapa. |
+
+- As quatro rotas são administrativas. `401 not_authenticated` sem login, `403 permission_denied` para outros papéis e `404 not_found` se a edição ou o critério não existir.
+- POST e PATCH recebem JSON. Campos desconhecidos, tipos inválidos ou valores fora dos limites dão `400 validation_error`. JSON malformado dá `400 parse_error`.
+- `name` aceita de 1 a 150 caracteres após remover espaços das pontas e é único por edição sem diferenciar maiúsculas. Duplicata dá `409 criterion_name_taken`.
+- `tiebreak_order` aceita `null` ou inteiro de 1 a 32767. Posição duplicada na edição dá `409 tiebreak_order_taken`. No PATCH, omitir `rubric` ou `tiebreak_order` mantém o valor, e `null` limpa.
+- Edição `PUBLISHED` aceita as três operações de escrita, sujeitas às regras de cada rota. Edição encerrada permite leitura. As três operações de escrita devolvem `409 edition_closed`.
+
+### Etapas e campos de entrega (#128, ainda fora da `developer`)
+
+| O quê | Chamada | Para o front |
+|---|---|---|
+| Listar | `GET /api/admin/editions/{edition_id}/stages` | `200`, array de `Stage` na ordem do cronograma, já com os campos de entrega. |
+| Criar | `POST /api/admin/editions/{edition_id}/stages` | `201` com `Stage`. Envie campos novos sem `id`. |
+| Consultar | `GET /api/admin/stages/{stage_id}` | `200` com `Stage` e os campos de entrega. |
+| Atualizar | `PATCH /api/admin/stages/{stage_id}` | `200` com `Stage`. Se enviar `submission_fields`, a lista substitui o conjunto. Envie `kind` em cada item. Um item com `id` preserva suas propriedades omitidas. |
+
+- As rotas são administrativas. Sem login retorna `401 not_authenticated`, outro papel retorna `403 permission_denied` e recurso inexistente retorna `404 not_found`.
+- Só `SETUP` aceita escrita pela API. Edição publicada retorna `409 edition_published`, encerrada retorna `409 edition_closed` e posição duplicada retorna `409 stage_position_taken`.
+- Envie datas com fuso e `max_score` como texto decimal de até duas casas (por exemplo, `"3.00"`). `formats` e `max_size_mb` só se aplicam a `FILE`. Valores inválidos retornam `400 validation_error`.
+- `name` não pode ficar em branco; espaços nas pontas são removidos.
+- `scored` tem padrão `true`: em `FORMATION` e `FINAL`, envie `false`. `FORMATION` é única por edição. Ao desativar a pontuação no PATCH, envie também `max_score: null`.
+- Ideia, Protótipo Parcial e Momento Final do Pitch usam `SUBMISSION` com campos configuráveis. Entrega Preliminar é um marco de mentoria, sem nota nem entrega digital obrigatória (D-06).
 
 ---
 

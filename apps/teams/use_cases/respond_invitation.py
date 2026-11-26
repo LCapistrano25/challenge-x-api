@@ -1,8 +1,11 @@
+from http import HTTPStatus
+
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from apps.accounts.enums import UserRole
 from apps.accounts.models import Student, User
+from apps.core.exceptions import BusinessRuleViolation
 from apps.notifications.models import NotificationType
 from apps.notifications.services import create_notification
 from apps.teams.enums import (
@@ -20,8 +23,36 @@ from apps.teams.models import (
 from apps.teams.rules import is_formation_open_for_team
 
 
-class InvitationResponseRejected(Exception):
+class InvitationResponseRejected(BusinessRuleViolation):
     """A resposta ao convite foi rejeitada por uma regra de negócio."""
+
+    code = "invitation_response_rejected"
+    http_status = HTTPStatus.CONFLICT
+
+
+class InvitationNotFound(InvitationResponseRejected):
+    """Convite inexistente ou inacessível ao estudante."""
+
+    code = "not_found"
+    http_status = HTTPStatus.NOT_FOUND
+
+
+class InvitationNotPending(InvitationResponseRejected):
+    """O convite já foi respondido ou não está mais pendente."""
+
+    code = "invitation_not_pending"
+
+
+class InvitationFormationClosed(InvitationResponseRejected):
+    code = "formation_closed"
+
+
+class InvitationStudentAlreadyInTeam(InvitationResponseRejected):
+    code = "student_already_in_team"
+
+
+class InvitationTeamFull(InvitationResponseRejected):
+    code = "team_full"
 
 
 @transaction.atomic
@@ -29,7 +60,7 @@ def respond_invitation(
     *,
     actor: User,
     invitation_id: int,
-    accept: bool,
+    status: InvitationStatus,
 ) -> Invitation:
     """Aceita ou recusa um convite recebido pelo estudante."""
     if actor.role != UserRole.STUDENT:
@@ -50,12 +81,12 @@ def respond_invitation(
     )
 
     if invitation_ref is None:
-        raise InvitationResponseRejected("Convite não encontrado.")
+        raise InvitationNotFound("Convite não encontrado.")
 
     team = Team.objects.select_for_update().filter(pk=invitation_ref["team_id"]).first()
 
     if team is None:
-        raise InvitationResponseRejected("Equipe não encontrada.")
+        raise InvitationNotFound("Equipe não encontrada.")
 
     invitation = (
         Invitation.objects.select_for_update()
@@ -65,22 +96,20 @@ def respond_invitation(
     )
 
     if invitation is None:
-        raise InvitationResponseRejected("Convite não encontrado.")
+        raise InvitationNotFound("Convite não encontrado.")
 
     if invitation.student_id != student.pk:
-        raise InvitationResponseRejected(
-            "Este convite não pertence ao estudante autenticado."
-        )
+        raise InvitationNotFound("Este convite não pertence ao estudante autenticado.")
 
     if invitation.status != InvitationStatus.PENDING:
-        raise InvitationResponseRejected("Este convite não está mais pendente.")
+        raise InvitationNotPending("Este convite não está mais pendente.")
 
     now = timezone.now()
 
     formation_open = is_formation_open_for_team(invitation.team, now)
 
     if not formation_open:
-        raise InvitationResponseRejected(
+        raise InvitationFormationClosed(
             "Não existe prazo de formação aberto para esta equipe."
         )
 
@@ -89,7 +118,7 @@ def respond_invitation(
             "Não é possível responder a convites de equipes desclassificadas."
         )
 
-    if not accept:
+    if status == InvitationStatus.DECLINED:
         invitation.status = InvitationStatus.DECLINED
         invitation.responded_at = now
         invitation.save(update_fields=["status", "responded_at", "updated_at"])
@@ -125,7 +154,7 @@ def respond_invitation(
     ).exists()
 
     if already_in_team:
-        raise InvitationResponseRejected(
+        raise InvitationStudentAlreadyInTeam(
             "O estudante já participa de uma equipe ativa nesta edição."
         )
 
@@ -135,9 +164,7 @@ def respond_invitation(
     ).count()
 
     if current_members >= invitation.team.edition.max_members:
-        raise InvitationResponseRejected(
-            "A equipe já atingiu o limite máximo de integrantes."
-        )
+        raise InvitationTeamFull("A equipe já atingiu o limite máximo de integrantes.")
 
     try:
         with transaction.atomic():

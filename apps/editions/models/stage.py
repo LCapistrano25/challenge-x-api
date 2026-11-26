@@ -1,11 +1,20 @@
-from django.db import models
+from django.core.exceptions import ValidationError
+from django.db import models, transaction
 from django.db.models import F, Q
 
 from apps.core.models import TimeStampedModel
 from apps.editions.enums import FieldKind, StageKind
+from apps.editions.exceptions import EditionClosed
+from apps.editions.models.edition import Edition
 from apps.editions.rules import (
     ensure_criterion_in_stage_edition,
+    ensure_edition_not_closed,
+    ensure_formation_stage_is_unique,
     ensure_stage_max_score_fits,
+    ensure_stage_scoring_can_change,
+    ensure_stage_submission_field_is_valid,
+    ensure_stage_submission_fields_are_unused,
+    ensure_stage_values_are_valid,
 )
 
 
@@ -64,9 +73,34 @@ class Stage(TimeStampedModel):
             ),
         ]
 
+    @transaction.atomic
     def clean(self):
-        if self.edition_id:
+        super().clean()
+        ensure_stage_values_are_valid(self)
+        previous = (
+            type(self).objects.filter(pk=self.pk).values("edition_id", "scored").first()
+            if self.pk is not None
+            else None
+        )
+        edition_ids = {self.edition_id}
+        if previous is not None:
+            edition_ids.add(previous["edition_id"])
+        # No Admin, a transação externa do formulário mantém a trava até salvar.
+        editions = (
+            Edition.objects.select_for_update()
+            .filter(pk__in=edition_ids)
+            .order_by("pk")
+        )
+        for edition in editions:
+            try:
+                ensure_edition_not_closed(edition)
+            except EditionClosed as error:
+                raise ValidationError(str(error), code=error.code) from error
+        if self.edition_id is not None:
+            ensure_formation_stage_is_unique(self)
             ensure_stage_max_score_fits(self)
+        if previous is not None:
+            ensure_stage_scoring_can_change(self, previously_scored=previous["scored"])
 
     def __str__(self):
         return f"{self.edition} - {self.order}. {self.name}"
@@ -96,6 +130,21 @@ class StageSubmissionField(TimeStampedModel):
                 name="submission_field_canvas_swot_without_file_options",
             ),
         ]
+
+    def clean(self):
+        super().clean()
+        try:
+            ensure_stage_submission_field_is_valid(self)
+            if (
+                self.pk is not None
+                and type(self)
+                .objects.filter(pk=self.pk)
+                .exclude(kind=self.kind)
+                .exists()
+            ):
+                ensure_stage_submission_fields_are_unused([self.pk])
+        except ValidationError as error:
+            raise ValidationError(error.messages) from error
 
     def __str__(self):
         return self.label or self.get_kind_display()

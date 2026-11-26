@@ -1,16 +1,33 @@
+from http import HTTPStatus
+
 from django.db import transaction
 from django.utils import timezone
 
 from apps.accounts.enums import UserRole
 from apps.accounts.models import Teacher, TeacherCourse, User
+from apps.core.exceptions import AppError
 from apps.notifications.models import NotificationType
 from apps.notifications.services import create_notification
 from apps.teams.enums import MemberRole, RequestStatus, TeamStatus
 from apps.teams.models import LeadershipRequest, Team, TeamMember
 
 
-class LeadershipRequestReviewRejected(Exception):
+class LeadershipRequestReviewRejected(AppError):
     """A decisão da solicitação de liderança foi rejeitada por uma regra de negócio."""
+
+    code = "leadership_request_review_rejected"
+    default_message = "A decisão da solicitação de liderança foi rejeitada."
+    http_status = HTTPStatus.CONFLICT
+
+
+class LeadershipRequestReviewNotFound(LeadershipRequestReviewRejected):
+    code = "not_found"
+    http_status = HTTPStatus.NOT_FOUND
+
+
+class LeadershipRequestReviewInvalid(LeadershipRequestReviewRejected):
+    code = "validation_error"
+    http_status = HTTPStatus.BAD_REQUEST
 
 
 @transaction.atomic
@@ -18,8 +35,8 @@ def review_leadership_request(
     *,
     actor: User,
     leadership_request_id: int,
-    approve: bool,
-    justification: str,
+    status: RequestStatus,
+    decision_justification: str,
 ) -> LeadershipRequest:
     """Aprova ou rejeita uma solicitação de liderança por um professor."""
     if actor.role != UserRole.TEACHER:
@@ -30,14 +47,14 @@ def review_leadership_request(
     teacher = Teacher.objects.filter(user=actor).first()
 
     if teacher is None:
-        raise LeadershipRequestReviewRejected(
+        raise LeadershipRequestReviewNotFound(
             "O perfil de professor não foi encontrado."
         )
 
-    justification = justification.strip()
+    decision_justification = decision_justification.strip()
 
-    if not justification:
-        raise LeadershipRequestReviewRejected(
+    if not decision_justification:
+        raise LeadershipRequestReviewInvalid(
             "A justificativa da decisão é obrigatória."
         )
 
@@ -48,12 +65,12 @@ def review_leadership_request(
     )
 
     if request_ref is None:
-        raise LeadershipRequestReviewRejected("Solicitação não encontrada.")
+        raise LeadershipRequestReviewNotFound("Solicitação não encontrada.")
 
     team = Team.objects.select_for_update().filter(pk=request_ref["team_id"]).first()
 
     if team is None:
-        raise LeadershipRequestReviewRejected("Equipe não encontrada.")
+        raise LeadershipRequestReviewNotFound("Equipe não encontrada.")
 
     leadership_request = (
         LeadershipRequest.objects.select_for_update()
@@ -63,7 +80,7 @@ def review_leadership_request(
     )
 
     if leadership_request is None:
-        raise LeadershipRequestReviewRejected("Solicitação não encontrada.")
+        raise LeadershipRequestReviewNotFound("Solicitação não encontrada.")
 
     if leadership_request.status != RequestStatus.PENDING:
         raise LeadershipRequestReviewRejected(
@@ -110,7 +127,7 @@ def review_leadership_request(
 
     now = timezone.now()
 
-    if approve:
+    if status == RequestStatus.APPROVED:
         TeamMember.objects.filter(
             team=team,
             role=MemberRole.LEADER,
@@ -145,7 +162,7 @@ def review_leadership_request(
         )
 
     leadership_request.teacher = teacher
-    leadership_request.decision_justification = justification
+    leadership_request.decision_justification = decision_justification
     leadership_request.decided_at = now
     leadership_request.save(
         update_fields=[

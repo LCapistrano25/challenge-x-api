@@ -1,9 +1,61 @@
+import re
 from collections.abc import Mapping
+from decimal import Decimal
 
 from rest_framework import serializers
 
 from apps.core.models import Sdg
-from apps.editions.models import Challenge, Edition, EditionReviewer
+from apps.editions.enums import FieldKind, StageKind
+from apps.editions.models import (
+    Category,
+    Challenge,
+    Criterion,
+    Edition,
+    EditionReviewer,
+    Stage,
+    StageCriterion,
+    StageSubmissionField,
+)
+
+
+class CriterionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Criterion
+        fields = [
+            "id",
+            "edition_id",
+            "name",
+            "rubric",
+            "tiebreak_order",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = fields
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data["rubric"] = data["rubric"] or None
+        return data
+
+
+class CategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Category
+        fields = [
+            "id",
+            "edition_id",
+            "name",
+            "description",
+            "active",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = fields
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data["description"] = data["description"] or None
+        return data
 
 
 class EvaluatorSummarySerializer(serializers.Serializer):
@@ -130,6 +182,34 @@ class StrictBooleanField(serializers.BooleanField):
         return super().to_internal_value(data)
 
 
+class CriterionWriteSerializer(RejectUnknownFieldsMixin, serializers.Serializer):
+    name = StrictCharField(max_length=150)
+    rubric = StrictCharField(
+        required=False, allow_null=True, allow_blank=True, trim_whitespace=False
+    )
+    tiebreak_order = StrictIntegerField(
+        required=False, allow_null=True, min_value=1, max_value=32767
+    )
+
+    def validate(self, attrs):
+        if self.partial and not attrs:
+            raise serializers.ValidationError("Informe ao menos um campo.")
+        return attrs
+
+
+class CategoryWriteSerializer(RejectUnknownFieldsMixin, serializers.Serializer):
+    name = StrictCharField(max_length=150)
+    description = StrictCharField(
+        required=False, allow_null=True, allow_blank=True, trim_whitespace=False
+    )
+    active = StrictBooleanField(required=False)
+
+    def validate(self, attrs):
+        if self.partial and not attrs:
+            raise serializers.ValidationError("Informe ao menos um campo.")
+        return attrs
+
+
 class ChallengeWriteSerializer(RejectUnknownFieldsMixin, serializers.Serializer):
     course_id = StrictIntegerField()
     sdg_id = StrictIntegerField()
@@ -218,5 +298,134 @@ class EditionUpdateSerializer(RejectUnknownFieldsMixin, serializers.Serializer):
 
     def validate(self, attrs):
         if not attrs:
+            raise serializers.ValidationError("Informe ao menos um campo.")
+        return attrs
+
+
+class StageSubmissionFieldSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = StageSubmissionField
+        fields = ["id", "kind", "label", "required", "formats", "max_size_mb"]
+        read_only_fields = fields
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data["formats"] = data["formats"] or None
+        return data
+
+
+class StageSerializer(serializers.ModelSerializer):
+    submission_fields = StageSubmissionFieldSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Stage
+        fields = [
+            "id",
+            "edition_id",
+            "order",
+            "name",
+            "kind",
+            "starts_at",
+            "ends_at",
+            "evaluation_ends_at",
+            "scored",
+            "max_score",
+            "min_evaluations",
+            "submission_fields",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = fields
+
+
+class StageDateTimeField(serializers.DateTimeField):
+    def to_internal_value(self, data):
+        if not isinstance(data, str) or not re.fullmatch(
+            r"[0-9]{4}-[0-9]{2}-[0-9]{2}[Tt][0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]+)?(?:[Zz]|[+-][0-9]{2}:[0-9]{2})",
+            data,
+        ):
+            self.fail("invalid", format="ISO 8601 com fuso")
+        return super().to_internal_value(data.upper())
+
+
+class StageScoreField(serializers.Field):
+    default_error_messages = {
+        "invalid": "Informe um decimal em texto, com até duas casas decimais."
+    }
+
+    def to_internal_value(self, data):
+        if not isinstance(data, str) or not re.fullmatch(
+            r"[0-9]{1,3}(?:\.[0-9]{1,2})?", data
+        ):
+            self.fail("invalid")
+        return Decimal(data)
+
+
+class StageCriterionSerializer(serializers.ModelSerializer):
+    """Critério da etapa com sua pontuação máxima (StageCriterion do contrato)."""
+
+    criterion = serializers.SerializerMethodField()
+
+    class Meta:
+        model = StageCriterion
+        fields = ["id", "criterion", "max_score"]
+        read_only_fields = fields
+
+    def get_criterion(self, obj):
+        return {"id": obj.criterion_id, "name": obj.criterion.name}
+
+
+class StageCriterionItemSerializer(RejectUnknownFieldsMixin, serializers.Serializer):
+    criterion_id = serializers.IntegerField(min_value=1)
+    max_score = StageScoreField()
+
+
+class StageCriteriaUpdateSerializer(RejectUnknownFieldsMixin, serializers.Serializer):
+    """Conjunto completo de critérios da etapa (StageCriteriaUpdate)."""
+
+    items = StageCriterionItemSerializer(many=True)
+
+
+class StageSubmissionFieldWriteSerializer(
+    RejectUnknownFieldsMixin, serializers.Serializer
+):
+    id = StrictIntegerField(required=False)
+    kind = serializers.ChoiceField(choices=FieldKind.values)
+    label = StrictCharField(
+        max_length=150, required=False, allow_blank=True, trim_whitespace=False
+    )
+    required = StrictBooleanField(required=False)
+    formats = StrictCharField(
+        max_length=200,
+        required=False,
+        allow_null=True,
+        allow_blank=True,
+        trim_whitespace=False,
+    )
+    max_size_mb = StrictIntegerField(
+        min_value=1, max_value=32767, required=False, allow_null=True
+    )
+
+    def validate(self, attrs):
+        # O partial da etapa não torna kind opcional no objeto aninhado.
+        if "kind" not in attrs:
+            raise serializers.ValidationError({"kind": "Este campo é obrigatório."})
+        return attrs
+
+
+class StageWriteSerializer(RejectUnknownFieldsMixin, serializers.Serializer):
+    order = StrictIntegerField(min_value=1, max_value=32767)
+    name = StrictCharField(max_length=100)
+    kind = serializers.ChoiceField(choices=StageKind.values)
+    starts_at = StageDateTimeField()
+    ends_at = StageDateTimeField()
+    evaluation_ends_at = StageDateTimeField(required=False, allow_null=True)
+    scored = StrictBooleanField(required=False)
+    max_score = StageScoreField(required=False, allow_null=True)
+    min_evaluations = StrictIntegerField(min_value=1, max_value=32767, required=False)
+    submission_fields = StageSubmissionFieldWriteSerializer(many=True, required=False)
+
+    def validate(self, attrs):
+        if self.partial and not attrs:
             raise serializers.ValidationError("Informe ao menos um campo.")
         return attrs

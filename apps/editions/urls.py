@@ -4,9 +4,35 @@ from apps.editions import views
 
 urlpatterns = [
     path(
+        "editions/<int:edition_id>/stages",
+        views.EditionStagesView.as_view(),
+        name="edition-stages",
+    ),
+    path("stages/<int:stage_id>", views.StageDetailView.as_view(), name="stage-detail"),
+    path(
+        "stages/<int:stage_id>/criteria",
+        views.StageCriteriaView.as_view(),
+        name="stage-criteria",
+    ),
+    path(
+        "criteria/<int:criterion_id>",
+        views.CriterionDetailView.as_view(),
+        name="criterion-detail",
+    ),
+    path(
+        "categories/<int:category_id>",
+        views.CategoryDetailView.as_view(),
+        name="category-detail",
+    ),
+    path(
         "challenges/<int:challenge_id>",
         views.ChallengeDetailView.as_view(),
         name="challenge-detail",
+    ),
+    path(
+        "editions/<int:edition_id>/criteria",
+        views.EditionCriteriaView.as_view(),
+        name="edition-criteria",
     ),
     path("editions", views.EditionListView.as_view(), name="edition-list"),
     path(
@@ -18,6 +44,11 @@ urlpatterns = [
         "editions/<int:edition_id>",
         views.EditionDetailView.as_view(),
         name="edition-detail",
+    ),
+    path(
+        "editions/<int:edition_id>/categories",
+        views.EditionCategoriesView.as_view(),
+        name="edition-categories",
     ),
     path(
         "editions/<int:edition_id>/challenges",

@@ -97,3 +97,9 @@ class EmailDomainNotFound(BusinessRuleViolation):
     code = "email_domain_not_found"
     default_message = "Domínio de e-mail não encontrado."
     http_status = HTTPStatus.NOT_FOUND
+
+
+class UserNotFound(BusinessRuleViolation):
+    code = "not_found"
+    default_message = "Usuário não encontrado."
+    http_status = HTTPStatus.NOT_FOUND

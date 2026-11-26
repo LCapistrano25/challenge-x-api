@@ -50,7 +50,7 @@ def test_estudante_aceita_convite_com_sucesso():
     response = respond_invitation(
         actor=invited_student.user,
         invitation_id=invitation.pk,
-        accept=True,
+        status=InvitationStatus.ACCEPTED,
     )
 
     invitation.refresh_from_db()
@@ -81,7 +81,7 @@ def test_estudante_recusa_convite_com_sucesso():
     response = respond_invitation(
         actor=invited_student.user,
         invitation_id=invitation.pk,
-        accept=False,
+        status=InvitationStatus.DECLINED,
     )
 
     invitation.refresh_from_db()
@@ -117,7 +117,7 @@ def test_usuario_que_nao_e_aluno_nao_pode_responder_convite():
         respond_invitation(
             actor=teacher,
             invitation_id=invitation.pk,
-            accept=True,
+            status=InvitationStatus.ACCEPTED,
         )
 
 
@@ -141,7 +141,7 @@ def test_aluno_sem_perfil_nao_pode_responder_convite():
         respond_invitation(
             actor=user,
             invitation_id=invitation.pk,
-            accept=True,
+            status=InvitationStatus.ACCEPTED,
         )
 
 
@@ -162,7 +162,7 @@ def test_aluno_nao_pode_responder_convite_de_outro_estudante():
         respond_invitation(
             actor=another_student.user,
             invitation_id=invitation.pk,
-            accept=True,
+            status=InvitationStatus.ACCEPTED,
         )
 
 
@@ -182,7 +182,7 @@ def test_aluno_inativo_nao_pode_responder_convite():
         respond_invitation(
             actor=invited_student.user,
             invitation_id=invitation.pk,
-            accept=True,
+            status=InvitationStatus.ACCEPTED,
         )
 
 
@@ -202,7 +202,7 @@ def test_aluno_com_email_nao_confirmado_nao_pode_responder_convite():
         respond_invitation(
             actor=invited_student.user,
             invitation_id=invitation.pk,
-            accept=True,
+            status=InvitationStatus.ACCEPTED,
         )
 
 
@@ -216,7 +216,7 @@ def test_convite_inexistente_nao_pode_ser_respondido():
         respond_invitation(
             actor=student.user,
             invitation_id=999999,
-            accept=True,
+            status=InvitationStatus.ACCEPTED,
         )
 
 
@@ -237,7 +237,7 @@ def test_convite_ja_respondido_nao_pode_ser_respondido_novamente():
         respond_invitation(
             actor=student.user,
             invitation_id=invitation.pk,
-            accept=True,
+            status=InvitationStatus.ACCEPTED,
         )
 
 
@@ -257,7 +257,7 @@ def test_convite_de_equipe_desclassificada_nao_pode_ser_respondido():
         respond_invitation(
             actor=student.user,
             invitation_id=invitation.pk,
-            accept=True,
+            status=InvitationStatus.ACCEPTED,
         )
 
 
@@ -276,7 +276,7 @@ def test_nao_pode_responder_convite_sem_formacao_aberta():
         respond_invitation(
             actor=student.user,
             invitation_id=invitation.pk,
-            accept=True,
+            status=InvitationStatus.ACCEPTED,
         )
 
 
@@ -304,7 +304,7 @@ def test_aluno_que_ja_participa_de_outra_equipe_nao_pode_aceitar_convite():
         respond_invitation(
             actor=student.user,
             invitation_id=invitation.pk,
-            accept=True,
+            status=InvitationStatus.ACCEPTED,
         )
 
     assert not TeamMember.objects.filter(
@@ -334,7 +334,7 @@ def test_nao_pode_aceitar_convite_quando_equipe_atingiu_limite_maximo():
         respond_invitation(
             actor=student.user,
             invitation_id=invitation.pk,
-            accept=True,
+            status=InvitationStatus.ACCEPTED,
         )
 
     assert not TeamMember.objects.filter(
@@ -364,7 +364,7 @@ def test_aceitar_convite_cancela_outros_convites_pendentes():
     respond_invitation(
         actor=student.user,
         invitation_id=invitation.pk,
-        accept=True,
+        status=InvitationStatus.ACCEPTED,
     )
 
     invitation.refresh_from_db()
@@ -394,7 +394,7 @@ def test_aceitar_convite_cancela_solicitacoes_pendentes_de_outras_equipes():
     respond_invitation(
         actor=student.user,
         invitation_id=invitation.pk,
-        accept=True,
+        status=InvitationStatus.ACCEPTED,
     )
 
     invitation.refresh_from_db()
@@ -423,7 +423,7 @@ def test_aceitar_convite_notifica_lider():
     respond_invitation(
         actor=invited_student.user,
         invitation_id=invitation.pk,
-        accept=True,
+        status=InvitationStatus.ACCEPTED,
     )
 
     notification = Notification.objects.get(
@@ -458,7 +458,7 @@ def test_recusar_convite_notifica_lider():
     respond_invitation(
         actor=invited_student.user,
         invitation_id=invitation.pk,
-        accept=False,
+        status=InvitationStatus.DECLINED,
     )
 
     notification = Notification.objects.get(

@@ -183,7 +183,7 @@ def test_request_leadership_rejects_disqualified_team():
 
     with pytest.raises(
         LeadershipRequestRejected,
-        match="Não é possível solicitar a liderança de uma equipe desclassificada.",
+        match="Não é possível solicitar a liderança de uma equipe que não está ativa.",
     ):
         request_leadership(
             actor=student.user,
@@ -217,7 +217,7 @@ def test_request_leadership_rejects_pending_request():
 
     with pytest.raises(
         LeadershipRequestRejected,
-        match="Já existe uma solicitação de liderança pendente para esta equipe.",
+        match="Já existe uma solicitação de liderança pendente.",
     ):
         request_leadership(
             actor=student.user,

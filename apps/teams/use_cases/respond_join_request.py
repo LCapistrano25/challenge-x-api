@@ -1,8 +1,11 @@
+from http import HTTPStatus
+
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from apps.accounts.enums import UserRole
 from apps.accounts.models import Student, User
+from apps.core.exceptions import BusinessRuleViolation
 from apps.notifications.models import NotificationType
 from apps.notifications.services import create_notification
 from apps.teams.enums import (
@@ -20,8 +23,18 @@ from apps.teams.models import (
 from apps.teams.rules import is_formation_open_for_team
 
 
-class JoinRequestResponseRejected(Exception):
+class JoinRequestResponseRejected(BusinessRuleViolation):
     """A resposta à solicitação foi rejeitada por uma regra de negócio."""
+
+    code = "join_request_response_rejected"
+    http_status = HTTPStatus.CONFLICT
+
+
+class JoinRequestNotFound(JoinRequestResponseRejected):
+    """Solicitação de entrada não encontrada."""
+
+    code = "join_request_not_found"
+    http_status = HTTPStatus.NOT_FOUND
 
 
 @transaction.atomic
@@ -29,7 +42,7 @@ def respond_join_request(
     *,
     actor: User,
     join_request_id: int,
-    approve: bool,
+    status: RequestStatus,
 ) -> JoinRequest:
     """Aprova ou rejeita uma solicitação de entrada em equipe."""
     if actor.role != UserRole.STUDENT:
@@ -47,7 +60,7 @@ def respond_join_request(
     )
 
     if request_ref is None:
-        raise JoinRequestResponseRejected("Solicitação não encontrada.")
+        raise JoinRequestNotFound("Solicitação não encontrada.")
 
     team = Team.objects.select_for_update().filter(pk=request_ref["team_id"]).first()
 
@@ -95,7 +108,7 @@ def respond_join_request(
 
     student = join_request.student
 
-    if not approve:
+    if status == RequestStatus.REJECTED:
         join_request.status = RequestStatus.REJECTED
         join_request.responded_at = now
         join_request.save(update_fields=["status", "responded_at", "updated_at"])

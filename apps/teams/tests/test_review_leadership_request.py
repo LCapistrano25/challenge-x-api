@@ -55,8 +55,8 @@ def test_review_leadership_request_approves_and_promotes_requester():
         result = review_leadership_request(
             actor=teacher.user,
             leadership_request_id=leadership_request.id,
-            approve=True,
-            justification="O pedido foi considerado procedente.",
+            status=RequestStatus.APPROVED,
+            decision_justification="O pedido foi considerado procedente.",
         )
 
     requester_membership = team.members.get(student=requester)
@@ -79,8 +79,8 @@ def test_review_leadership_request_rejects_and_keeps_team_without_leader():
         result = review_leadership_request(
             actor=teacher.user,
             leadership_request_id=leadership_request.id,
-            approve=False,
-            justification="A justificativa apresentada não foi suficiente.",
+            status=RequestStatus.REJECTED,
+            decision_justification="A justificativa apresentada não foi suficiente.",
         )
 
     assert result.status == RequestStatus.REJECTED
@@ -104,8 +104,8 @@ def test_review_leadership_request_notifies_other_active_members():
         review_leadership_request(
             actor=teacher.user,
             leadership_request_id=leadership_request.id,
-            approve=True,
-            justification="Pedido aprovado.",
+            status=RequestStatus.APPROVED,
+            decision_justification="Pedido aprovado.",
         )
 
     notified_users = {call.kwargs["user"] for call in notify.call_args_list}
@@ -141,8 +141,8 @@ def test_review_leadership_request_rejects_non_teacher():
         review_leadership_request(
             actor=student_user,
             leadership_request_id=leadership_request.id,
-            approve=True,
-            justification="Pedido aprovado.",
+            status=RequestStatus.APPROVED,
+            decision_justification="Pedido aprovado.",
         )
 
 
@@ -157,8 +157,8 @@ def test_review_leadership_request_rejects_teacher_without_profile():
         review_leadership_request(
             actor=teacher_user,
             leadership_request_id=leadership_request.id,
-            approve=True,
-            justification="Pedido aprovado.",
+            status=RequestStatus.APPROVED,
+            decision_justification="Pedido aprovado.",
         )
 
 
@@ -173,8 +173,8 @@ def test_review_leadership_request_rejects_teacher_without_course_link():
         review_leadership_request(
             actor=other_teacher.user,
             leadership_request_id=leadership_request.id,
-            approve=True,
-            justification="Pedido aprovado.",
+            status=RequestStatus.APPROVED,
+            decision_justification="Pedido aprovado.",
         )
 
 
@@ -188,8 +188,8 @@ def test_review_leadership_request_rejects_nonexistent_request():
         review_leadership_request(
             actor=teacher.user,
             leadership_request_id=999999,
-            approve=True,
-            justification="Pedido aprovado.",
+            status=RequestStatus.APPROVED,
+            decision_justification="Pedido aprovado.",
         )
 
 
@@ -205,8 +205,8 @@ def test_review_leadership_request_rejects_already_decided_request():
         review_leadership_request(
             actor=teacher.user,
             leadership_request_id=leadership_request.id,
-            approve=True,
-            justification="Pedido aprovado.",
+            status=RequestStatus.APPROVED,
+            decision_justification="Pedido aprovado.",
         )
 
 
@@ -234,8 +234,8 @@ def test_review_leadership_request_rejects_disqualified_team():
         review_leadership_request(
             actor=teacher.user,
             leadership_request_id=leadership_request.id,
-            approve=True,
-            justification="Pedido aprovado.",
+            status=RequestStatus.APPROVED,
+            decision_justification="Pedido aprovado.",
         )
 
 
@@ -249,8 +249,8 @@ def test_review_leadership_request_rejects_blank_justification():
         review_leadership_request(
             actor=teacher.user,
             leadership_request_id=leadership_request.id,
-            approve=True,
-            justification="   ",
+            status=RequestStatus.APPROVED,
+            decision_justification="   ",
         )
 
 
@@ -268,8 +268,8 @@ def test_review_leadership_request_rejects_requester_not_active_member():
         review_leadership_request(
             actor=teacher.user,
             leadership_request_id=leadership_request.id,
-            approve=True,
-            justification="Pedido aprovado.",
+            status=RequestStatus.APPROVED,
+            decision_justification="Pedido aprovado.",
         )
 
 
@@ -289,8 +289,8 @@ def test_review_leadership_request_rejects_team_with_active_leader():
         review_leadership_request(
             actor=teacher.user,
             leadership_request_id=leadership_request.id,
-            approve=True,
-            justification="Pedido aprovado.",
+            status=RequestStatus.APPROVED,
+            decision_justification="Pedido aprovado.",
         )
 
 
@@ -310,8 +310,8 @@ def test_review_leadership_request_preserves_inactive_former_leader_role():
     result = review_leadership_request(
         actor=teacher.user,
         leadership_request_id=leadership_request.id,
-        approve=True,
-        justification="Solicitação aprovada após análise.",
+        status=RequestStatus.APPROVED,
+        decision_justification="Solicitação aprovada após análise.",
     )
 
     former_membership.refresh_from_db()
