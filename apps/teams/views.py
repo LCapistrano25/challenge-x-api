@@ -51,6 +51,7 @@ from apps.teams.serializers import (
     TeamLeaveSerializer,
     TeamMemberSerializer,
     TeamSerializer,
+    TeamUpdateSerializer,
 )
 from apps.teams.use_cases.add_member_note import add_member_note
 from apps.teams.use_cases.create_team import create_team
@@ -61,6 +62,7 @@ from apps.teams.use_cases.leave_team import (
     LeaveTeamRejected,
     leave_team,
 )
+from apps.teams.use_cases.rename_team import rename_team
 from apps.teams.use_cases.request_leadership import (
     LeadershipRequestRejected,
     request_leadership,
@@ -189,6 +191,15 @@ class TeamDetailView(APIView):
             TeamSerializer(team).data,
             status=status.HTTP_200_OK,
         )
+
+    def patch(self, request, team_id):
+        serializer = TeamUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        team = rename_team(
+            actor=request.user, team_id=team_id, **serializer.validated_data
+        )
+        # Resposta no schema Team do contrato.
+        return Response(AdminTeamDetailSerializer(team).data)
 
 
 class TeamInvitationView(APIView):

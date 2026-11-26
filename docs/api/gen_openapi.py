@@ -443,6 +443,8 @@ SC["Team"] = obj({
     desc="formation_extended_until: fim da janela extra para repor a vaga, concedida uma vez quando uma saída nas últimas 24 horas do prazo deixa a equipe abaixo do mínimo; nulo se não houve.")
 SC["TeamLeave"] = obj({"confirm": BOOL("Confirma a saída que deixa a equipe abaixo do mínimo de integrantes. Corpo opcional; sem ele, confirm é false.", False)},
                       description="Corpo opcional.", strict=True)
+SC["TeamUpdate"] = obj({"name": STR(ex="Equipe Aurora", maxLength=150, minLength=1)}, ["name"], strict=True,
+                       desc="Só o nome é editável; integrantes, liderança e projeto têm rotas próprias.")
 SC["TeamCreate"] = obj({"name": STR(ex="Equipe Aurora", maxLength=150),
                         "invitations": arr(ref("InvitationCreate"), minItems=1,
                                            description="Alunos a convidar, por student_id ou email. De min_members - 1 a max_members - 1 (nunca menos de 1).")},
@@ -1060,6 +1062,12 @@ op("get", "/api/teams", "teamsListAvailable", "teams", "Consultar equipes com va
 op("get", "/api/teams/{team_id}", "teamsGet", "teams", "Consultar equipe", ["RF13", "RF20"], ["STUDENT", "TEACHER", "ADMIN"],
    "Retorna a equipe com integrantes ativos e situação.", params=["TeamId"], ok=ref("Team"), errs=["404"],
    authz="STUDENT: integrante ativo. TEACHER: vínculo ativo com o curso do desafio do projeto da equipe. ADMIN: qualquer equipe. Sem acesso retorna 404.")
+op("patch", "/api/teams/{team_id}", "teamsUpdate", "teams", "Editar o nome da equipe", ["RF21"], ["STUDENT"],
+   "Altera o nome da equipe durante a formação (Art. 15 § 1º: até o prazo, só o líder atualiza a inscrição).",
+   params=["TeamId"], body=ref("TeamUpdate"), ok=ref("Team"), errs=["404"], authz=LEADER + " Erro 403: not_team_leader.",
+   rules=["Somente durante o prazo da etapa FORMATION.", "Nome único na edição (equipe desfeita libera o nome); de 1 a 150 caracteres, sem espaços nas pontas.",
+          "Equipe desclassificada não edita."],
+   conflicts=[FORM_CLOSED, ("team_name_taken", "Já existe equipe com este nome na edição."), ("team_disqualified", "A equipe está desclassificada.")])
 op("post", "/api/teams/{team_id}/invitations", "teamsCreateInvitation", "teams", "Enviar convite", ["RF22"], ["STUDENT"],
    "Convida um aluno (por identificador ou e-mail institucional).", params=["TeamId"], body=ref("InvitationCreate"),
    req_ex={"student_id": 42}, ok=ref("Invitation"), ok_code="201", ok_desc="Convite enviado.", errs=["404"],
