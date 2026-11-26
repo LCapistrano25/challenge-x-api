@@ -1,14 +1,19 @@
+import re
 from collections.abc import Mapping
+from decimal import Decimal
 
 from rest_framework import serializers
 
 from apps.core.models import Sdg
+from apps.editions.enums import FieldKind, StageKind
 from apps.editions.models import (
     Category,
     Challenge,
     Criterion,
     Edition,
     EditionReviewer,
+    Stage,
+    StageSubmissionField,
 )
 
 
@@ -292,5 +297,109 @@ class EditionUpdateSerializer(RejectUnknownFieldsMixin, serializers.Serializer):
 
     def validate(self, attrs):
         if not attrs:
+            raise serializers.ValidationError("Informe ao menos um campo.")
+        return attrs
+
+
+class StageSubmissionFieldSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = StageSubmissionField
+        fields = ["id", "kind", "label", "required", "formats", "max_size_mb"]
+        read_only_fields = fields
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data["formats"] = data["formats"] or None
+        return data
+
+
+class StageSerializer(serializers.ModelSerializer):
+    submission_fields = StageSubmissionFieldSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Stage
+        fields = [
+            "id",
+            "edition_id",
+            "order",
+            "name",
+            "kind",
+            "starts_at",
+            "ends_at",
+            "evaluation_ends_at",
+            "scored",
+            "max_score",
+            "min_evaluations",
+            "submission_fields",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = fields
+
+
+class StageDateTimeField(serializers.DateTimeField):
+    def to_internal_value(self, data):
+        if not isinstance(data, str) or not re.fullmatch(
+            r"[0-9]{4}-[0-9]{2}-[0-9]{2}[Tt][0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]+)?(?:[Zz]|[+-][0-9]{2}:[0-9]{2})",
+            data,
+        ):
+            self.fail("invalid", format="ISO 8601 com fuso")
+        return super().to_internal_value(data.upper())
+
+
+class StageScoreField(serializers.Field):
+    default_error_messages = {
+        "invalid": "Informe um decimal em texto, com até duas casas decimais."
+    }
+
+    def to_internal_value(self, data):
+        if not isinstance(data, str) or not re.fullmatch(
+            r"[0-9]{1,3}(?:\.[0-9]{1,2})?", data
+        ):
+            self.fail("invalid")
+        return Decimal(data)
+
+
+class StageSubmissionFieldWriteSerializer(
+    RejectUnknownFieldsMixin, serializers.Serializer
+):
+    id = StrictIntegerField(required=False)
+    kind = serializers.ChoiceField(choices=FieldKind.values)
+    label = StrictCharField(
+        max_length=150, required=False, allow_blank=True, trim_whitespace=False
+    )
+    required = StrictBooleanField(required=False)
+    formats = StrictCharField(
+        max_length=200,
+        required=False,
+        allow_null=True,
+        allow_blank=True,
+        trim_whitespace=False,
+    )
+    max_size_mb = StrictIntegerField(
+        min_value=1, max_value=32767, required=False, allow_null=True
+    )
+
+    def validate(self, attrs):
+        # O partial da etapa não torna kind opcional no objeto aninhado.
+        if "kind" not in attrs:
+            raise serializers.ValidationError({"kind": "Este campo é obrigatório."})
+        return attrs
+
+
+class StageWriteSerializer(RejectUnknownFieldsMixin, serializers.Serializer):
+    order = StrictIntegerField(min_value=1, max_value=32767)
+    name = StrictCharField(max_length=100)
+    kind = serializers.ChoiceField(choices=StageKind.values)
+    starts_at = StageDateTimeField()
+    ends_at = StageDateTimeField()
+    evaluation_ends_at = StageDateTimeField(required=False, allow_null=True)
+    scored = StrictBooleanField(required=False)
+    max_score = StageScoreField(required=False, allow_null=True)
+    min_evaluations = StrictIntegerField(min_value=1, max_value=32767, required=False)
+    submission_fields = StageSubmissionFieldWriteSerializer(many=True, required=False)
+
+    def validate(self, attrs):
+        if self.partial and not attrs:
             raise serializers.ValidationError("Informe ao menos um campo.")
         return attrs

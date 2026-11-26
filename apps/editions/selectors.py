@@ -1,4 +1,4 @@
-from django.db.models import QuerySet
+from django.db.models import Prefetch, QuerySet
 
 from apps.core.models import Sdg
 from apps.editions.exceptions import CategoryNotFound, CriterionNotFound
@@ -8,6 +8,8 @@ from apps.editions.models import (
     Criterion,
     Edition,
     EditionReviewer,
+    Stage,
+    StageSubmissionField,
 )
 
 
@@ -16,6 +18,21 @@ def get_locked_criterion(criterion_id: int) -> Criterion:
         return Criterion.objects.select_for_update().get(pk=criterion_id)
     except Criterion.DoesNotExist as error:
         raise CriterionNotFound() from error
+
+
+def stages_with_submission_fields():
+    return Stage.objects.prefetch_related(
+        Prefetch(
+            "submission_fields",
+            queryset=StageSubmissionField.objects.order_by("pk"),
+        )
+    )
+
+
+def list_edition_stages(edition_id: int) -> QuerySet[Stage]:
+    return (
+        stages_with_submission_fields().filter(edition_id=edition_id).order_by("order")
+    )
 
 
 def list_edition_criteria(edition_id: int) -> QuerySet[Criterion]:

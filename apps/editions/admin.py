@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.forms.models import BaseInlineFormSet
 
+from apps.editions.enums import EditionStatus
 from apps.editions.exceptions import EditionClosed
 from apps.editions.models import (
     Category,
@@ -66,6 +67,11 @@ class StageSubmissionFieldInline(admin.TabularInline):
     model = StageSubmissionField
     extra = 0
 
+    def has_delete_permission(self, request, obj=None):
+        if obj is not None and obj.edition.status == EditionStatus.CLOSED:
+            return False
+        return super().has_delete_permission(request, obj)
+
 
 class StageCriterionInline(admin.TabularInline):
     model = StageCriterion
@@ -78,6 +84,11 @@ class StageAdmin(admin.ModelAdmin):
     list_filter = ("edition", "kind")
     list_select_related = ("edition",)
     inlines = (StageSubmissionFieldInline, StageCriterionInline)
+
+    def has_delete_permission(self, request, obj=None):
+        if obj is not None and obj.edition.status == EditionStatus.CLOSED:
+            return False
+        return super().has_delete_permission(request, obj)
 
 
 @admin.register(Criterion)

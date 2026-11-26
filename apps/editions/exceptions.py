@@ -139,3 +139,29 @@ class PublicationRequirementsNotMet(EditionError):
 class RegulationStorageUnavailable(ExternalServiceError):
     code = "storage_unavailable"
     default_message = "Armazenamento indisponível."
+
+
+class StagePositionTaken(EditionError):
+    code = "stage_position_taken"
+    default_message = "Já existe etapa nesta posição."
+
+
+@contextmanager
+def translate_stage_position_conflict():
+    """Traduz somente a violação de unicidade de posição no PostgreSQL."""
+    try:
+        yield
+    except IntegrityError as error:
+        diagnostics = getattr(error.__cause__, "diag", None)
+        if (
+            getattr(diagnostics, "constraint_name", None)
+            == "unique_stage_order_per_edition"
+        ):
+            raise StagePositionTaken() from error
+        raise
+
+
+class StageNotFound(EditionError):
+    code = "not_found"
+    default_message = "Etapa não encontrada."
+    http_status = HTTPStatus.NOT_FOUND
