@@ -4965,6 +4965,7 @@ paths:
                 student:
                   user_id: 42
                   name: João Lima
+                invited_email: null
                 status: PENDING
                 created_at: '2026-10-22T16:00:00Z'
                 responded_at: null
@@ -5421,6 +5422,7 @@ paths:
                 student:
                   user_id: 42
                   name: João Lima
+                invited_email: null
                 status: PENDING
                 created_at: '2026-10-22T16:00:00Z'
                 responded_at: null
@@ -6993,6 +6995,7 @@ paths:
                 student:
                   user_id: 42
                   name: João Lima
+                invited_email: null
                 status: PENDING
                 created_at: '2026-10-22T16:00:00Z'
                 responded_at: null
@@ -7080,6 +7083,7 @@ paths:
                 student:
                   user_id: 42
                   name: João Lima
+                invited_email: null
                 status: PENDING
                 created_at: '2026-10-22T16:00:00Z'
                 responded_at: null
@@ -11038,17 +11042,30 @@ components:
       - reason
       additionalProperties: false
     InvitationCreate:
-      type: object
-      properties:
-        student_id:
-          type: integer
-          description: Aluno cadastrado a ser convidado.
-          minimum: 1
-          examples:
-          - 42
-      required:
-      - student_id
-      additionalProperties: false
+      oneOf:
+      - type: object
+        properties:
+          student_id:
+            type: integer
+            description: Aluno cadastrado a ser convidado.
+            minimum: 1
+            examples:
+            - 42
+        required:
+        - student_id
+        additionalProperties: false
+      - type: object
+        properties:
+          email:
+            type: string
+            description: E-mail institucional do aluno a ser convidado.
+            format: email
+            maxLength: 254
+            examples:
+            - maria.souza@a.catolica-to.edu.br
+        required:
+        - email
+        additionalProperties: false
     Invitation:
       type: object
       properties:
@@ -11073,6 +11090,15 @@ components:
           required:
           - user_id
           - name
+        invited_email:
+          type:
+          - string
+          - 'null'
+          description: E-mail do convidado, quando aplicável.
+          format: email
+          maxLength: 254
+          examples:
+          - null
         status:
           $ref: '#/components/schemas/InvitationStatus'
         created_at:
@@ -11091,6 +11117,7 @@ components:
       - id
       - team
       - student
+      - invited_email
       - status
       - created_at
       - responded_at
