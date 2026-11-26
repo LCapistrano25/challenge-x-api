@@ -3,7 +3,7 @@ from collections.abc import Mapping
 from rest_framework import serializers
 
 from apps.core.models import Sdg
-from apps.editions.models import Edition, EditionReviewer
+from apps.editions.models import Challenge, Edition, EditionReviewer
 
 
 class EvaluatorSummarySerializer(serializers.Serializer):
@@ -16,6 +16,31 @@ class EvaluatorSummarySerializer(serializers.Serializer):
 class CourseSummarySerializer(serializers.Serializer):
     id = serializers.IntegerField()
     name = serializers.CharField()
+
+
+class ChallengeSdgSummarySerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    number = serializers.IntegerField()
+    title = serializers.CharField()
+
+
+class ChallengeSerializer(serializers.ModelSerializer):
+    course = CourseSummarySerializer()
+    sdg = ChallengeSdgSummarySerializer()
+
+    class Meta:
+        model = Challenge
+        fields = [
+            "id",
+            "edition_id",
+            "course",
+            "sdg",
+            "description",
+            "active",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = fields
 
 
 class EditionReviewerSerializer(serializers.ModelSerializer):
@@ -96,6 +121,31 @@ class RejectUnknownFieldsMixin:
                     {field: ["Campo não permitido."] for field in sorted(unknown)}
                 )
         return super().to_internal_value(data)
+
+
+class StrictBooleanField(serializers.BooleanField):
+    def to_internal_value(self, data):
+        if not isinstance(data, bool):
+            self.fail("invalid", input=data)
+        return super().to_internal_value(data)
+
+
+class ChallengeWriteSerializer(RejectUnknownFieldsMixin, serializers.Serializer):
+    course_id = StrictIntegerField()
+    sdg_id = StrictIntegerField()
+    description = StrictCharField(allow_blank=True, trim_whitespace=False)
+    active = StrictBooleanField(required=False)
+
+    def validate(self, attrs):
+        if self.partial and not attrs:
+            raise serializers.ValidationError("Informe ao menos um campo.")
+        return attrs
+
+
+class ChallengeFiltersSerializer(serializers.Serializer):
+    course_id = serializers.IntegerField(required=False)
+    sdg_id = serializers.IntegerField(required=False)
+    active = serializers.BooleanField(required=False)
 
 
 class EditionSdgSerializer(serializers.ModelSerializer):

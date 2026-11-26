@@ -11,14 +11,18 @@ from rest_framework.views import APIView
 
 from apps.accounts.permissions import IsAdmin
 from apps.editions.enums import EditionStatus
-from apps.editions.models import Edition, EditionReviewer
+from apps.editions.models import Challenge, Edition, EditionReviewer
 from apps.editions.regulation_files import open_regulation
 from apps.editions.selectors import (
+    list_edition_challenges,
     list_edition_reviewers,
     list_edition_sdgs,
     list_editions,
 )
 from apps.editions.serializers import (
+    ChallengeFiltersSerializer,
+    ChallengeSerializer,
+    ChallengeWriteSerializer,
     EditionCreateSerializer,
     EditionPublishSerializer,
     EditionReviewerCreateSerializer,
@@ -29,12 +33,57 @@ from apps.editions.serializers import (
     EditionSerializer,
     EditionUpdateSerializer,
 )
+from apps.editions.use_cases.create_challenge import create_challenge
 from apps.editions.use_cases.create_edition import create_edition
 from apps.editions.use_cases.link_reviewer_to_edition import link_reviewer_to_edition
 from apps.editions.use_cases.publish_regulation import publish_regulation
 from apps.editions.use_cases.set_edition_sdgs import set_edition_sdgs
+from apps.editions.use_cases.update_challenge import update_challenge
 from apps.editions.use_cases.update_edition import update_edition
 from apps.editions.use_cases.update_reviewer_scope import update_reviewer_scope
+
+
+class EditionChallengesView(APIView):
+    """Lista e cadastra os desafios de uma edição (RF05)."""
+
+    permission_classes = [IsAdmin]
+    parser_classes = [JSONParser]
+
+    def get(self, request, edition_id):
+        edition = get_object_or_404(Edition, pk=edition_id)
+        filters = ChallengeFiltersSerializer(data=request.query_params.dict())
+        filters.is_valid(raise_exception=True)
+        challenges = list_edition_challenges(
+            edition_id=edition.pk, **filters.validated_data
+        )
+        return Response(ChallengeSerializer(challenges, many=True).data)
+
+    def post(self, request, edition_id):
+        edition = get_object_or_404(Edition, pk=edition_id)
+        serializer = ChallengeWriteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        challenge = create_challenge(
+            actor=request.user, edition=edition, **serializer.validated_data
+        )
+        return Response(
+            ChallengeSerializer(challenge).data, status=status.HTTP_201_CREATED
+        )
+
+
+class ChallengeDetailView(APIView):
+    """Atualiza um desafio da edição (RF05)."""
+
+    permission_classes = [IsAdmin]
+    parser_classes = [JSONParser]
+
+    def patch(self, request, challenge_id):
+        challenge = get_object_or_404(Challenge, pk=challenge_id)
+        serializer = ChallengeWriteSerializer(data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        challenge = update_challenge(
+            actor=request.user, challenge=challenge, **serializer.validated_data
+        )
+        return Response(ChallengeSerializer(challenge).data)
 
 
 class EditionReviewView(APIView):
