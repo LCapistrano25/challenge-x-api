@@ -1,6 +1,9 @@
 from django.urls import path
 
 from apps.teams.views import (
+    AdminTeamDisqualifyView,
+    AdminTeamListView,
+    InvitableStudentsView,
     InvitationResponseView,
     JoinRequestCreateView,
     JoinRequestResponseView,
@@ -9,14 +12,22 @@ from apps.teams.views import (
     LeadershipTransferView,
     MyInvitationsView,
     MyJoinRequestsView,
+    StudentDashboardView,
     TeacherLeadershipRequestsView,
     TeamCreateView,
     TeamDetailView,
     TeamInvitationView,
     TeamLeaveView,
+    TeamMemberNotesView,
 )
 
 urlpatterns = [
+    path("admin/teams", AdminTeamListView.as_view(), name="admin-team-list"),
+    path(
+        "admin/teams/<int:team_id>/disqualify",
+        AdminTeamDisqualifyView.as_view(),
+        name="admin-team-disqualify",
+    ),
     path("teams", TeamCreateView.as_view(), name="team-create"),
     path(
         "teams/<int:team_id>",
@@ -77,5 +88,20 @@ urlpatterns = [
         "leadership-requests/<int:leadership_request_id>/decide",
         LeadershipRequestReviewView.as_view(),
         name="leadership-request-decide",
+    ),
+    path(
+        "teams/<int:team_id>/invitable-students",
+        InvitableStudentsView.as_view(),
+        name="team-invitable-students",
+    ),
+    path(
+        "teams/<int:team_id>/member-notes",
+        TeamMemberNotesView.as_view(),
+        name="team-member-notes",
+    ),
+    path(
+        "me/dashboard",
+        StudentDashboardView.as_view(),
+        name="student-dashboard",
     ),
 ]

@@ -59,7 +59,8 @@ def test_admin_retifica_e_a_nota_da_etapa_acompanha(admin, item):
     assert response.data["previous_points"] == "1.00"
     assert response.data["new_points"] == "1.50"
     assert response.data["rectified_by"] == admin.pk
-    assert response.data["stage_score"] == {"value": "1.50", "evaluation_count": 1}
+    # 1,50 de 2 no critério, numa etapa de 3 pontos (D-02).
+    assert response.data["stage_score"] == {"value": "2.25", "evaluation_count": 1}
     nota = StageScore.objects.get()
     assert nota.status == ScoreStatus.DEFINITIVE
     assert ScoreRectification.objects.count() == 1
@@ -68,7 +69,7 @@ def test_admin_retifica_e_a_nota_da_etapa_acompanha(admin, item):
 def test_exige_login(item):
     response = APIClient().post(url(item.evaluation), corpo(item), format="json")
 
-    assert response.status_code == 403
+    assert response.status_code == 401
 
 
 @pytest.mark.parametrize("fabrica", [StudentFactory, TeacherFactory])

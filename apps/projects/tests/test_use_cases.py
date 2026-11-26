@@ -1,14 +1,16 @@
 from datetime import timedelta
+from unittest.mock import patch
 
 import pytest
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.db import IntegrityError
+from django.db import DatabaseError, IntegrityError
 from django.utils import timezone
 
 from apps.accounts.enums import UserRole
-from apps.accounts.factories import UserFactory
-from apps.editions.enums import FieldKind
+from apps.accounts.exceptions import NotAdminActor
+from apps.accounts.factories import StudentFactory, TeacherFactory, UserFactory
+from apps.editions.enums import EditionStatus, FieldKind
 from apps.editions.exceptions import EditionClosed
 from apps.editions.factories import (
     CategoryFactory,
@@ -17,10 +19,12 @@ from apps.editions.factories import (
     StageFactory,
     StageSubmissionFieldFactory,
 )
+from apps.notifications.models import Notification, NotificationType
 from apps.projects.exceptions import (
     CategoryNotAvailable,
     ChallengeNotEligible,
     ChallengeNotSelected,
+    DeadlineExtensionAlreadyGranted,
     FileFormatNotAllowed,
     FileTooLarge,
     FormationClosed,
@@ -37,14 +41,17 @@ from apps.projects.exceptions import (
 from apps.projects.factories import DeadlineExtensionFactory, ProjectFactory
 from apps.projects.files import get_delivery_storage
 from apps.projects.models import (
+    DeadlineExtension,
     Project,
     Submission,
     SubmissionItem,
     SubmissionReceipt,
     SubmissionVersion,
 )
+from apps.projects.selectors import get_submission_deadline
 from apps.projects.tests.conftest import stored_keys, valid_canvas, valid_swot
 from apps.projects.use_cases import save_project_details as save_module
+from apps.projects.use_cases.extend_deadline import extend_deadline
 from apps.projects.use_cases.invalidate_challenge import invalidate_challenge
 from apps.projects.use_cases.save_project_details import save_project_details
 from apps.projects.use_cases.select_category import select_category
@@ -955,3 +962,156 @@ def test_canvas_incompleto_nao_grava_nada(
     assert not SubmissionVersion.objects.filter(
         submission__project=delivery_project
     ).exists()
+
+
+def test_envio_notifica_apenas_integrantes_ativos(
+    delivery_project, delivery_leader, delivery_stage, link_field
+):
+    ativo = TeamMemberFactory(team=delivery_project.team)
+    inativo = TeamMemberFactory(
+        team=delivery_project.team, active=False, left_at=timezone.now()
+    )
+
+    send(delivery_leader, delivery_project, delivery_stage, link_field)
+
+    notifs = Notification.objects.filter(type=NotificationType.DELIVERABLE)
+    destinatarios = set(notifs.values_list("user_id", flat=True))
+    assert destinatarios == {delivery_leader.id, ativo.student.user_id}
+    assert inativo.student.user_id not in destinatarios
+
+
+def test_envio_nao_quebra_se_notificacao_falhar(
+    delivery_project, delivery_leader, delivery_stage, link_field
+):
+    with patch(
+        "apps.notifications.services.Notification.objects.create",
+        side_effect=DatabaseError("erro simulado"),
+    ):
+        version = send(delivery_leader, delivery_project, delivery_stage, link_field)
+
+    assert SubmissionVersion.objects.filter(pk=version.pk).exists()
+    assert Notification.objects.count() == 0
+
+
+# --- extend_deadline (UC14, RF14) ---
+
+
+@pytest.fixture
+def admin():
+    return UserFactory(role=UserRole.ADMIN)
+
+
+def extend(actor, project, stage, **extra):
+    fields = {
+        "ends_at": stage.ends_at + timedelta(days=3),
+        "reason": "Atestado médico do líder.",
+        **extra,
+    }
+    return extend_deadline(actor=actor, project=project, stage=stage, **fields)
+
+
+def test_extend_deadline_grava_a_prorrogacao(admin, delivery_project):
+    stage, _ = closed_delivery_stage(delivery_project)
+    novo_prazo = stage.ends_at + timedelta(days=3)
+
+    extensao = extend(admin, delivery_project, stage, ends_at=novo_prazo)
+
+    assert extensao.granted_by == admin
+    assert extensao.project == delivery_project
+    assert extensao.stage == stage
+    assert extensao.ends_at == novo_prazo
+    assert extensao.reason == "Atestado médico do líder."
+    assert extensao.granted_at is not None
+    assert DeadlineExtension.objects.count() == 1
+
+
+def test_extend_deadline_tira_espacos_da_justificativa(admin, delivery_project):
+    stage, _ = closed_delivery_stage(delivery_project)
+    assert extend(admin, delivery_project, stage, reason="  Atestado  ").reason == (
+        "Atestado"
+    )
+
+
+@pytest.mark.parametrize("papel", [StudentFactory, TeacherFactory])
+def test_extend_deadline_exige_admin(papel, delivery_project):
+    stage, _ = closed_delivery_stage(delivery_project)
+    with pytest.raises(NotAdminActor):
+        extend(papel().user, delivery_project, stage)
+    assert DeadlineExtension.objects.count() == 0
+
+
+def test_extend_deadline_barra_segunda_prorrogacao_da_etapa(admin, delivery_project):
+    stage, _ = closed_delivery_stage(delivery_project)
+    primeira = extend(admin, delivery_project, stage)
+
+    with pytest.raises(DeadlineExtensionAlreadyGranted):
+        extend(admin, delivery_project, stage, ends_at=primeira.ends_at + timedelta(1))
+
+    primeira.refresh_from_db()
+    assert DeadlineExtension.objects.count() == 1
+    assert primeira.ends_at == stage.ends_at + timedelta(days=3)
+
+
+def test_extend_deadline_corrida_vira_conflito(admin, delivery_project, monkeypatch):
+    stage, _ = closed_delivery_stage(delivery_project)
+
+    def corrida(self, *args, **kwargs):
+        raise IntegrityError("unique_extension_per_stage")
+
+    monkeypatch.setattr(DeadlineExtension, "save", corrida)
+
+    with pytest.raises(DeadlineExtensionAlreadyGranted):
+        extend(admin, delivery_project, stage)
+
+
+def test_extend_deadline_barra_etapa_de_outra_edicao(admin, delivery_project):
+    stage = StageFactory()
+    with pytest.raises(ValidationError):
+        extend(admin, delivery_project, stage)
+    assert DeadlineExtension.objects.count() == 0
+
+
+@pytest.mark.parametrize("diferenca", [timedelta(0), timedelta(hours=-1)])
+def test_extend_deadline_exige_prazo_depois_do_fim_da_etapa(
+    admin, delivery_project, diferenca
+):
+    stage, _ = closed_delivery_stage(delivery_project)
+    with pytest.raises(ValidationError):
+        extend(admin, delivery_project, stage, ends_at=stage.ends_at + diferenca)
+    assert DeadlineExtension.objects.count() == 0
+
+
+@pytest.mark.parametrize("justificativa", ["", "   "])
+def test_extend_deadline_exige_justificativa(admin, delivery_project, justificativa):
+    stage, _ = closed_delivery_stage(delivery_project)
+    with pytest.raises(ValidationError):
+        extend(admin, delivery_project, stage, reason=justificativa)
+    assert DeadlineExtension.objects.count() == 0
+
+
+def test_extend_deadline_barra_edicao_encerrada(admin, delivery_project):
+    stage, _ = closed_delivery_stage(delivery_project)
+    delivery_project.edition.status = EditionStatus.CLOSED
+    delivery_project.edition.save()
+    with pytest.raises(EditionClosed):
+        extend(admin, delivery_project, stage)
+
+
+def test_extend_deadline_aceita_equipe_desclassificada(admin):
+    project = ProjectFactory(team=TeamFactory(disqualified=True))
+    stage, _ = closed_delivery_stage(project)
+    assert extend(admin, project, stage).pk is not None
+
+
+def test_prorrogacao_reabre_o_envio_da_etapa_vencida(
+    admin, delivery_project, delivery_leader
+):
+    stage, field = closed_delivery_stage(delivery_project)
+    with pytest.raises(StageDeadlineClosed):
+        send(delivery_leader, delivery_project, stage, field)
+    novo_prazo = timezone.now() + timedelta(days=1)
+
+    extend(admin, delivery_project, stage, ends_at=novo_prazo)
+
+    assert get_submission_deadline(delivery_project, stage) == novo_prazo
+    assert send(delivery_leader, delivery_project, stage, field).number == 1

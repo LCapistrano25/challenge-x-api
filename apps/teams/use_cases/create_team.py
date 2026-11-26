@@ -7,16 +7,12 @@ from django.utils import timezone
 
 from apps.accounts.enums import UserRole
 from apps.accounts.models import Student, User
-from apps.core.exceptions import BusinessRuleViolation
 from apps.editions.models import Edition
 from apps.teams.enums import MemberRole, TeamStatus
+from apps.teams.exceptions import TeamCreationRejected, TeamNameTaken
 from apps.teams.models import Team, TeamMember
 from apps.teams.rules import get_open_formation_stage
 from apps.teams.use_cases.invite_member import invite_member
-
-
-class TeamCreationRejected(BusinessRuleViolation):
-    """A equipe não pôde ser criada por uma regra de negócio."""
 
 
 class TeamInvitationsRequired(TeamCreationRejected):
@@ -38,11 +34,6 @@ class FormationClosed(TeamCreationRejected):
 
 class StudentAlreadyInTeam(TeamCreationRejected):
     code = "student_already_in_team"
-    http_status = HTTPStatus.CONFLICT
-
-
-class TeamNameTaken(TeamCreationRejected):
-    code = "team_name_taken"
     http_status = HTTPStatus.CONFLICT
 
 

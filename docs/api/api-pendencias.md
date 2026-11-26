@@ -21,16 +21,16 @@
 | P-03 | Expiração por inatividade × JWT de 7 dias — **resolvida** | Média | `accounts` |
 | P-04 | Professor define o próprio escopo de avaliação — **resolvida** | Alta | `accounts`, `evaluations` |
 | P-05 | Criação de avaliador externo sem vínculo à edição — **resolvida** | Média | `accounts`, `evaluations` |
-| P-06 | Status de chamado divergentes | Alta | `support` |
-| P-07 | Justificativa de recusa e histórico do chamado | Média | `support` |
-| P-08 | `WAITING_USER` sem canal de resposta do usuário | Média | `support` |
-| P-09 | Tipo de solicitação e prioridade do chamado | Baixa | `support` |
-| P-10 | Quem abre e quem atende chamados | Média | `support` |
-| P-11 | Nomes de campos do chamado na API | Baixa | `support` |
-| P-12 | Regra de `resolved_at` | Baixa | `support` |
+| P-06 | Status de chamado divergentes — **resolvida** | Alta | `support` |
+| P-07 | Justificativa de recusa e histórico do chamado — **resolvida** | Média | `support` |
+| P-08 | `WAITING_USER` sem canal de resposta do usuário — **resolvida** | Média | `support` |
+| P-09 | Tipo de solicitação e prioridade do chamado — **resolvida** | Baixa | `support` |
+| P-10 | Quem abre e quem atende chamados — **resolvida** | Média | `support` |
+| P-11 | Nomes de campos do chamado na API — **resolvida** | Baixa | `support` |
+| P-12 | Regra de `resolved_at` — **resolvida** | Baixa | `support` |
 | P-13 | Notificação de convite por e-mail sem usuário | Média | `teams`, notificações |
-| P-14 | Formato do `link` da notificação | Baixa | notificações |
-| P-15 | Ação de exclusão das FKs novas | Baixa | `support`, notificações |
+| P-14 | Formato do `link` da notificação — **resolvida** | Baixa | notificações |
+| P-15 | Ação de exclusão das FKs novas — **resolvida** | Baixa | `support`, notificações |
 | P-16 | Transição para `IN_PROGRESS` da edição | Média | `editions` |
 | P-17 | "Código/sigla" do curso × `slug` | Baixa | `core` |
 | P-18 | Conteúdo da pré-carga da edição | Média | `editions` (seed) |
@@ -44,9 +44,9 @@
 | P-26 | Transições de `project_status` | Média | `projects` |
 | P-27 | Status de entrega e nota zero automática — **resolvida** | Média | `projects`, `evaluations` |
 | P-28 | Visibilidade pública do acervo | Baixa | `results` |
-| P-29 | Seleção de finalistas sem requisito | Alta | `results`, `evaluations` |
-| P-30 | Nota final, ranking e premiação | Alta | `results` |
-| P-31 | Fórmula da pontuação individual | Alta | `results` |
+| P-29 | Seleção de finalistas sem requisito — **resolvida** | Alta | `results`, `evaluations` |
+| P-30 | Nota final, ranking e premiação — **resolvida** | Alta | `results` |
+| P-31 | Fórmula da pontuação individual — **resolvida** | Alta | `results` |
 | P-32 | Banca do avaliador externo — **resolvida** | Média | `evaluations` |
 | P-33 | Significado de `PARTIAL` em `stage_score` | Baixa | `evaluations` |
 | P-34 | Tipos de certificado incompletos | Média | `results` |
@@ -56,10 +56,10 @@
 | P-38 | Paginação das listagens — **resolvida** | Baixa | listagens |
 | P-39 | Decimais serializados como string — **resolvida** | Baixa | notas e pontuações |
 | P-40 | 400 × 422 para erros de validação — **resolvida** | Baixa | todos |
-| P-41 | Definição de "edição vigente" | Média | `public`, `teams`, `auth` |
+| P-41 | Definição de "edição vigente" — **resolvida** | Média | `public`, `teams`, `auth` |
 | P-42 | Campo `profile_completed` na sessão Microsoft — **resolvida** | Média | `auth` |
-| P-43 | Formato multipart dos uploads | Média | `editions`, `projects`, `results` |
-| P-44 | Anonimato do professor nos feedbacks | Média | `evaluations` |
+| P-43 | Formato multipart dos uploads — **resolvida** | Média | `editions`, `projects`, `results` |
+| P-44 | Anonimato do professor nos feedbacks — **resolvida** | Média | `evaluations` |
 | P-45 | Confirmação explícita no encerramento da edição | Baixa | `editions` |
 | P-46 | Emissão de certificados e endpoints de resultados ausentes | Alta | `results` |
 | P-47 | Campos de entrega Canvas e SWOT: modelos fixos e escopo | Média | `editions`, `projects` |
@@ -114,32 +114,39 @@
 
 - O DBML não tem um estado equivalente a **recusado**.
 - **Mapeamento sugerido, para revisão:** PENDENTE→`OPEN`, EM_ANALISE→`IN_PROGRESS`, ATENDIDO→`RESOLVED`, RECUSADO→`CLOSED` com `support_response` obrigatório. Também é preciso definir as **transições permitidas** entre os estados.
+- **Resolvida (24/11/2026, #217):** em análise = `IN_PROGRESS`, atendido = `RESOLVED`, recusado = `CLOSED`. Transições: `CLOSED` é final; `RESOLVED` só volta para `IN_PROGRESS` ou vai para `CLOSED`; transição proibida responde 409 `invalid_status_transition`.
 
 ### P-07 — Justificativa de recusa e histórico · Média
 - O RF exige justificativa na recusa e o contrato pede preservar o "histórico básico do atendimento".
 - O DBML tem um único campo, `support_response`, que é sobrescrito a cada atualização. Não há histórico de mudanças de status nem de respostas.
 - **Decidir:** se um único campo basta ou se é necessária uma tabela de histórico ou mensagens.
+- **Resolvida (24/11/2026, #217):** um único campo. Encerrar (`CLOSED`) equivale a recusar e exige `support_response`. Sem histórico de respostas: guarda só a última.
 
 ### P-08 — `WAITING_USER` sem canal de resposta do usuário · Média
 - O status `WAITING_USER` pressupõe que o solicitante possa responder ou complementar o chamado.
 - O contrato proíbe o usuário de alterar o chamado e não existe tabela de mensagens.
 - **Decidir:** como o usuário responde (novo campo, tabela de mensagens ou edição da `description`) e quem tira o chamado de `WAITING_USER`.
+- **Resolvida (24/11/2026, #217):** `WAITING_USER` continua no contrato, mas a orientação aos admins é não usar, porque o usuário não tem como responder. A API não bloqueia o status.
 
 ### P-09 — Tipo de solicitação e prioridade · Baixa
 - O RFXX (Aluno/Professor) recebe um "tipo de solicitação", mas não existe campo para isso no DBML.
 - `priority` existe no DBML, mas nenhum requisito diz quem define (usuário ou Admin) nem se pode ser alterada.
+- **Resolvida (26/11/2026, #73):** sem tipo de solicitação. O chamado abre com `priority = MEDIUM`, e só o admin altera a prioridade ao atender (`answer_ticket`).
 
 ### P-10 — Quem abre e quem atende · Média
 - O RF e o contrato falam em **alunos e professores**, enquanto a nota do DBML fala em "authenticated users". Avaliadores externos e admins também podem abrir chamados?
 - `assigned_to` aponta para qualquer `users`, e a nota cita "support/admin roles", mas `user_role` não tem papel de suporte.
 - **Suposição:** apenas `ADMIN` pode ser atribuído e atender (validação na aplicação).
+- **Resolvida (24/11/2026, #217):** abrem STUDENT e TEACHER; só ADMIN ativo é atribuído (`assigned_to`) e atende. O chamado não altera o cadastro: o admin corrige pelas rotas de usuários. O solicitante é notificado (SYSTEM) quando muda o status ou a resposta.
 
 ### P-11 — Nomes de campos na API · Baixa
 - O contrato usa `subject` e `response`, enquanto o DBML usa `title` e `support_response`.
 - **Suposição:** a API segue o DBML.
+- **Resolvida (26/11/2026, #73):** a API usa `title` e `support_response`, como o banco, e o contrato foi alinhado a esses nomes.
 
 ### P-12 — Regra de `resolved_at` · Baixa
 - Não há regra nem CHECK dizendo quando `resolved_at` é preenchido (apenas em `RESOLVED`? também em `CLOSED`?) e se volta a nulo em caso de reabertura.
+- **Resolvida (24/11/2026, #217):** `resolved_at` é preenchido em `RESOLVED` e `CLOSED` e volta a nulo na reabertura (`IN_PROGRESS`).
 
 ---
 
@@ -152,10 +159,12 @@
 
 ### P-14 — Formato do `link` · Baixa
 - Não está definido se `link` guarda uma rota do frontend ou o caminho de um recurso da API. Também não há referência estruturada à entidade de origem (convite, solicitação etc.).
+- **Resolvida (26/11/2026, #74):** `link` é uma rota do frontend (ex.: `/projects/{id}/deliverables`), opcional, sem referência estruturada à origem.
 
 ### P-15 — Ação de exclusão das FKs novas · Baixa
 - `notification.user_id`, `support_ticket.user_id` e `support_ticket.assigned_to` não definem `delete`/`update`, enquanto todas as outras referências definem.
 - **Suposição:** `RESTRICT`, já que usuários nunca são excluídos fisicamente.
+- **Resolvida (26/11/2026, #74):** `notification.user` e `support_ticket.requester` usam `CASCADE`; `support_ticket.assigned_to` usa `SET_NULL`. Usuários não são excluídos fisicamente, então o efeito prático é nenhum.
 
 ---
 
@@ -191,7 +200,7 @@
 - **Resolvida (20/11/2026):** uma tabela por tipo de ajuste, cada uma sendo o próprio histórico imutável. A prorrogação por equipe é `DeadlineExtension` (projeto, etapa, novo prazo, justificativa, admin), e `get_valid_version` usa esse prazo. A retificação de nota é `ScoreRectification` (item, pontos anteriores e novos, justificativa, admin), gravada pelo caso de uso `rectify_score`, que troca os pontos do item mesmo com a avaliação finalizada. O prazo do professor (`ensure_within_evaluation_deadline`) não vale para a retificação.
 - **Decisões da #67:** (1) o prazo de avaliação é um campo próprio da etapa, `evaluation_ends_at` (P-19); (2) os ajustes ficam em uma tabela por tipo, não em uma tabela genérica de auditoria; (3) a avaliação finalizada só muda pelo admin, por retificação de um item, e cada retificação fica registrada; o professor não altera depois de finalizar. A imutabilidade é garantida no admin do Django, que não tem permissão de alterar nem apagar `DeadlineExtension` e `ScoreRectification`; a retificação só é gravada por `rectify_score`.
 - **Fora desta decisão:** a rota para o admin conceder a prorrogação (hoje só pelo admin do Django, que grava `granted_by`) e a consulta do histórico de ajustes (RF16). Seguem em tasks próprias.
-- **Atualização (21/11/2026):** a retificação tem endpoint (`POST /api/admin/evaluations/{id}/rectifications`, #98), exige admin antes de travar o item (BUG-05). A prorrogação por equipe ainda não tem endpoint (#109).
+- **Atualização (21/11/2026):** a retificação tem endpoint (`POST /api/admin/evaluations/{id}/rectifications`, #98), exige admin antes de travar o item (BUG-05). A prorrogação por equipe tem endpoint (`POST /api/admin/teams/{id}/deadline-extensions`, #109): só o admin, uma por projeto e etapa, 409 `deadline_extension_already_granted` na segunda; a consulta do histórico (RF16) segue em task própria.
 
 ---
 
@@ -243,6 +252,7 @@
 
 ### P-29 — Seleção de finalistas sem requisito · Alta
 - `project_result.finalist` existe e o RF42 depende dele ("homologados pelo Administrador", citando o RF15). Porém **o RF15 foi removido** e nenhum outro requisito define quem marca os finalistas nem com qual critério.
+- **Resolvida (24/11/2026, D-01, #221):** finalistas são os 3 primeiros de cada curso por `final_score` e desempate (Cap. VIII IV). `POST .../finalists` sem lista marca os 3 primeiros (empatados no 3º entram todos); com `project_ids`, a comissão ajusta.
 
 ### P-30 — Nota final, ranking e premiação · Alta
 - **Nota final (0–10):** não está explícito que `final_score` é a soma dos `stage_score.value` das etapas pontuadas.
@@ -250,9 +260,15 @@
 - **Agregação das notas externas:** média ou soma das `final_evaluation`? Conta só `FINALIZED`?
 - **Desempate (RF06, Art. 24):** os critérios de desempate valem para qual ranking?
 - **Homologação:** quem homologa (`homologated_at`) e o que fica bloqueado depois disso.
+- **Resolvida (24/11/2026, #217):**
+  - Nota final = soma das notas das etapas pontuadas (total 10). Nota da etapa = `(soma dos points / soma dos max_score dos critérios) × Stage.max_score`, média entre os professores (D-02, #228).
+  - Pódio único: 1º a 3º **por categoria na edição inteira** (Art. 26), pela média das `FinalEvaluation` `EVALUATED`; desempate por `final_score` e pelos critérios (D-01, #230). O RF49 ("dentro do curso") precisa ser corrigido nos requisitos.
+  - Desempate (Art. 24): `Criterion.tiebreak_order` (padrão Critério 1, depois 4), nota do critério normalizada por etapa (`points / max_score × 10`), média dos professores e soma entre etapas; empate total divide a posição (#221).
+  - Homologação: o ADMIN homologa (`approve_finalists`) por último, depois do pódio (`POST .../awards/calculate`, `awards_not_calculated`). Recusa enquanto houver nota de etapa pendente (`results_pending_scores`), decidido em 25/11/2026 (#230).
 
 ### P-31 — Fórmula da pontuação individual · Alta
 - O RF19 (regra 6) diz que o período do aluno é a base da pontuação individual, e `student_score` congela `considered_period`. A fórmula não está em nenhum requisito.
+- **Resolvida (24/11/2026, D-04, #221):** fora do escopo. O sistema não calcula pontos do aluno na disciplina, porque o período não se atualiza; o professor converte a nota final. `StudentScore` foi removido (#221).
 
 ### P-32 — Banca do avaliador externo · Média
 - O RF43 exige avaliar todos os finalistas "alocados para a sua banca", mas não existe tabela de alocação. Só existe a abrangência por curso em `edition_evaluator.course_id`.
@@ -266,6 +282,7 @@
 ### P-34 — Tipos de certificado incompletos · Média
 - O RF17 lista como elegíveis: Participante, Finalista, Premiado, **Professor Avaliador** e **Avaliador Externo**.
 - `certificate_type` só tem `PARTICIPATION`, `FINALIST` e `AWARD`. Com a unicidade `(edition_id, type)` em `certificate_template`, não dá para ter modelos distintos para professores e avaliadores.
+- **Adiada (24/11/2026, D-07):** certificados aguardam a coordenação. A universidade talvez emita pelo site dela; nesse caso o sistema só listaria os elegíveis.
 
 ---
 
@@ -315,6 +332,7 @@ Estas são convenções que a especificação adota para ficar completa. Cada um
 ### P-41 — Definição de "edição vigente" · Média
 - RF20, RF21, RF24, RF41 e RF44 dependem da "edição vigente", mas nenhum requisito a define.
 - **Suposição:** a única edição com status `PUBLISHED` ou `IN_PROGRESS`. Também é preciso decidir se pode haver mais de uma ao mesmo tempo (o modelo não impede) e o que a API retorna quando não há nenhuma (a especificação usa 404 no painel público e 409 `no_current_edition` na criação de equipe).
+- **Resolvida (26/11/2026, #71):** edição vigente é a edição com status `PUBLISHED` (contrato, #197; `get_current_edition` em `apps/public/selectors.py`).
 
 ### P-42 — `profile_completed` na sessão Microsoft · Média
 - O contrato de auth exige que o aluno conclua o autocadastro (RF19) e que o professor configure seus cursos (RF36.1) no primeiro acesso, mas não diz como o frontend descobre que isso ainda falta.
@@ -330,20 +348,24 @@ Estas são convenções que a especificação adota para ficar completa. Cada um
 - Também é preciso definir onde os arquivos são armazenados (ex.: Azure Blob) e se as URLs devolvidas (`notice_url`, `file_url`, `template_url`) são públicas ou assinadas e com validade. Entregas e certificados não devem ficar com URL pública permanente.
 - **Atualização (#108):** o comprovante tem consulta própria (`GET /api/deliverable-versions/{version_id}/receipt`; aluno integrante e admin). O `file_url` do comprovante segue nulo até o PDF ser gerado; quando existir, usa o armazenamento privado e o download autenticado, nunca URL pública.
 - **Pendente (21/11/2026):** a entrega de etapa está pronta. Faltam o upload do edital (RF09, #123) e do modelo de certificado (RF17, #112), e a escolha do armazenamento definitivo (#99, #102).
+- **Resolvida (26/11/2026, #71):** entrega de etapa e edital (#226) usam multipart, com armazenamento privado e download autenticado ou por token. O modelo de certificado segue a D-07 (adiada). A escolha do armazenamento definitivo fica com o deploy (#99, #102).
 
 ### P-44 — Anonimato do professor nos feedbacks · Média
 - O RF32 exibe ao aluno os feedbacks dos professores, mas não diz se o professor é identificado.
 - **Suposição:** os feedbacks são exibidos **sem** o nome do professor. Confirmar.
+- **Resolvida (26/11/2026, #71):** os feedbacks aparecem ao aluno **sem** o nome do professor (só comentário e itens).
 
 ### P-45 — Confirmação no encerramento da edição · Baixa
 - O encerramento (RF47) é irreversível. A especificação exige `{"confirm": true}` no corpo para evitar disparo acidental. Isso é uma proposta e não está nos requisitos.
+- **Pendente com a #130:** o encerramento da edição ainda não tem rota; a confirmação entra com ela.
 
 ### P-46 — Emissão de certificados e endpoints de resultados ausentes · Alta
 - **Não foram incluídos** na especificação, porque dependem de regras não definidas:
   - Emissão de certificados pelo Admin (RF17): a elegibilidade de Finalista e Premiado depende de P-29/P-30, e não existem tipos para professor e avaliador (P-34).
   - Seleção e homologação de finalistas, cálculo da nota final, ranking, premiação e pontuação individual (P-29, P-30, P-31).
   - Ajustes pontuais (RF14), sem persistência no modelo (P-21).
-- **Rotas candidatas, ainda não especificadas:** `POST /api/admin/editions/{id}/results/calculate`, `POST /api/admin/editions/{id}/finalists`, `POST /api/admin/editions/{id}/results/homologate`, `POST /api/admin/editions/{id}/certificates/issue`, `POST /api/admin/teams/{id}/deadline-extensions`. Elas entram na especificação quando as regras forem aprovadas.
+- **Rotas candidatas, ainda não especificadas:** `POST /api/admin/editions/{id}/certificates/issue` (certificados adiados, D-07). As rotas de cálculo, finalistas e homologação entraram no contrato em 24/11/2026.
+- **Atualização (#109):** a rota `POST /api/admin/teams/{id}/deadline-extensions` foi especificada e implementada; sai da lista de candidatas.
 
 ### P-47 — Campos de entrega Canvas e SWOT: modelos fixos e escopo · Média
 - O professor pediu que o Business Model Canvas e a matriz SWOT sejam preenchidos no sistema. O admin escolhe por etapa, como qualquer campo de entrega (`type` `CANVAS` e `SWOT`, com `required`); não há nota própria, o professor avalia pelos critérios existentes.
@@ -398,7 +420,7 @@ Dois desvios do contrato de auth, ambos pela regra "DBML como referência":
 | RF11 | Coberto | `POST /api/auth/external-evaluators` + `/api/admin/editions/{id}/evaluators` |
 | RF12 | Coberto | `/api/admin/editions/{id}/final-form` |
 | RF13 | Coberto (data e responsável não persistidos, P-22) | `POST /api/admin/teams/{id}/disqualify` |
-| **RF14** | **Parcial** | Histórico por tipo de ajuste (`retificacao_nota`, `prorrogacao_prazo`, P-21); falta a rota de prorrogação |
+| **RF14** | **Parcial** | Histórico por tipo de ajuste (`retificacao_nota`, `prorrogacao_prazo`, P-21); `POST /api/admin/teams/{team_id}/deadline-extensions` cobre a prorrogação (#109); falta a consulta do histórico (RF16) |
 | **RF17** | **Parcial** | Modelos e consulta dos próprios certificados; a emissão depende de P-29, P-30, P-34 e P-46 |
 | RF18, RF36 | Coberto | `POST /api/auth/sessions/microsoft` |
 | RF19 | Coberto | `POST /api/auth/students` |
@@ -477,3 +499,5 @@ O validador oficial (`openapi-spec-validator`) **não pôde ser instalado**, por
 | 21/11/2026 | Pendências P-01, P-02, P-03, P-05, P-27, P-32, P-39, P-40 e P-42 marcadas como resolvidas; P-21 e P-43 atualizadas. | Levantamento do código da `developer` e das PRs abertas (#172) feito na #179. |
 | 21/11/2026 | A resposta `BadRequest` (400) documenta também `request_too_large`, para corpo acima de 2,5 MB (`DATA_UPLOAD_MAX_MEMORY_SIZE`), com exemplo próprio. | Comportamento entregue na #182 (P-37); registrado no contrato, que é a autoridade da interface. |
 | 21/11/2026 | Autenticação por sessão: o esquema `bearerAuth` (JWT) vira `sessionAuth` (cookie `sessionid`) e `csrfToken` (cabeçalho `X-CSRFToken`); a descrição de cada operação deixa de citar Bearer JWT; entra `GET /api/auth/csrf` (schema `CsrfToken`). | Decisão da #70 (sessão + CSRF), já implementada desde a #91; o contrato ainda descrevia JWT (I-08, I-10, I-36). |
+| 23/11/2026 | Entra `POST /api/admin/teams/{team_id}/deadline-extensions` (`projectsCreateDeadlineExtension`), com os schemas `DeadlineExtensionWrite` e `DeadlineExtension`. | Prorrogação de prazo por equipe (RF14), decidida na P-21 e entregue na #109. |
+| 24/11/2026 | Entram `POST /api/admin/editions/{edition_id}/results/calculate` (`resultsCalculate`), `.../finalists` (`resultsSelectFinalists`) e `.../results/homologate` (`resultsApprove`), com os schemas `EditionResults`, `ResultRow`, `ResultExcluded`, `FinalistsSelect` e o enum `ResultExclusionReason`. Sem `project_ids`, os finalistas são os 3 primeiros de cada curso. | Rotas entregues na #220 (#110) e alinhadas às decisões de 24/11 (#217): sem pontos do aluno (D-04), desempate normalizado por etapa. |

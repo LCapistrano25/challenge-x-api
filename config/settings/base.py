@@ -28,6 +28,8 @@ INSTALLED_APPS = [
     "apps.evaluations.apps.EvaluationsConfig",
     "apps.results.apps.ResultsConfig",
     "apps.notifications",
+    "apps.public",
+    "apps.support.apps.SupportConfig",
 ]
 
 MIDDLEWARE = [
@@ -110,6 +112,15 @@ STORAGES = {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
         "OPTIONS": {"location": DELIVERY_STORAGE_ROOT},
     },
+    "regulations": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+        "OPTIONS": {
+            "location": env(
+                "REGULATION_STORAGE_ROOT",
+                default=str(BASE_DIR / "private_media" / "regulations"),
+            ),
+        },
+    },
 }
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
@@ -123,6 +134,13 @@ MICROSOFT_TENANT_ID = env("MICROSOFT_TENANT_ID", default="")
 MICROSOFT_CLIENT_ID = env("MICROSOFT_CLIENT_ID", default="")
 MICROSOFT_CLIENT_SECRET = env("MICROSOFT_CLIENT_SECRET", default="")
 MICROSOFT_REDIRECT_URI = env("MICROSOFT_REDIRECT_URI", default="")
+# Só homologação: aluno e professor também entram com senha, para testar sem conta
+# Microsoft. Nunca ligar em produção: fura RF18/RF36.
+ALLOW_PASSWORD_LOGIN_FOR_ALL_ROLES = env.bool(
+    "ALLOW_PASSWORD_LOGIN_FOR_ALL_ROLES", default=False
+)
+# Swagger do contrato em /api/docs/, aberto a quem tiver o link (homologação).
+ENABLE_API_DOCS = env.bool("ENABLE_API_DOCS", default=False)
 
 # Sessão com expiração por inatividade
 SESSION_COOKIE_AGE = 1800
@@ -130,7 +148,7 @@ SESSION_SAVE_EVERY_REQUEST = True
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework.authentication.SessionAuthentication",
+        "apps.core.authentication.SessionAuthentication",
     ],
     # Esquecer permission_classes exige login em vez de deixar a rota aberta.
     # Cada view declara o papel (IsAdmin, IsStudent...) ou AllowAny se pública.

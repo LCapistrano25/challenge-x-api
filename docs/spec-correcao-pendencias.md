@@ -154,6 +154,8 @@ O `select_for_update` trava a `Team`, mas o `Submission` é criado por `get_or_c
 
 **Correção:** trocar `get_or_create` por `select_for_update` no `Submission` também, ou usar `F('number') + 1` com `UPDATE ... RETURNING`.
 
+**Situação (22/11): falso positivo.** O caso de uso trava a `Team` com `select_for_update` antes do `get_or_create` e do `Max`. Como cada projeto tem uma só equipe, dois envios do mesmo projeto esperam a mesma trava, e o segundo lê o `Max` já com a versão do primeiro. Nenhum outro código cria `SubmissionVersion`.
+
 #### BUG-02 — `leave_team` não verifica a janela extra antes de permitir saída
 
 **Arquivo:** `apps/teams/use_cases/leave_team.py:72-75`
@@ -167,6 +169,8 @@ if formation_stage is None:
 Se a equipe tem `formation_extended_until` no futuro (janela extra), mas a `formation_stage` já acabou, a saída é rejeitada. Porém a regra diz que "ninguém sai durante a janela extra". Atualmente, se a etapa de formação ainda está aberta E a equipe tem janela extra, a saída é permitida — a regra de "ninguém sai durante a janela" não está implementada.
 
 **Correção:** adicionar check: se `team.formation_extended_until` está no futuro, rejeitar a saída.
+
+**Situação (22/11): falso positivo.** A janela extra começa quando a etapa de formação termina, e aí `get_open_formation_stage` devolve `None` e a saída é recusada. Antes do fim da etapa a equipe ainda está no prazo normal, em que sair é permitido. Coberto por `test_durante_a_janela_extra_ninguem_sai` (`apps/teams/tests/test_formation_extension.py`).
 
 #### BUG-03 — `EditionSdg.delete()` não protege contra `queryset.delete()`
 
@@ -182,6 +186,8 @@ O comentário reconhece o problema (`shortcut: queryset.delete() não passa por 
 
 **Correção:** mover a regra para o use case de remoção de ODS. Ou adicionar um `pre_delete` signal (exceção justificada: protege integridade).
 
+**Situação (22/11):** resolvido em `fix/179-editions-sdg-bulk-delete`: o QuerySet de `EditionSdg` aplica a regra em cada linha antes de apagar, com teste de apagar em lote.
+
 #### BUG-04 — `ensure_actor_is_team_leader` compara `student_id` com `actor.pk`
 
 **Arquivo:** `apps/projects/rules.py:88-96`
@@ -194,6 +200,8 @@ members.filter(team=team, student_id=actor.pk, role="LEADER", active=True).exist
 
 **Correção:** trocar `actor.pk` por `actor.student.pk` ou `actor.pk` com comentário explícito dizendo que `Student.pk == User.pk` por design.
 
+**Situação (22/11):** resolvido em `fix/179-projects-leader-pk` com o comentário em `ensure_actor_is_team_leader` e `ensure_actor_is_team_member`.
+
 #### BUG-05 — `rectify_score` não verifica que o actor é admin
 
 **Arquivo:** `apps/evaluations/use_cases/rectify_score.py:14-15`
@@ -201,6 +209,8 @@ members.filter(team=team, student_id=actor.pk, role="LEADER", active=True).exist
 A docstring diz "Levanta ValidationError se o actor não for admin", mas o código não tem nenhum `ensure_actor_is_admin(actor)`. A constraint `limit_choices_to={"role": UserRole.ADMIN}` em `rectified_by` só funciona no admin Django, não na API.
 
 **Correção:** adicionar `ensure_actor_is_admin(actor)` como primeira linha.
+
+**Situação (22/11):** resolvido na #181.
 
 ### Falhas de segurança
 

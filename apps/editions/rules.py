@@ -8,7 +8,10 @@ from apps.editions.enums import EditionStatus
 from apps.editions.exceptions import (
     EditionAlreadyExists,
     EditionClosed,
+    EditionNotInSetup,
+    EditionPublished,
     InvalidTeamLimits,
+    PublicationRequirementsNotMet,
     TeamLimitsLocked,
 )
 
@@ -16,11 +19,24 @@ from apps.editions.exceptions import (
 # do Django (como a FK por string), sem import que fecharia o ciclo.
 
 
-def ensure_sdg_enabled_in_edition(edition_id: int, sdg_id: int) -> None:
+def ensure_sdg_enabled_in_edition(
+    edition_id: int, sdg_id: int, *, error_field: str = "sdg"
+) -> None:
     """Exige que a ODS esteja entre as aceitas na edição (RN09)."""
     edition_sdgs = apps.get_model("editions", "EditionSdg").objects
     if not edition_sdgs.filter(edition_id=edition_id, sdg_id=sdg_id).exists():
-        raise ValidationError({"sdg": "A ODS não está habilitada nesta edição."})
+        raise ValidationError({error_field: "A ODS não está habilitada nesta edição."})
+
+
+def ensure_challenge_sdg_is_valid(edition_id: int, sdg_id: int) -> None:
+    """Exige ODS ativa e habilitada no cadastro ou na troca de vínculo (RF05)."""
+    if (
+        not apps.get_model("core", "Sdg")
+        .objects.filter(pk=sdg_id, active=True)
+        .exists()
+    ):
+        raise ValidationError({"sdg_id": "A ODS deve existir e estar ativa."})
+    ensure_sdg_enabled_in_edition(edition_id, sdg_id, error_field="sdg_id")
 
 
 def ensure_sdg_not_used_by_challenges(edition_id: int, sdg_id: int) -> None:
@@ -40,9 +56,11 @@ MAX_FINAL_SCORE = Decimal("10")
 
 
 def ensure_stage_max_score_fits(stage) -> None:
-    """As etapas pontuadas somam no máximo 10 e a etapa comporta seus critérios.
+    """As etapas pontuadas somam no máximo 10 (INT-01).
 
-    A igualdade (somar exatamente 10) só vale ao publicar a edição (INT-01, INT-02).
+    A igualdade (somar exatamente 10) só vale ao publicar a edição. Os critérios
+    não somam o valor da etapa: cada um vale 10 por padrão e funciona como peso
+    (D-02).
     """
     if not stage.scored or stage.max_score is None:
         return
@@ -57,28 +75,6 @@ def ensure_stage_max_score_fits(stage) -> None:
         raise ValidationError(
             {"max_score": "As etapas pontuadas da edição passariam de 10 pontos."}
         )
-    if stage.pk and _criteria_total(stage.pk) > stage.max_score:
-        raise ValidationError(
-            {"max_score": "Os critérios da etapa somam mais que este valor."}
-        )
-
-
-def ensure_criterion_fits_stage(stage_criterion) -> None:
-    """Os critérios da etapa somam no máximo o valor da etapa (INT-02)."""
-    stage = stage_criterion.stage
-    if stage.max_score is None or stage_criterion.max_score is None:
-        return
-    others = _criteria_total(stage.pk, exclude=stage_criterion.pk) if stage.pk else 0
-    if others + stage_criterion.max_score > stage.max_score:
-        raise ValidationError(
-            {"max_score": "Os critérios passariam do valor da etapa."}
-        )
-
-
-def _criteria_total(stage_id, exclude=None):
-    criteria = apps.get_model("editions", "StageCriterion").objects
-    qs = criteria.filter(stage_id=stage_id).exclude(pk=exclude)
-    return qs.aggregate(total=Sum("max_score"))["total"] or 0
 
 
 def ensure_edition_identification_is_free(year: int, semester: int) -> None:
@@ -103,6 +99,8 @@ def ensure_team_limits_editable(edition) -> None:
 
     Edição publicada já divulgou o edital; encerrada não aceita alteração alguma.
     """
+    if edition.status == EditionStatus.PUBLISHED:
+        raise EditionPublished()
     if edition.status != EditionStatus.SETUP:
         raise TeamLimitsLocked()
 
@@ -118,3 +116,39 @@ def ensure_course_is_active(course_id: int) -> None:
     courses = apps.get_model("core", "Course").objects
     if not courses.filter(pk=course_id, active=True).exists():
         raise ValidationError({"course_id": "Curso inválido."})
+
+
+def ensure_edition_ready_for_publication(edition) -> None:
+    """Exige a configuração mínima da edição (RF09, INT-01, INT-02)."""
+    if edition.status != EditionStatus.SETUP:
+        raise EditionNotInSetup()
+
+    pending = {}
+    if not apps.get_model("core", "Course").objects.filter(active=True).exists():
+        pending["courses"] = "Cadastre pelo menos um curso ativo."
+    enabled_sdgs = edition.sdg_links.filter(sdg__active=True).values("sdg_id")
+    if not enabled_sdgs.exists():
+        pending["sdgs"] = "Habilite pelo menos uma ODS ativa na edição."
+    if not edition.challenges.filter(
+        active=True, course__active=True, sdg_id__in=enabled_sdgs
+    ).exists():
+        pending["challenges"] = "Cadastre um desafio ativo para curso e ODS ativos."
+    if not edition.categories.exists():
+        pending["categories"] = "Cadastre pelo menos uma categoria."
+    if not edition.criteria.exists():
+        pending["criteria"] = "Cadastre pelo menos um critério."
+    try:
+        ensure_team_limits_valid(edition.min_members, edition.max_members)
+    except InvalidTeamLimits:
+        pending["team_limits"] = str(InvalidTeamLimits())
+
+    stages = list(edition.stages.filter(scored=True))
+    if sum(stage.max_score for stage in stages) != MAX_FINAL_SCORE:
+        pending["stages"] = "As etapas pontuadas devem somar 10,00 pontos."
+    # Os critérios não somam o valor da etapa: cada um vale 10 por padrão e
+    # funciona como peso (D-02). Só precisa haver critério em cada etapa pontuada.
+    if any(not stage.criterion_links.exists() for stage in stages):
+        pending["stage_criteria"] = "Vincule critérios a cada etapa pontuada."
+
+    if pending:
+        raise PublicationRequirementsNotMet(pending)

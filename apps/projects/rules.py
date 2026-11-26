@@ -11,6 +11,7 @@ from apps.projects.exceptions import (
     CategoryNotAvailable,
     ChallengeNotEligible,
     ChallengeNotSelected,
+    DeadlineExtensionAlreadyGranted,
     FileFormatNotAllowed,
     FileTooLarge,
     FormationClosed,
@@ -48,9 +49,10 @@ def ensure_project_in_team_edition(project) -> None:
 
 
 def ensure_project_complete(project) -> None:
-    """Só entrega projeto com desafio, título e resumo (RF30, RF31, RF51)."""
+    """Só entrega projeto com desafio, categoria, título e resumo (RF30, RF31, D-06)."""
     filled = {
         "challenge": project.challenge_id,
+        "category": project.category_id,
         "title": project.title,
         "summary": project.summary,
     }
@@ -83,9 +85,16 @@ def ensure_extension_after_stage_end(extension) -> None:
         )
 
 
+def ensure_no_extension_for_stage(project, stage) -> None:
+    """Só uma prorrogação por projeto e etapa (RF14)."""
+    if project.deadline_extensions.filter(stage=stage).exists():
+        raise DeadlineExtensionAlreadyGranted()
+
+
 def ensure_actor_is_team_leader(team, actor) -> None:
     """Exige que quem age seja o líder ativo da equipe (RF29, RF30)."""
     members = apps.get_model("teams", "TeamMember").objects
+    # student_id recebe actor.pk porque a PK de Student é o próprio user (OneToOne).
     is_leader = (
         actor is not None
         and members.filter(
@@ -149,6 +158,7 @@ def ensure_project_title_is_free(project, title: str) -> None:
 def ensure_actor_is_team_member(team, actor) -> None:
     """Exige que quem consulta seja integrante ativo da equipe (RF29)."""
     members = apps.get_model("teams", "TeamMember").objects
+    # student_id recebe actor.pk porque a PK de Student é o próprio user (OneToOne).
     if not members.filter(team=team, student_id=actor.pk, active=True).exists():
         raise ProjectAccessDenied()
 

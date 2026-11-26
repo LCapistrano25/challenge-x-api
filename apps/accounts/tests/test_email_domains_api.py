@@ -27,14 +27,14 @@ def admin_client():
 def test_usuario_nao_autenticado_nao_acessa_dominios():
     client = APIClient()
 
-    assert client.get(EMAIL_DOMAINS_URL).status_code == 403
+    assert client.get(EMAIL_DOMAINS_URL).status_code == 401
     assert (
         client.post(
             EMAIL_DOMAINS_URL,
             {"name": "teste.edu.br", "role": UserRole.STUDENT},
             format="json",
         ).status_code
-        == 403
+        == 401
     )
 
 

@@ -20,6 +20,7 @@ from apps.projects.exceptions import (
     CategoryNotAvailable,
     ChallengeNotEligible,
     ChallengeNotSelected,
+    DeadlineExtensionAlreadyGranted,
     FileFormatNotAllowed,
     FileTooLarge,
     FormationClosed,
@@ -41,6 +42,7 @@ from apps.projects.rules import (
     ensure_file_matches_field,
     ensure_formation_period_is_open,
     ensure_items_match_stage_fields,
+    ensure_no_extension_for_stage,
     ensure_project_has_challenge,
     ensure_stage_accepts_delivery,
     ensure_stage_deadline_open,
@@ -649,3 +651,21 @@ def test_canvas_opcional_pode_ficar_sem_item(stage):
     StageSubmissionFieldFactory(stage=stage, kind=FieldKind.CANVAS, required=False)
 
     ensure_items_match_stage_fields(stage, [link_item(answered)])
+
+
+def test_prorrogacao_unica_passa_sem_prorrogacao():
+    project = ProjectFactory()
+    ensure_no_extension_for_stage(project, closed_stage(project.edition))
+
+
+def test_prorrogacao_unica_barra_segunda_na_mesma_etapa():
+    extensao = DeadlineExtensionFactory()
+    with pytest.raises(DeadlineExtensionAlreadyGranted):
+        ensure_no_extension_for_stage(extensao.project, extensao.stage)
+
+
+def test_prorrogacao_unica_passa_em_outra_etapa_e_em_outro_projeto():
+    extensao = DeadlineExtensionFactory()
+    outra_etapa = closed_stage(extensao.project.edition)
+    ensure_no_extension_for_stage(extensao.project, outra_etapa)
+    ensure_no_extension_for_stage(ProjectFactory(), extensao.stage)

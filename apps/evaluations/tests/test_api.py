@@ -93,7 +93,7 @@ def test_get_devolve_a_avaliacao_do_professor_com_o_total(ctx):
 
 
 def test_get_exige_login(ctx):
-    assert APIClient().get(ctx.url).status_code == 403
+    assert APIClient().get(ctx.url).status_code == 401
 
 
 def test_get_so_para_professor(ctx):
@@ -142,7 +142,7 @@ def test_put_finaliza_a_avaliacao(ctx):
 def test_put_exige_login(ctx):
     response = APIClient().put(ctx.url, corpo(ctx), format="json")
 
-    assert response.status_code == 403
+    assert response.status_code == 401
 
 
 def test_put_so_para_professor(ctx):
@@ -258,7 +258,7 @@ def test_painel_marca_entrega_nao_enviada_e_nao_entregue():
 
 
 def test_painel_exige_login():
-    assert APIClient().get(PAINEL).status_code == 403
+    assert APIClient().get(PAINEL).status_code == 401
 
 
 def test_painel_so_para_professor():

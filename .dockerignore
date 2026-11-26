@@ -1,0 +1,13 @@
+.git
+.github
+.venv
+.env
+.env.*
+!.env.example
+**/__pycache__
+node_modules
+graphify-out
+Claude outputs
+private_media
+staticfiles
+*.pdf

@@ -25,7 +25,8 @@ def get(user=None):
 def test_view_sem_permissao_exige_login():
     resposta = get()
 
-    assert resposta.status_code == 403
+    # Contrato: sem login é 401, não 403 (403 é papel errado).
+    assert resposta.status_code == 401
     assert resposta.data["error"]["code"] == "not_authenticated"
 
 

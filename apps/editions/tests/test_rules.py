@@ -10,7 +10,9 @@ from apps.accounts.rules import ensure_actor_is_admin
 from apps.editions.enums import EditionStatus
 from apps.editions.exceptions import (
     EditionAlreadyExists,
+    EditionClosed,
     EditionError,
+    EditionPublished,
     InvalidTeamLimits,
     TeamLimitsLocked,
 )
@@ -20,8 +22,8 @@ from apps.editions.factories import (
     StageFactory,
 )
 from apps.editions.rules import (
-    ensure_criterion_fits_stage,
     ensure_edition_identification_is_free,
+    ensure_edition_not_closed,
     ensure_stage_max_score_fits,
     ensure_team_limits_editable,
     ensure_team_limits_valid,
@@ -38,7 +40,9 @@ pytestmark = pytest.mark.django_db
     [
         (EditionAlreadyExists, "edition_exists"),
         (TeamLimitsLocked, "team_limits_locked"),
-        (InvalidTeamLimits, "invalid_team_limits"),
+        (EditionClosed, "edition_closed"),
+        (EditionPublished, "edition_published"),
+        (InvalidTeamLimits, "validation_error"),
     ],
 )
 def test_excecao_tem_codigo_proprio_e_herda_de_edition_error(exception, code):
@@ -113,13 +117,38 @@ def test_edicao_em_configuracao_aceita_mudar_limites():
     ensure_team_limits_editable(EditionFactory(status=EditionStatus.SETUP))
 
 
-@pytest.mark.parametrize("status", [EditionStatus.PUBLISHED, EditionStatus.CLOSED])
-def test_edicao_publicada_ou_encerrada_trava_os_limites(status):
-    with pytest.raises(TeamLimitsLocked):
+@pytest.mark.parametrize(
+    ("status", "error_class"),
+    [
+        (EditionStatus.PUBLISHED, EditionPublished),
+        (EditionStatus.CLOSED, TeamLimitsLocked),
+    ],
+)
+def test_edicao_publicada_ou_encerrada_trava_os_limites(status, error_class):
+    with pytest.raises(error_class) as error:
         ensure_team_limits_editable(EditionFactory(status=status))
+    assert type(error.value) is error_class
 
 
-# Soma das notas das etapas e dos critérios (INT-01, INT-02)
+# Edição encerrada (RF47, RN33)
+
+
+@pytest.mark.parametrize("status", [EditionStatus.SETUP, EditionStatus.PUBLISHED])
+def test_edicao_nao_encerrada_aceita_alteracao(status):
+    ensure_edition_not_closed(EditionFactory(status=status))
+
+
+def test_edicao_encerrada_recusa_qualquer_alteracao():
+    with pytest.raises(EditionClosed):
+        ensure_edition_not_closed(EditionFactory(status=EditionStatus.CLOSED))
+
+
+def test_edicao_encerrada_nao_e_o_mesmo_erro_dos_limites_travados():
+    assert not issubclass(EditionClosed, TeamLimitsLocked)
+    assert EditionClosed.http_status == TeamLimitsLocked.http_status == 409
+
+
+# Soma das notas das etapas (INT-01); critérios não somam o valor da etapa (D-02)
 
 
 def test_etapas_pontuadas_ate_10_passam():
@@ -140,22 +169,10 @@ def test_etapas_pontuadas_acima_de_10_falham():
         )
 
 
-def test_etapa_nao_pode_ficar_menor_que_seus_criterios():
-    criterio = StageCriterionFactory(max_score=Decimal("3.00"))
-    etapa = criterio.stage
-    etapa.max_score = Decimal("2.00")
-    with pytest.raises(ValidationError, match="critérios"):
-        ensure_stage_max_score_fits(etapa)
-
-
-def test_criterios_ate_o_valor_da_etapa_passam_e_acima_falham():
+def test_criterios_valendo_10_cabem_em_etapa_de_3_pontos():
     etapa = StageFactory(max_score=Decimal("3.00"))
-    primeiro = StageCriterionFactory(stage=etapa, max_score=Decimal("2.00"))
-    ensure_criterion_fits_stage(primeiro)  # ele mesmo não conta duas vezes
-    ensure_criterion_fits_stage(
-        StageCriterionFactory.build(stage=etapa, max_score=Decimal("1.00"))
-    )
-    with pytest.raises(ValidationError, match="valor da etapa"):
-        ensure_criterion_fits_stage(
-            StageCriterionFactory.build(stage=etapa, max_score=Decimal("1.01"))
-        )
+    StageCriterionFactory(stage=etapa, max_score=Decimal("10.00"))
+    segundo = StageCriterionFactory.build(stage=etapa, max_score=Decimal("10.00"))
+
+    segundo.clean()  # antes recusava: 10 + 10 passava dos 3 pontos da etapa
+    ensure_stage_max_score_fits(etapa)

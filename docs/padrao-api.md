@@ -56,7 +56,8 @@ A view não tem `try/except`. O erro de validação (`is_valid`) e as exceções
 | Situação | Quem detecta | Resposta |
 | :- | :- | :- |
 | Campo faltando ou com tipo errado | serializer | 400 `validation_error` |
-| Sem login ou com outro papel | permissão | 403 |
+| Sem login | autenticação | 401 `not_authenticated` |
+| Logado com outro papel | permissão | 403 `permission_denied` |
 | Aluno que já tem perfil | caso de uso | 409 `student_profile_exists` |
 | Matrícula em uso | caso de uso | 409 `registration_number_taken` |
 | Curso inativo ou período fora do curso | caso de uso | 400 `registration_rejected` |
@@ -144,7 +145,7 @@ Lista curta e de configuração (cursos, etapas, critérios) devolve array simpl
 Para cada endpoint, em `tests/test_api.py`:
 
 - um teste de sucesso, conferindo status e corpo;
-- um teste por papel que **não** pode acessar (403) e um sem login;
+- um teste por papel que **não** pode acessar (403) e um sem login (401);
 - um teste por erro que a view expõe, conferindo `resposta.data["error"]["code"]`.
 
 As regras em si se testam no caso de uso (`tests/test_use_cases.py`), sem HTTP.

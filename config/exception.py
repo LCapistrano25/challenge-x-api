@@ -43,7 +43,10 @@ def custom_exception_handler(exc, context):
         )
 
     if isinstance(exc, AppError):
-        return Response(body(exc.code, str(exc)), status=exc.http_status)
+        return Response(
+            body(exc.code, str(exc), getattr(exc, "details", None)),
+            status=exc.http_status,
+        )
 
     response = exception_handler(exc, context)
     if response is None:
