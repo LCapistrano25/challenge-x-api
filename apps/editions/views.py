@@ -17,6 +17,7 @@ from apps.editions.models import (
     Criterion,
     Edition,
     EditionReviewer,
+    Stage,
 )
 from apps.editions.regulation_files import open_regulation
 from apps.editions.selectors import (
@@ -25,7 +26,9 @@ from apps.editions.selectors import (
     list_edition_criteria,
     list_edition_reviewers,
     list_edition_sdgs,
+    list_edition_stages,
     list_editions,
+    stages_with_submission_fields,
 )
 from apps.editions.serializers import (
     CategorySerializer,
@@ -44,11 +47,14 @@ from apps.editions.serializers import (
     EditionSdgsUpdateSerializer,
     EditionSerializer,
     EditionUpdateSerializer,
+    StageSerializer,
+    StageWriteSerializer,
 )
 from apps.editions.use_cases.create_category import create_category
 from apps.editions.use_cases.create_challenge import create_challenge
 from apps.editions.use_cases.create_criterion import create_criterion
 from apps.editions.use_cases.create_edition import create_edition
+from apps.editions.use_cases.create_stage import create_stage
 from apps.editions.use_cases.delete_category import delete_category
 from apps.editions.use_cases.delete_criterion import delete_criterion
 from apps.editions.use_cases.link_reviewer_to_edition import link_reviewer_to_edition
@@ -59,6 +65,52 @@ from apps.editions.use_cases.update_challenge import update_challenge
 from apps.editions.use_cases.update_criterion import update_criterion
 from apps.editions.use_cases.update_edition import update_edition
 from apps.editions.use_cases.update_reviewer_scope import update_reviewer_scope
+from apps.editions.use_cases.update_stage import update_stage
+
+
+class EditionStagesView(APIView):
+    """Lista e cadastra etapas da edição (UC07, RF07)."""
+
+    permission_classes = [IsAdmin]
+    parser_classes = [JSONParser]
+
+    def get(self, request, edition_id):
+        edition = get_object_or_404(Edition, pk=edition_id)
+        return Response(
+            StageSerializer(list_edition_stages(edition.pk), many=True).data
+        )
+
+    def post(self, request, edition_id):
+        edition = get_object_or_404(Edition, pk=edition_id)
+        serializer = StageWriteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        stage = create_stage(
+            actor=request.user, edition=edition, **serializer.validated_data
+        )
+        # Relê pelo selector: a ordem dos campos é a mesma da consulta.
+        stage = stages_with_submission_fields().get(pk=stage.pk)
+        return Response(StageSerializer(stage).data, status=status.HTTP_201_CREATED)
+
+
+class StageDetailView(APIView):
+    """Consulta ou atualiza uma etapa da edição (UC07, RF07)."""
+
+    permission_classes = [IsAdmin]
+    parser_classes = [JSONParser]
+
+    def get(self, request, stage_id):
+        stage = get_object_or_404(stages_with_submission_fields(), pk=stage_id)
+        return Response(StageSerializer(stage).data)
+
+    def patch(self, request, stage_id):
+        stage = get_object_or_404(Stage, pk=stage_id)
+        serializer = StageWriteSerializer(data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        stage = update_stage(
+            actor=request.user, stage=stage, **serializer.validated_data
+        )
+        stage = stages_with_submission_fields().get(pk=stage.pk)
+        return Response(StageSerializer(stage).data)
 
 
 class EditionCriteriaView(APIView):

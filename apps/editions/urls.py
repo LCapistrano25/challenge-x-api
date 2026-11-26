@@ -4,6 +4,12 @@ from apps.editions import views
 
 urlpatterns = [
     path(
+        "editions/<int:edition_id>/stages",
+        views.EditionStagesView.as_view(),
+        name="edition-stages",
+    ),
+    path("stages/<int:stage_id>", views.StageDetailView.as_view(), name="stage-detail"),
+    path(
         "criteria/<int:criterion_id>",
         views.CriterionDetailView.as_view(),
         name="criterion-detail",
