@@ -25,7 +25,7 @@ Data-base: 25/11/2026, `developer` em `1166905` (#221 mesclada).
 | 4 | #227 painel do aluno | Diverge (D-06) | Antes do merge: falta de categoria vira `PROJECT_DATA_MISSING` em `incomplete_requirements` e conta em `PROJECT_DATA_PENDING`; trocar a busca por texto das mensagens por códigos devolvidos por `compute_unmet_requirements`. Resolver conflitos com #215/#219. |
 | 5 | #223 notificações | De acordo | Mesclar. O texto "Resultado da edição publicado" muda quando a ordem da homologação for corrigida (passo 2, D-01). |
 | 6 | #224 chamados | Diverge (decisão dos chamados) | Antes do merge: `WAITING_USER` volta a ser aceito (a orientação é não usar, não bloquear). |
-| 7 | #226 edital | Fere D-02 | Esperar a PR da D-02. Depois: tirar a exigência "critérios de cada etapa somam o valor dela"; registrar a rota `GET /api/public/editions/{id}/regulation/{uuid}` no contrato (P-43); falha de armazenamento como `503 storage_unavailable`; responder a pergunta do `durable=True`. |
+| 7 | ~~#226 edital~~ ajustado | Fere D-02 | Esperar a PR da D-02. Depois: tirar a exigência "critérios de cada etapa somam o valor dela"; registrar a rota `GET /api/public/editions/{id}/regulation/{uuid}` no contrato (P-43); falha de armazenamento como `503 storage_unavailable`; responder a pergunta do `durable=True`. |
 
 ## Passo 2 — decisões ainda não aplicadas (uma PR cada)
 

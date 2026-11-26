@@ -1,6 +1,6 @@
 from http import HTTPStatus
 
-from apps.core.exceptions import AppError, BusinessRuleViolation
+from apps.core.exceptions import BusinessRuleViolation, ExternalServiceError
 
 
 class EditionError(BusinessRuleViolation):
@@ -62,7 +62,6 @@ class PublicationRequirementsNotMet(EditionError):
         super().__init__()
 
 
-class RegulationStorageUnavailable(AppError):
-    code = "error"
-    default_message = "Não foi possível concluir a operação."
-    http_status = HTTPStatus.INTERNAL_SERVER_ERROR
+class RegulationStorageUnavailable(ExternalServiceError):
+    code = "storage_unavailable"
+    default_message = "Armazenamento indisponível."

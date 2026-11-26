@@ -129,17 +129,13 @@ def ensure_edition_ready_for_publication(edition) -> None:
     except InvalidTeamLimits:
         pending["team_limits"] = str(InvalidTeamLimits())
 
-    stages = list(
-        edition.stages.filter(scored=True).annotate(
-            criteria_total=Sum("criterion_links__max_score")
-        )
-    )
+    stages = list(edition.stages.filter(scored=True))
     if sum(stage.max_score for stage in stages) != MAX_FINAL_SCORE:
         pending["stages"] = "As etapas pontuadas devem somar 10,00 pontos."
-    if any(stage.criteria_total != stage.max_score for stage in stages):
-        pending["stage_criteria"] = (
-            "Os critérios de cada etapa devem somar o valor dela."
-        )
+    # Os critérios não somam o valor da etapa: cada um vale 10 por padrão e
+    # funciona como peso (D-02). Só precisa haver critério em cada etapa pontuada.
+    if any(not stage.criterion_links.exists() for stage in stages):
+        pending["stage_criteria"] = "Vincule critérios a cada etapa pontuada."
 
     if pending:
         raise PublicationRequirementsNotMet(pending)

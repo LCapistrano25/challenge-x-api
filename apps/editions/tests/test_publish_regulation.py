@@ -170,7 +170,7 @@ def test_edicao_inexistente_recebe_404(admin_client):
 
 @pytest.mark.parametrize(
     ("stage_score", "criterion_score", "missing"),
-    [(9, 9, "stages"), (10, 9, "stage_criteria"), (10, None, "stage_criteria")],
+    [(9, 9, "stages"), (10, None, "stage_criteria")],
 )
 def test_conferencia_das_somas(
     admin_client, edition, stage_score, criterion_score, missing
@@ -185,6 +185,14 @@ def test_conferencia_das_somas(
     response = publish(admin_client, edition.pk)
     assert response.status_code == 409
     assert missing in response.json()["error"]["details"]
+
+
+def test_criterios_nao_precisam_somar_o_valor_da_etapa(admin_client, edition):
+    # D-02: o critério vale 10 por padrão e funciona como peso.
+    stage = edition.stages.get()
+    stage.criterion_links.update(max_score=7)
+
+    assert publish(admin_client, edition.pk).status_code == 200
 
 
 def test_segunda_publicacao_preserva_pdf_original(admin_client, edition):
@@ -207,7 +215,8 @@ def test_falha_no_storage_nao_publica(admin_client, edition, monkeypatch):
 
     monkeypatch.setattr(storages["regulations"], "save", fail)
     response = publish(admin_client, edition.pk)
-    assert response.status_code == 500
+    assert response.status_code == 503
+    assert response.json()["error"]["code"] == "storage_unavailable"
     assert response.json()["error"]["details"] is None
     assert "Falha simulada" not in response.content.decode()
     edition.refresh_from_db()

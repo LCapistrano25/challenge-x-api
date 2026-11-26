@@ -743,6 +743,7 @@ PARAMS = {
     "EvaluationId": pp("evaluation_id", {"type": "integer"}, "Identificador da avaliação."),
     "ProjectId": pp("project_id", {"type": "integer"}, "Identificador do projeto."),
     "ItemId": pp("item_id", {"type": "integer"}, "Identificador do item da entrega."),
+    "RegulationToken": pp("token", {"type": "string", "format": "uuid"}, "Identificador do arquivo do edital, gerado na publicação; vem pronto no regulation_url."),
     "VersionId": pp("version_id", {"type": "integer"}, "Identificador da versão da entrega."),
     "TicketId": pp("ticket_id", {"type": "string", "format": "uuid"}, "Identificador do chamado."),
     "NotificationId": pp("notification_id", {"type": "string", "format": "uuid"}, "Identificador da notificação."),
@@ -919,7 +920,9 @@ op("post", "/api/admin/editions/{edition_id}/publish", "editionsPublish", "editi
    rules=["Pré-condições: cursos ativos, ODS habilitadas, desafios, categorias, limites, critérios, etapas pontuadas somando 10,00 e critérios vinculados às etapas pontuadas.",
           "Após publicar, congela etapas, pontuação, critérios por etapa e limites de equipe."],
    conflicts=[("edition_not_in_setup", "Somente edições em configuração podem ser publicadas."),
-              ("publication_requirements_not_met", "Há parametrizações obrigatórias pendentes; ver details.")], pend=["P-16", "P-43"])
+              ("publication_requirements_not_met", "Há parametrizações obrigatórias pendentes; ver details.")], pend=["P-16", "P-43"],
+   more={"503": {"description": "Armazenamento de arquivos indisponível.", "content": {"application/json": {"schema": ref("Error"),
+         "example": {"error": {"code": "storage_unavailable", "message": "Armazenamento indisponível.", "details": None}}}}}})
 op("post", "/api/admin/editions/{edition_id}/close", "editionsClose", "editions", "Encerrar edição", ["RF47"], ["ADMIN"],
    "Encerra a edição de forma irreversível.", params=["EditionId"], body=ref("EditionClose"), ok=ref("Edition"), errs=["404"],
    rules=["Bloqueia novas entregas, avaliações e alterações (inclusive do ADMIN), exceto emissão de certificados.", "O acesso dos avaliadores externos expira."],
@@ -1023,6 +1026,13 @@ op("get", "/api/public/projects", "publicListProjects", "public", "Vitrine e ace
 op("get", "/api/public/projects/{project_id}", "publicGetProject", "public", "Detalhe público do projeto", ["RF34", "RF45"], [],
    "Retorna a identidade pública de um projeto.", public=True, params=["ProjectId"], ok=ref("PublicProject"), errs=["404"],
    rules=["Projeto de equipe desclassificada retorna 404."])
+op("get", "/api/public/editions/{edition_id}/regulation/{token}", "publicDownloadRegulation", "public", "Baixar o edital da edição", ["RF09"], [],
+   "Devolve o PDF do edital publicado. É o endereço do regulation_url da edição.", public=True, params=["EditionId", "RegulationToken"],
+   ok=None, ok_desc="PDF do edital.", errs=["404"],
+   more={"200": {"description": "PDF do edital, como anexo (`Content-Disposition: attachment; filename=edital.pdf`, `X-Content-Type-Options: nosniff`).",
+                 "content": {"application/pdf": {"schema": {"type": "string", "format": "binary"}}}}},
+   rules=["Somente edições PUBLISHED ou CLOSED; o caminho precisa ser o do regulation_url da edição (404 nos demais casos).",
+          "O arquivo fica em armazenamento próprio; a URL não expõe o caminho do disco (P-43)."], pend=["P-43"])
 op("get", "/api/public/editions/{edition_id}/winners", "publicListWinners", "public", "Galeria de vencedores da edição", ["RF35", "RF46"], [],
    "Pódio (1º a 3º) por categoria, na edição inteira, de uma edição encerrada e homologada (D-01). Ordenado por categoria e colocação.", public=True, params=["EditionId"], ok=arr(ref("Winner")),
    errs=["404"], rules=["Somente edições CLOSED com resultados homologados."], pend=["P-28", "P-30"])
