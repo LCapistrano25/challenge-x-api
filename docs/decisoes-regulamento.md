@@ -1,6 +1,6 @@
 # Decisões do Regulamento — Desafio X (Plano de Issues)
 
-Data-base: 22/11/2026 (revisado no mesmo dia contra o PDF do regulamento); decisões fechadas em 24/11/2026 (seção 0).  
+Data-base: 22/11/2026 (revisado no mesmo dia contra o PDF do regulamento); decisões fechadas em 24/11/2026 (seção 0).
 Referência: Regulamento do Projeto Desafio X (3ª Edição — 2026) × branch `developer` (`d97d9e6`, já com as PRs #188 a #198) × issues do GitHub.
 
 **Como este documento entra no fluxo:** ele é a proposta. Cada decisão só vale depois de registrada no `docs/api/api-pendencias.md`. Mudança de rota, campo ou regra da API segue o caminho do projeto: issue de decisão → PR no `gen_openapi.py` → YAML regenerado. O DBML não se edita: muda o model e roda `docs/modelagem/gen_dbml.py`.

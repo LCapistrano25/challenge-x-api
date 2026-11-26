@@ -1,8 +1,11 @@
+from http import HTTPStatus
+
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from apps.accounts.enums import UserRole
 from apps.accounts.models import Student, User
+from apps.core.exceptions import BusinessRuleViolation
 from apps.notifications.models import NotificationType
 from apps.notifications.services import create_notification
 from apps.teams.enums import MemberRole, RequestStatus, TeamStatus
@@ -10,8 +13,42 @@ from apps.teams.models import JoinRequest, Team, TeamMember
 from apps.teams.rules import is_formation_open_for_team
 
 
-class JoinRequestRejected(Exception):
-    """A solicitação de entrada não pôde ser realizada por uma regra de negócio."""
+class JoinRequestRejected(BusinessRuleViolation):
+    """A solicitação de entrada foi rejeitada por uma regra de negócio."""
+
+    code = "join_request_rejected"
+    http_status = HTTPStatus.CONFLICT
+
+
+class JoinRequestNotFound(JoinRequestRejected):
+    """Equipe não encontrada."""
+
+    code = "not_found"
+    http_status = HTTPStatus.NOT_FOUND
+
+
+class FormationClosed(JoinRequestRejected):
+    """O prazo de formação está fechado."""
+
+    code = "formation_closed"
+
+
+class TeamFull(JoinRequestRejected):
+    """A equipe atingiu o limite de integrantes."""
+
+    code = "team_full"
+
+
+class StudentAlreadyInTeam(JoinRequestRejected):
+    """O aluno já participa de uma equipe nesta edição."""
+
+    code = "student_already_in_team"
+
+
+class RequestAlreadyPending(JoinRequestRejected):
+    """Já existe uma solicitação pendente."""
+
+    code = "request_already_pending"
 
 
 @transaction.atomic
@@ -35,7 +72,7 @@ def request_to_join(
     team = Team.objects.select_for_update().filter(pk=team_id).first()
 
     if team is None:
-        raise JoinRequestRejected("Equipe não encontrada.")
+        raise JoinRequestNotFound("Equipe não encontrada.")
 
     if team.status == TeamStatus.DISBANDED:
         raise JoinRequestRejected("Esta equipe foi desfeita.")
@@ -47,12 +84,8 @@ def request_to_join(
 
     now = timezone.now()
 
-    formation_open = is_formation_open_for_team(team, now)
-
-    if not formation_open:
-        raise JoinRequestRejected(
-            "Não existe prazo de formação aberto para esta equipe."
-        )
+    if not is_formation_open_for_team(team, now):
+        raise FormationClosed("Não existe prazo de formação aberto para esta equipe.")
 
     current_members = TeamMember.objects.filter(
         team=team,
@@ -60,7 +93,7 @@ def request_to_join(
     ).count()
 
     if current_members >= team.edition.max_members:
-        raise JoinRequestRejected("A equipe já atingiu o limite máximo de integrantes.")
+        raise TeamFull("A equipe já atingiu o limite máximo de integrantes.")
 
     already_in_team = TeamMember.objects.filter(
         edition=team.edition,
@@ -69,7 +102,7 @@ def request_to_join(
     ).exists()
 
     if already_in_team:
-        raise JoinRequestRejected(
+        raise StudentAlreadyInTeam(
             "O aluno já participa de uma equipe ativa nesta edição."
         )
 
@@ -80,7 +113,7 @@ def request_to_join(
     ).exists()
 
     if pending_request:
-        raise JoinRequestRejected(
+        raise RequestAlreadyPending(
             "Já existe uma solicitação pendente para esta equipe."
         )
 
@@ -104,7 +137,7 @@ def request_to_join(
                 student=student,
             )
     except IntegrityError as error:
-        raise JoinRequestRejected(
+        raise RequestAlreadyPending(
             "Não foi possível registrar a solicitação. "
             "Verifique se já existe uma solicitação pendente."
         ) from error

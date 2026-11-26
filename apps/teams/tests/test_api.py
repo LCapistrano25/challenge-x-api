@@ -32,6 +32,7 @@ from apps.teams.factories import (
     TeamMemberFactory,
 )
 from apps.teams.models import Invitation, Team, TeamMember
+from apps.teams.serializers import InvitationCreateSerializer
 
 pytestmark = pytest.mark.django_db
 
@@ -39,10 +40,72 @@ TEAMS_URL = "/api/teams"
 DASHBOARD_URL = "/api/me/dashboard"
 
 
+@pytest.mark.parametrize(
+    "data",
+    [
+        {"student_id": 10},
+        {"email": "aluno@email.com"},
+    ],
+)
+def test_convite_aceita_student_id_ou_email(data):
+    serializer = InvitationCreateSerializer(data=data)
+
+    assert serializer.is_valid(), serializer.errors
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        {},
+        {"student_id": 10, "email": "aluno@email.com"},
+    ],
+)
+def test_convite_rejeita_ausencia_ou_combinacao_de_identificadores(data):
+    serializer = InvitationCreateSerializer(data=data)
+
+    assert not serializer.is_valid()
+
+
 def authenticated_client(user):
     client = APIClient()
     client.force_authenticate(user=user)
     return client
+
+
+def test_aluno_sem_perfil_nao_acessa_listas_pessoais():
+    user = UserFactory(role=UserRole.STUDENT)
+    client = authenticated_client(user)
+
+    invitations_response = client.get(MY_INVITATIONS_URL)
+    join_requests_response = client.get("/api/me/join-requests")
+
+    assert invitations_response.status_code == 403
+    assert join_requests_response.status_code == 403
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "/api/teams",
+        "/api/teams/1",
+        "/api/teams/1/invitations",
+        "/api/me/invitations",
+        "/api/invitations/1/respond",
+        "/api/teams/1/join-requests",
+        "/api/me/join-requests",
+        "/api/join-requests/1/respond",
+        "/api/teams/1/leave",
+        "/api/teams/1/leadership-transfer",
+        "/api/teams/1/leadership-requests",
+        "/api/teacher/leadership-requests",
+        "/api/leadership-requests/1/decide",
+    ],
+)
+def test_usuario_nao_autenticado_recebe_401_nas_rotas_de_equipes(url):
+    response = APIClient().get(url)
+
+    assert response.status_code == 401
+    assert response.data["error"]["code"] == "not_authenticated"
 
 
 def test_aluno_cria_equipe_pela_api():
@@ -65,7 +128,7 @@ def test_aluno_cria_equipe_pela_api():
             "name": "Equipe API",
             "invitations": [
                 {"student_id": StudentFactory().pk},
-                {"email": StudentFactory().user.email},
+                {"student_id": StudentFactory().pk},
             ],
         },
         format="json",
@@ -78,6 +141,117 @@ def test_aluno_cria_equipe_pela_api():
     team = Team.objects.get(name="Equipe API")
     assert team.edition == edition
     assert Invitation.objects.filter(team=team).count() == 2
+
+
+def test_aluno_cria_equipe_com_convite_por_email_pela_api():
+    student = StudentFactory()
+    invited_student = StudentFactory()
+    second_invited_student = StudentFactory()
+    edition = EditionFactory(status=EditionStatus.PUBLISHED)
+
+    now = timezone.now()
+    StageFactory(
+        edition=edition,
+        formation=True,
+        starts_at=now - timedelta(days=1),
+        ends_at=now + timedelta(days=7),
+    )
+
+    client = authenticated_client(student.user)
+
+    response = client.post(
+        TEAMS_URL,
+        {
+            "name": "Equipe Convite Email",
+            "invitations": [
+                {"email": invited_student.user.email},
+                {"student_id": second_invited_student.pk},
+            ],
+        },
+        format="json",
+    )
+
+    assert response.status_code == 201, response.data
+    assert response.data["name"] == "Equipe Convite Email"
+
+    team = Team.objects.get(name="Equipe Convite Email")
+    invitation = Invitation.objects.get(
+        team=team,
+        student=invited_student,
+    )
+
+    assert invitation.status == InvitationStatus.PENDING
+    assert Invitation.objects.filter(team=team).count() == 2
+
+
+def test_criar_equipe_sem_edicao_vigente_retorna_409():
+    student = StudentFactory()
+    client = authenticated_client(student.user)
+
+    response = client.post(
+        TEAMS_URL,
+        {
+            "name": "Equipe Sem Edição",
+            "invitations": [{"student_id": StudentFactory().pk}],
+        },
+        format="json",
+    )
+
+    assert response.status_code == 409
+    assert response.data["error"]["code"] == "no_current_edition"
+    assert not Team.objects.filter(name="Equipe Sem Edição").exists()
+
+
+def test_criar_equipe_com_formacao_encerrada_retorna_409():
+    student = StudentFactory()
+    edition = EditionFactory(status=EditionStatus.PUBLISHED)
+
+    now = timezone.now()
+    StageFactory(
+        edition=edition,
+        formation=True,
+        starts_at=now - timedelta(days=10),
+        ends_at=now - timedelta(days=1),
+    )
+
+    response = authenticated_client(student.user).post(
+        TEAMS_URL,
+        {
+            "name": "Equipe Prazo Encerrado",
+            "invitations": [{"student_id": StudentFactory().pk}],
+        },
+        format="json",
+    )
+
+    assert response.status_code == 409
+    assert response.data["error"]["code"] == "formation_closed"
+    assert "prazo de formação" in response.data["error"]["message"]
+    assert not Team.objects.filter(name="Equipe Prazo Encerrado").exists()
+
+
+def test_aluno_que_ja_esta_em_equipe_nao_pode_criar_outra():
+    student = StudentFactory()
+    edition = EditionFactory(status=EditionStatus.PUBLISHED)
+    create_open_formation(edition)
+
+    TeamMemberFactory(
+        student=student,
+        edition=edition,
+        active=True,
+    )
+
+    response = authenticated_client(student.user).post(
+        TEAMS_URL,
+        {
+            "name": "Segunda Equipe",
+            "invitations": [{"student_id": StudentFactory().pk}],
+        },
+        format="json",
+    )
+
+    assert response.status_code == 409
+    assert response.data["error"]["code"] == "student_already_in_team"
+    assert not Team.objects.filter(name="Segunda Equipe").exists()
 
 
 def test_criacao_so_com_o_nome_retorna_400_pedindo_convites():
@@ -97,8 +271,31 @@ def test_criacao_so_com_o_nome_retorna_400_pedindo_convites():
     )
 
     assert response.status_code == 400
-    assert response.data["error"]["code"] == "team_invitations_required"
+    assert response.data["error"]["code"] == "validation_error"
     assert not Team.objects.filter(name="Equipe Solo").exists()
+
+
+def test_nao_pode_criar_equipe_com_nome_ja_utilizado():
+    student = StudentFactory()
+    edition = EditionFactory(status=EditionStatus.PUBLISHED)
+    create_open_formation(edition)
+
+    TeamFactory(
+        edition=edition,
+        name="Equipe Existente",
+    )
+
+    response = authenticated_client(student.user).post(
+        TEAMS_URL,
+        {
+            "name": "Equipe Existente",
+            "invitations": [{"student_id": StudentFactory().pk}],
+        },
+        format="json",
+    )
+
+    assert response.status_code == 409
+    assert response.data["error"]["code"] == "team_name_taken"
 
 
 def test_aluno_integrante_consulta_equipe():
@@ -442,7 +639,7 @@ def test_aluno_aceita_convite_pela_api():
     client = authenticated_client(student.user)
     response = client.post(
         f"{INVITATIONS_URL}/{invitation.id}/respond",
-        {"accept": True},
+        {"status": "ACCEPTED"},
         format="json",
     )
 
@@ -454,6 +651,45 @@ def test_aluno_aceita_convite_pela_api():
     assert team.members.filter(student=student, active=True).exists()
 
 
+def test_aluno_que_ja_participa_de_outra_equipe_recebe_erro_especifico():
+    team = TeamFactory()
+    another_team = TeamFactory(edition=team.edition)
+    create_open_formation(team.edition)
+    student = StudentFactory()
+
+    TeamMemberFactory(team=another_team, student=student)
+    invitation = InvitationFactory(team=team, student=student)
+
+    response = authenticated_client(student.user).post(
+        f"{INVITATIONS_URL}/{invitation.id}/respond",
+        {"status": "ACCEPTED"},
+        format="json",
+    )
+
+    assert response.status_code == 409
+    assert response.data["error"]["code"] == "student_already_in_team"
+
+
+def test_convite_para_equipe_cheia_retorna_erro_especifico():
+    team = TeamFactory()
+    create_open_formation(team.edition)
+    student = StudentFactory()
+
+    for _ in range(team.edition.max_members - 1):
+        TeamMemberFactory(team=team)
+
+    invitation = InvitationFactory(team=team, student=student)
+
+    response = authenticated_client(student.user).post(
+        f"{INVITATIONS_URL}/{invitation.id}/respond",
+        {"status": "ACCEPTED"},
+        format="json",
+    )
+
+    assert response.status_code == 409
+    assert response.data["error"]["code"] == "team_full"
+
+
 def test_aluno_recusa_convite_pela_api():
     team = TeamFactory()
     create_open_formation(team.edition)
@@ -463,7 +699,7 @@ def test_aluno_recusa_convite_pela_api():
     client = authenticated_client(student.user)
     response = client.post(
         f"{INVITATIONS_URL}/{invitation.id}/respond",
-        {"accept": False},
+        {"status": "DECLINED"},
         format="json",
     )
 
@@ -483,7 +719,7 @@ def test_aluno_nao_responde_convite_de_outro_aluno_pela_api():
     client = authenticated_client(another_student.user)
     response = client.post(
         f"{INVITATIONS_URL}/{invitation.id}/respond",
-        {"accept": True},
+        {"status": "ACCEPTED"},
         format="json",
     )
 
@@ -496,7 +732,7 @@ def test_convite_inexistente_retorna_404_pela_api():
 
     response = client.post(
         f"{INVITATIONS_URL}/999999/respond",
-        {"accept": True},
+        {"status": "ACCEPTED"},
         format="json",
     )
 
@@ -515,7 +751,7 @@ def test_convite_ja_respondido_retorna_409_pela_api():
     client = authenticated_client(student.user)
     response = client.post(
         f"{INVITATIONS_URL}/{invitation.id}/respond",
-        {"accept": True},
+        {"status": "ACCEPTED"},
         format="json",
     )
 
@@ -529,14 +765,14 @@ def test_usuario_que_nao_e_aluno_nao_responde_convite_pela_api():
 
     response = client.post(
         f"{INVITATIONS_URL}/999999/respond",
-        {"accept": True},
+        {"status": "ACCEPTED"},
         format="json",
     )
 
     assert response.status_code == 403
 
 
-def test_resposta_sem_campo_accept_retorna_400():
+def test_resposta_sem_campo_status_retorna_400():
     student = StudentFactory()
     client = authenticated_client(student.user)
 
@@ -549,22 +785,68 @@ def test_resposta_sem_campo_accept_retorna_400():
     assert response.status_code == 400
 
 
-def test_aluno_lista_equipes_com_vagas():
+def test_aluno_busca_equipes_por_nome():
+    student = StudentFactory()
+    team = TeamFactory()
+
+    team.edition.status = EditionStatus.PUBLISHED
+    team.edition.max_members = 5
+    team.edition.save()
+
+    client = authenticated_client(student.user)
+    response = client.get(TEAMS_URL, {"search": team.name})
+
+    assert response.status_code == 200
+    assert response.data["count"] == 1
+    assert response.data["results"][0]["id"] == team.id
+
+
+def test_aluno_busca_equipes_por_codigo():
+    student = StudentFactory()
+    team = TeamFactory()
+
+    team.edition.status = EditionStatus.PUBLISHED
+    team.edition.max_members = 5
+    team.edition.save()
+
+    client = authenticated_client(student.user)
+    response = client.get(TEAMS_URL, {"search": team.code})
+
+    assert response.status_code == 200
+    assert response.data["count"] == 1
+    assert response.data["results"][0]["id"] == team.id
+
+
+def test_aluno_lista_equipes_retorna_dados_de_disponibilidade_e_cursos():
     student = StudentFactory()
     team = TeamFactory()
     team.edition.status = EditionStatus.PUBLISHED
     team.edition.max_members = 5
     team.edition.save()
 
-    client = authenticated_client(student.user)
+    first_member = TeamMemberFactory(team=team)
+    second_member = TeamMemberFactory(team=team)
 
-    response = client.get(TEAMS_URL)
+    client = authenticated_client(student.user)
+    response = client.get(TEAMS_URL, {"search": team.name})
 
     assert response.status_code == 200
-    assert len(response.data) == 1
-    assert response.data[0]["id"] == team.id
-    assert response.data[0]["members_count"] == 1
-    assert response.data[0]["available_vacancies"] == 4
+    result = response.data["results"][0]
+
+    assert result["member_count"] == 3
+    assert result["available_slots"] == 2
+
+    expected_courses = {
+        (first_member.student.course_id, first_member.student.course.name),
+        (second_member.student.course_id, second_member.student.course.name),
+        (
+            team.members.get(role=MemberRole.LEADER).student.course_id,
+            team.members.get(role=MemberRole.LEADER).student.course.name,
+        ),
+    }
+    assert {
+        (course["id"], course["name"]) for course in result["courses"]
+    } == expected_courses
 
 
 def test_equipes_de_edicoes_nao_publicadas_nao_aparecem():
@@ -576,7 +858,8 @@ def test_equipes_de_edicoes_nao_publicadas_nao_aparecem():
     response = client.get(TEAMS_URL)
 
     assert response.status_code == 200
-    assert len(response.data) == 0
+    assert response.data["count"] == 0
+    assert response.data["results"] == []
 
 
 def test_equipes_lotadas_nao_aparecem_na_consulta():
@@ -594,7 +877,8 @@ def test_equipes_lotadas_nao_aparecem_na_consulta():
     response = client.get(TEAMS_URL)
 
     assert response.status_code == 200
-    assert len(response.data) == 0
+    assert response.data["count"] == 0
+    assert response.data["results"] == []
 
 
 def test_aluno_solicita_entrada_em_equipe_pela_api():
@@ -803,6 +1087,7 @@ def test_aluno_que_nao_e_lider_nao_consulta_solicitacoes_da_equipe():
     response = client.get(f"{TEAMS_URL}/{team.id}/join-requests")
 
     assert response.status_code == 404
+    assert response.data["error"]["code"] == "not_found"
 
 
 def test_lider_aprova_solicitacao_de_entrada_pela_api():
@@ -828,7 +1113,7 @@ def test_lider_aprova_solicitacao_de_entrada_pela_api():
 
     response = client.post(
         f"/api/join-requests/{join_request.id}/respond",
-        {"approve": True},
+        {"status": "APPROVED"},
         format="json",
     )
 
@@ -868,7 +1153,7 @@ def test_lider_rejeita_solicitacao_de_entrada_pela_api():
 
     response = client.post(
         f"/api/join-requests/{join_request.id}/respond",
-        {"approve": False},
+        {"status": "REJECTED"},
         format="json",
     )
 
@@ -1018,6 +1303,50 @@ def test_saida_abaixo_do_minimo_pede_confirmacao_pela_api():
     assert sem_confirmar.data["error"]["code"] == "leave_below_minimum"
     assert "1 de 3 integrantes" in sem_confirmar.data["error"]["message"]
     assert confirmando.status_code == 204
+
+
+def test_aluno_lista_equipes_com_paginacao():
+    student = StudentFactory()
+    teams = TeamFactory.create_batch(3)
+
+    for team in teams:
+        team.edition.status = EditionStatus.PUBLISHED
+        team.edition.max_members = 5
+        team.edition.save()
+
+    client = authenticated_client(student.user)
+
+    response = client.get(TEAMS_URL, {"page": 1, "page_size": 1})
+
+    assert response.status_code == 200
+    assert response.data["count"] == 3
+    assert len(response.data["results"]) == 1
+    assert response.data["previous"] is None
+    assert response.data["next"] is not None
+
+    response_page_2 = client.get(TEAMS_URL, {"page": 2, "page_size": 1})
+
+    assert response_page_2.status_code == 200
+    assert len(response_page_2.data["results"]) == 1
+    assert response_page_2.data["previous"] is not None
+
+
+def test_aluno_lista_equipes_respeita_limite_maximo_de_page_size():
+    student = StudentFactory()
+    teams = TeamFactory.create_batch(105)
+
+    for team in teams:
+        team.edition.status = EditionStatus.PUBLISHED
+        team.edition.max_members = 5
+        team.edition.save()
+
+    client = authenticated_client(student.user)
+    response = client.get(TEAMS_URL, {"page_size": 500})
+
+    assert response.status_code == 200
+    assert response.data["count"] == 105
+    assert len(response.data["results"]) == 100
+    assert response.data["next"] is not None
 
 
 def test_dashboard_sem_autenticacao_retorna_401():

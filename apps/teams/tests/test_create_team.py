@@ -16,6 +16,7 @@ from apps.teams.use_cases.create_team import (
     TeamInvitationsRequired,
     create_team,
 )
+from apps.teams.use_cases.invite_member import InvitationRejected
 
 pytestmark = pytest.mark.django_db
 
@@ -224,7 +225,7 @@ def test_convite_recusado_desfaz_a_criacao_da_equipe():
     TeamMemberFactory(team=TeamFactory(edition=edition), student=ocupado)
     teams_antes = Team.objects.count()
 
-    with pytest.raises(TeamCreationRejected, match="já participa de uma equipe"):
+    with pytest.raises(InvitationRejected, match="já participa de uma equipe"):
         create_team(
             actor=student.user,
             edition_id=edition.id,

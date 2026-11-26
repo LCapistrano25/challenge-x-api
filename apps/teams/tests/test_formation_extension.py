@@ -6,7 +6,7 @@ from django.utils import timezone
 
 from apps.accounts.factories import StudentFactory
 from apps.editions.factories import StageFactory
-from apps.teams.enums import MemberRole
+from apps.teams.enums import InvitationStatus, MemberRole
 from apps.teams.factories import InvitationFactory, TeamFactory, TeamMemberFactory
 from apps.teams.rules import (
     FORMATION_EXTENSION,
@@ -143,7 +143,9 @@ def test_convidado_aceita_durante_a_janela_extra():
     convite = InvitationFactory(team=team)
 
     respond_invitation(
-        actor=convite.student.user, invitation_id=convite.pk, accept=True
+        actor=convite.student.user,
+        invitation_id=convite.pk,
+        status=InvitationStatus.ACCEPTED,
     )
 
     assert team.members.filter(student=convite.student, active=True).exists()

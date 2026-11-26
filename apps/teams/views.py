@@ -1,6 +1,7 @@
 from django.db.models import Count, F, Q
 from rest_framework import status
 from rest_framework.exceptions import NotFound
+from rest_framework.generics import GenericAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -12,11 +13,8 @@ from apps.editions.enums import EditionStatus
 from apps.editions.models import Edition
 from apps.projects.models import Project
 from apps.projects.rules import ensure_actor_is_team_leader
-from apps.teams.enums import (
-    MemberRole,
-    TeamStatus,
-)
-from apps.teams.exceptions import MemberNoteError
+from apps.teams.enums import MemberRole, TeamStatus
+from apps.teams.exceptions import MemberNoteError, TeamNotFound
 from apps.teams.models import (
     Invitation,
     JoinRequest,
@@ -53,39 +51,19 @@ from apps.teams.serializers import (
     TeamUpdateSerializer,
 )
 from apps.teams.use_cases.add_member_note import add_member_note
-from apps.teams.use_cases.create_team import create_team
+from apps.teams.use_cases.create_team import NoCurrentEdition, create_team
 from apps.teams.use_cases.disqualify_team import disqualify_team
 from apps.teams.use_cases.get_student_dashboard import get_student_dashboard
 from apps.teams.use_cases.invite_member import invite_member
-from apps.teams.use_cases.leave_team import (
-    LeaveTeamRejected,
-    leave_team,
-)
+from apps.teams.use_cases.leave_team import leave_team
 from apps.teams.use_cases.rename_team import rename_team
-from apps.teams.use_cases.request_leadership import (
-    LeadershipRequestRejected,
-    request_leadership,
-)
-from apps.teams.use_cases.request_to_join import (
-    JoinRequestRejected,
-    request_to_join,
-)
-from apps.teams.use_cases.respond_invitation import (
-    InvitationResponseRejected,
-    respond_invitation,
-)
-from apps.teams.use_cases.respond_join_request import (
-    JoinRequestResponseRejected,
-    respond_join_request,
-)
-from apps.teams.use_cases.review_leadership_request import (
-    LeadershipRequestReviewRejected,
-    review_leadership_request,
-)
-from apps.teams.use_cases.transfer_leadership import (
-    LeadershipTransferRejected,
-    transfer_leadership,
-)
+from apps.teams.use_cases.request_leadership import request_leadership
+from apps.teams.use_cases.request_to_join import request_to_join
+from apps.teams.use_cases.respond_invitation import respond_invitation
+from apps.teams.use_cases.respond_join_request import respond_join_request
+from apps.teams.use_cases.review_leadership_request import review_leadership_request
+from apps.teams.use_cases.transfer_leadership import transfer_leadership
+from config.authentication import SessionAuthenticationWith401
 from config.pagination import DefaultPagination
 
 
@@ -101,7 +79,9 @@ class StudentDashboardView(APIView):
         )
 
 
-class TeamCreateView(APIView):
+class TeamCreateView(GenericAPIView):
+    serializer_class = TeamAvailabilitySerializer
+    authentication_classes = [SessionAuthenticationWith401]
     permission_classes = [IsAuthenticated, IsStudent]
 
     def post(self, request):
@@ -111,10 +91,7 @@ class TeamCreateView(APIView):
         edition = Edition.objects.filter(status=EditionStatus.PUBLISHED).first()
 
         if edition is None:
-            return Response(
-                {"detail": "Não existe uma edição publicada no momento."},
-                status=status.HTTP_409_CONFLICT,
-            )
+            raise NoCurrentEdition("Não há edição vigente.")
 
         team = create_team(
             actor=request.user,
@@ -144,23 +121,30 @@ class TeamCreateView(APIView):
             .order_by("name")
         )
 
-        return Response(
-            TeamAvailabilitySerializer(teams, many=True).data,
-            status=status.HTTP_200_OK,
-        )
+        search = request.query_params.get("search")
+
+        if search:
+            teams = teams.filter(Q(name__icontains=search) | Q(code__icontains=search))
+
+        page = self.paginate_queryset(teams)
+
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(teams, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class TeamDetailView(APIView):
+    authentication_classes = [SessionAuthenticationWith401]
     permission_classes = [IsAdmin | IsStudent | IsTeacher]
 
     def get(self, request, team_id):
         team = Team.objects.filter(pk=team_id).first()
 
         if team is None:
-            return Response(
-                {"detail": "Equipe não encontrada."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+            raise TeamNotFound()
 
         allowed = False
 
@@ -181,10 +165,7 @@ class TeamDetailView(APIView):
             ).exists()
 
         if not allowed:
-            return Response(
-                {"detail": "Equipe não encontrada."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+            raise TeamNotFound()
 
         return Response(
             TeamSerializer(team).data,
@@ -201,6 +182,7 @@ class TeamDetailView(APIView):
 
 
 class TeamInvitationView(APIView):
+    authentication_classes = [SessionAuthenticationWith401]
     permission_classes = [IsAuthenticated, IsStudent]
 
     def post(self, request, team_id):
@@ -227,10 +209,7 @@ class TeamInvitationView(APIView):
         ).exists()
 
         if not leader:
-            return Response(
-                {"detail": "Equipe não encontrada."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+            raise TeamNotFound()
 
         filter_serializer = InvitationStatusFilterSerializer(
             data=request.query_params,
@@ -253,6 +232,7 @@ class TeamInvitationView(APIView):
 
 
 class JoinRequestCreateView(APIView):
+    authentication_classes = [SessionAuthenticationWith401]
     permission_classes = [IsAuthenticated, IsStudent]
 
     def get(self, request, team_id):
@@ -264,10 +244,7 @@ class JoinRequestCreateView(APIView):
         ).exists()
 
         if not leader:
-            return Response(
-                {"detail": "Equipe não encontrada."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+            raise NotFound("Solicitações da equipe não encontradas.")
 
         filter_serializer = JoinRequestStatusFilterSerializer(
             data=request.query_params,
@@ -289,54 +266,10 @@ class JoinRequestCreateView(APIView):
         )
 
     def post(self, request, team_id):
-        try:
-            join_request = request_to_join(
-                actor=request.user,
-                team_id=team_id,
-            )
-
-        except JoinRequestRejected as error:
-            message = str(error)
-
-            if message == "Equipe não encontrada.":
-                code = "team_not_found"
-                http_status = status.HTTP_404_NOT_FOUND
-            else:
-                error_codes = {
-                    "Não existe prazo de formação aberto para esta equipe.": (
-                        "formation_closed"
-                    ),
-                    "A equipe já atingiu o limite máximo de integrantes.": (
-                        "team_full"
-                    ),
-                    "O aluno já participa de uma equipe ativa nesta edição.": (
-                        "student_already_in_team"
-                    ),
-                    "Já existe uma solicitação pendente para esta equipe.": (
-                        "request_already_pending"
-                    ),
-                    (
-                        "Não foi possível registrar a solicitação. "
-                        "Verifique se já existe uma solicitação pendente."
-                    ): "request_already_pending",
-                }
-
-                code = error_codes.get(
-                    message,
-                    "join_request_rejected",
-                )
-                http_status = status.HTTP_409_CONFLICT
-
-            return Response(
-                {
-                    "error": {
-                        "code": code,
-                        "message": message,
-                        "details": None,
-                    }
-                },
-                status=http_status,
-            )
+        join_request = request_to_join(
+            actor=request.user,
+            team_id=team_id,
+        )
 
         return Response(
             JoinRequestSerializer(join_request).data,
@@ -345,6 +278,7 @@ class JoinRequestCreateView(APIView):
 
 
 class MyInvitationsView(APIView):
+    authentication_classes = [SessionAuthenticationWith401]
     permission_classes = [IsAuthenticated, IsStudent]
 
     def get(self, request):
@@ -371,57 +305,18 @@ class MyInvitationsView(APIView):
 
 
 class InvitationResponseView(APIView):
+    authentication_classes = [SessionAuthenticationWith401]
     permission_classes = [IsAuthenticated, IsStudent]
 
     def post(self, request, invitation_id):
         serializer = InvitationResponseSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        try:
-            invitation = respond_invitation(
-                actor=request.user,
-                invitation_id=invitation_id,
-                **serializer.validated_data,
-            )
-
-        except InvitationResponseRejected as error:
-            message = str(error)
-
-            if message in (
-                "Convite não encontrado.",
-                "Este convite não pertence ao estudante autenticado.",
-            ):
-                code = "not_found"
-                http_status = status.HTTP_404_NOT_FOUND
-            else:
-                error_codes = {
-                    "Não existe prazo de formação aberto para esta equipe.": (
-                        "formation_closed"
-                    ),
-                    "A equipe já atingiu o limite máximo de integrantes.": (
-                        "team_full"
-                    ),
-                    (
-                        "O estudante já participa de uma equipe ativa nesta edição."
-                    ): "student_already_in_team",
-                    "Este convite não está mais pendente.": ("invitation_not_pending"),
-                }
-                code = error_codes.get(
-                    message,
-                    "invitation_response_rejected",
-                )
-                http_status = status.HTTP_409_CONFLICT
-
-            return Response(
-                {
-                    "error": {
-                        "code": code,
-                        "message": message,
-                        "details": None,
-                    }
-                },
-                status=http_status,
-            )
+        invitation = respond_invitation(
+            actor=request.user,
+            invitation_id=invitation_id,
+            **serializer.validated_data,
+        )
 
         return Response(
             InvitationSerializer(invitation).data,
@@ -430,6 +325,7 @@ class InvitationResponseView(APIView):
 
 
 class MyJoinRequestsView(APIView):
+    authentication_classes = [SessionAuthenticationWith401]
     permission_classes = [IsAuthenticated, IsStudent]
 
     def get(self, request):
@@ -455,77 +351,19 @@ class MyJoinRequestsView(APIView):
         )
 
 
-class TeamJoinRequestsView(APIView):
-    permission_classes = [IsAuthenticated, IsStudent]
-
-    def get(self, request, team_id):
-        leader = TeamMember.objects.filter(
-            team_id=team_id,
-            student__user=request.user,
-            role=MemberRole.LEADER,
-            active=True,
-        ).exists()
-
-        if not leader:
-            return Response(
-                {"detail": "Equipe não encontrada."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
-        filter_serializer = JoinRequestStatusFilterSerializer(
-            data=request.query_params,
-        )
-        filter_serializer.is_valid(raise_exception=True)
-
-        join_requests = JoinRequest.objects.filter(
-            team_id=team_id,
-        ).select_related("team", "student__user")
-
-        request_status = filter_serializer.validated_data.get("status")
-
-        if request_status:
-            join_requests = join_requests.filter(status=request_status)
-
-        return Response(
-            JoinRequestSerializer(join_requests, many=True).data,
-            status=status.HTTP_200_OK,
-        )
-
-
 class JoinRequestResponseView(APIView):
+    authentication_classes = [SessionAuthenticationWith401]
     permission_classes = [IsAuthenticated, IsStudent]
 
     def post(self, request, join_request_id):
         serializer = JoinRequestResponseSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        try:
-            join_request = respond_join_request(
-                actor=request.user,
-                join_request_id=join_request_id,
-                approve=serializer.validated_data["approve"],
-            )
-
-        except JoinRequestResponseRejected as error:
-            message = str(error)
-
-            if message == "Solicitação não encontrada.":
-                code = "join_request_not_found"
-                http_status = status.HTTP_404_NOT_FOUND
-            else:
-                code = "join_request_response_rejected"
-                http_status = status.HTTP_409_CONFLICT
-
-            return Response(
-                {
-                    "error": {
-                        "code": code,
-                        "message": message,
-                        "details": None,
-                    }
-                },
-                status=http_status,
-            )
+        join_request = respond_join_request(
+            actor=request.user,
+            join_request_id=join_request_id,
+            **serializer.validated_data,
+        )
 
         return Response(
             JoinRequestSerializer(join_request).data,
@@ -534,100 +372,35 @@ class JoinRequestResponseView(APIView):
 
 
 class TeamLeaveView(APIView):
+    authentication_classes = [SessionAuthenticationWith401]
     permission_classes = [IsAuthenticated, IsStudent]
 
     def post(self, request, team_id):
         serializer = TeamLeaveSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        try:
-            leave_team(
-                actor=request.user,
-                team_id=team_id,
-                **serializer.validated_data,
-            )
-        except LeaveTeamRejected as error:
-            message = str(error)
-
-            if message in (
-                "Equipe não encontrada.",
-                "O perfil de aluno não foi encontrado.",
-                "O aluno não possui vínculo ativo com esta equipe.",
-            ):
-                code = "not_found"
-                http_status = status.HTTP_404_NOT_FOUND
-            else:
-                error_codes = {
-                    "Não existe prazo de formação aberto para esta equipe.": (
-                        "formation_closed"
-                    ),
-                    "Transfira a liderança antes de sair da equipe.": (
-                        "leader_must_transfer"
-                    ),
-                }
-
-                code = getattr(error, "code", None) or error_codes.get(
-                    message,
-                    "leave_team_rejected",
-                )
-                http_status = status.HTTP_409_CONFLICT
-
-            return Response(
-                {
-                    "error": {
-                        "code": code,
-                        "message": message,
-                        "details": None,
-                    }
-                },
-                status=http_status,
-            )
+        leave_team(
+            actor=request.user,
+            team_id=team_id,
+            **serializer.validated_data,
+        )
 
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class LeadershipTransferView(APIView):
+    authentication_classes = [SessionAuthenticationWith401]
     permission_classes = [IsAuthenticated, IsStudent]
 
     def post(self, request, team_id):
         serializer = LeadershipTransferSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        try:
-            new_leader = transfer_leadership(
-                actor=request.user,
-                team_id=team_id,
-                **serializer.validated_data,
-            )
-
-        except LeadershipTransferRejected as error:
-            message = str(error)
-
-            if message in (
-                "Equipe não encontrada.",
-                "O perfil de aluno não foi encontrado.",
-            ):
-                code = "not_found"
-                http_status = status.HTTP_404_NOT_FOUND
-            elif message == (
-                "Somente o líder ativo da equipe pode transferir a liderança."
-            ):
-                code = "permission_denied"
-                http_status = status.HTTP_403_FORBIDDEN
-            else:
-                code = "leadership_transfer_rejected"
-                http_status = status.HTTP_409_CONFLICT
-
-            return Response(
-                {
-                    "error": {
-                        "code": code,
-                        "message": message,
-                        "details": None,
-                    }
-                },
-                status=http_status,
-            )
+        new_leader = transfer_leadership(
+            actor=request.user,
+            team_id=team_id,
+            **serializer.validated_data,
+        )
 
         return Response(
             TeamMemberSerializer(new_leader).data,
@@ -636,16 +409,14 @@ class LeadershipTransferView(APIView):
 
 
 class LeadershipRequestCreateView(APIView):
+    authentication_classes = [SessionAuthenticationWith401]
     permission_classes = [IsAuthenticated, IsStudent]
 
     def get(self, request, team_id):
         student = getattr(request.user, "student", None)
 
         if student is None:
-            return Response(
-                {"detail": "Equipe não encontrada."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+            raise TeamNotFound()
 
         is_active_member = TeamMember.objects.filter(
             team_id=team_id,
@@ -654,10 +425,7 @@ class LeadershipRequestCreateView(APIView):
         ).exists()
 
         if not is_active_member:
-            return Response(
-                {"detail": "Equipe não encontrada."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+            raise TeamNotFound()
 
         filter_serializer = JoinRequestStatusFilterSerializer(
             data=request.query_params,
@@ -691,37 +459,11 @@ class LeadershipRequestCreateView(APIView):
         serializer = LeadershipRequestCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        try:
-            leadership_request = request_leadership(
-                actor=request.user,
-                team_id=team_id,
-                **serializer.validated_data,
-            )
-
-        except LeadershipRequestRejected as error:
-            message = str(error)
-
-            if message in (
-                "Equipe não encontrada.",
-                "O perfil de aluno não foi encontrado.",
-                "Somente integrantes ativos podem solicitar a liderança.",
-            ):
-                code = "not_found"
-                http_status = status.HTTP_404_NOT_FOUND
-            else:
-                code = "leadership_request_rejected"
-                http_status = status.HTTP_409_CONFLICT
-
-            return Response(
-                {
-                    "error": {
-                        "code": code,
-                        "message": message,
-                        "details": None,
-                    }
-                },
-                status=http_status,
-            )
+        leadership_request = request_leadership(
+            actor=request.user,
+            team_id=team_id,
+            **serializer.validated_data,
+        )
 
         return Response(
             LeadershipRequestSerializer(leadership_request).data,
@@ -730,6 +472,7 @@ class LeadershipRequestCreateView(APIView):
 
 
 class TeacherLeadershipRequestsView(APIView):
+    authentication_classes = [SessionAuthenticationWith401]
     permission_classes = [IsAuthenticated, IsTeacher]
 
     def get(self, request):
@@ -772,41 +515,18 @@ class TeacherLeadershipRequestsView(APIView):
 
 
 class LeadershipRequestReviewView(APIView):
+    authentication_classes = [SessionAuthenticationWith401]
     permission_classes = [IsAuthenticated, IsTeacher]
 
     def post(self, request, leadership_request_id):
         serializer = LeadershipRequestDecisionSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        try:
-            leadership_request = review_leadership_request(
-                actor=request.user,
-                leadership_request_id=leadership_request_id,
-                **serializer.validated_data,
-            )
-        except LeadershipRequestReviewRejected as error:
-            message = str(error)
-
-            if message in (
-                "Solicitação não encontrada.",
-                "Equipe não encontrada.",
-            ):
-                code = "not_found"
-                http_status = status.HTTP_404_NOT_FOUND
-            else:
-                code = "leadership_request_review_rejected"
-                http_status = status.HTTP_409_CONFLICT
-
-            return Response(
-                {
-                    "error": {
-                        "code": code,
-                        "message": message,
-                        "details": None,
-                    }
-                },
-                status=http_status,
-            )
+        leadership_request = review_leadership_request(
+            actor=request.user,
+            leadership_request_id=leadership_request_id,
+            **serializer.validated_data,
+        )
 
         return Response(
             LeadershipRequestSerializer(leadership_request).data,

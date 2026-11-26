@@ -457,14 +457,37 @@ SC["AdminTeamListItem"] = obj({"id": INT(ex=12), "edition_id": INT(ex=3), "name"
                                "project": nul(ref("ProjectRef"))},
                               ["id", "edition_id", "name", "code", "status", "situation", "member_count", "project"])
 SC["TeamDisqualify"] = obj({"reason": TXT("Justificativa obrigatória.", "Plágio comprovado na entrega preliminar.", minLength=1)}, ["reason"], strict=True)
-SC["InvitableStudent"] = obj({"id": USER_ID("Use como student_id no convite.", 42), "name": STR(ex="Maria Souza"), "course": ref("CourseSummary")},
-                            ["id", "name", "course"], desc="Sem e-mail, matrícula ou período (LGPD).")
+SC["InvitableStudent"] = obj(
+    {
+        "id": USER_ID("Use como student_id no convite.", 42),
+        "name": STR(ex="Maria Souza"),
+        "course": ref("CourseSummary"),
+    },
+    ["id", "name", "course"],
+    desc="Sem e-mail, matrícula ou período (LGPD).",
+)
+
 SC["InvitationCreate"] = {
     "oneOf": [
-        obj({"student_id": USER_ID("Aluno cadastrado a ser convidado.")}, ["student_id"], strict=True),
-        obj({"email": EMAIL("E-mail de aluno cadastrado, ativo e com e-mail confirmado.")}, ["email"], strict=True),
+        obj(
+            {"student_id": USER_ID("Aluno cadastrado a ser convidado.")},
+            ["student_id"],
+            strict=True,
+        ),
+        obj(
+            {
+                "email": EMAIL(
+                    "E-mail de aluno cadastrado, ativo e com e-mail confirmado."
+                )
+            },
+            ["email"],
+            strict=True,
+        ),
     ],
-    "description": "Um aluno, por student_id ou por email, nunca os dois (400 validation_error).",
+    "description": (
+        "Um aluno, por student_id ou por email, nunca os dois "
+        "(400 validation_error)."
+    ),
 }
 SC["Invitation"] = obj(
     {
