@@ -5497,7 +5497,6 @@ paths:
                 student:
                   user_id: 42
                   name: João Lima
-                invited_email: null
                 status: PENDING
                 created_at: '2026-10-22T16:00:00Z'
                 responded_at: null
@@ -5952,7 +5951,6 @@ paths:
                 student:
                   user_id: 42
                   name: João Lima
-                invited_email: null
                 status: PENDING
                 created_at: '2026-10-22T16:00:00Z'
                 responded_at: null
@@ -7731,7 +7729,6 @@ paths:
                 student:
                   user_id: 42
                   name: João Lima
-                invited_email: null
                 status: PENDING
                 created_at: '2026-10-22T16:00:00Z'
                 responded_at: null
@@ -7819,7 +7816,6 @@ paths:
                 student:
                   user_id: 42
                   name: João Lima
-                invited_email: null
                 status: PENDING
                 created_at: '2026-10-22T16:00:00Z'
                 responded_at: null
@@ -11896,15 +11892,6 @@ components:
           required:
           - user_id
           - name
-        invited_email:
-          type:
-          - string
-          - 'null'
-          description: E-mail do convidado, quando aplicável.
-          format: email
-          maxLength: 254
-          examples:
-          - null
         status:
           $ref: '#/components/schemas/InvitationStatus'
         created_at:
@@ -11923,7 +11910,6 @@ components:
       - id
       - team
       - student
-      - invited_email
       - status
       - created_at
       - responded_at
