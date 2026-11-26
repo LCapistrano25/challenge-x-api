@@ -486,8 +486,10 @@ def test_professor_aprova_solicitacao_de_lideranca_pela_api():
     response = client.post(
         f"/api/leadership-requests/{leadership_request.id}/decide",
         {
-            "approve": True,
-            "justification": "O aluno atende aos critérios para assumir a liderança.",
+            "status": "APPROVED",
+            "decision_justification": (
+                "O aluno atende aos critérios para assumir a liderança."
+            ),
         },
         format="json",
     )
@@ -524,8 +526,10 @@ def test_professor_rejeita_solicitacao_de_lideranca_pela_api():
     response = client.post(
         f"/api/leadership-requests/{leadership_request.id}/decide",
         {
-            "approve": False,
-            "justification": "A solicitação não atende aos critérios estabelecidos.",
+            "status": "REJECTED",
+            "decision_justification": (
+                "A solicitação não atende aos critérios estabelecidos."
+            ),
         },
         format="json",
     )
@@ -557,8 +561,8 @@ def test_professor_sem_vinculo_nao_decide_solicitacao_de_lideranca():
     response = client.post(
         f"/api/leadership-requests/{leadership_request.id}/decide",
         {
-            "approve": True,
-            "justification": "Solicitação analisada.",
+            "status": "APPROVED",
+            "decision_justification": "Solicitação analisada.",
         },
         format="json",
     )
@@ -591,8 +595,8 @@ def test_professor_com_vinculo_inativo_nao_decide_solicitacao():
     response = client.post(
         f"/api/leadership-requests/{leadership_request.id}/decide",
         {
-            "approve": True,
-            "justification": "Solicitação analisada.",
+            "status": "APPROVED",
+            "decision_justification": "Solicitação analisada.",
         },
         format="json",
     )
@@ -618,8 +622,8 @@ def test_aluno_nao_pode_decidir_solicitacao_de_lideranca():
     response = client.post(
         f"/api/leadership-requests/{leadership_request.id}/decide",
         {
-            "approve": True,
-            "justification": "Solicitação analisada.",
+            "status": "APPROVED",
+            "decision_justification": "Solicitação analisada.",
         },
         format="json",
     )
@@ -651,8 +655,8 @@ def test_decisao_sem_justificativa_retorna_400():
     response = client.post(
         f"/api/leadership-requests/{leadership_request.id}/decide",
         {
-            "approve": True,
-            "justification": "",
+            "status": "APPROVED",
+            "decision_justification": "",
         },
         format="json",
     )
@@ -684,8 +688,8 @@ def test_professor_nao_decide_solicitacao_ja_decidida():
     response = client.post(
         f"/api/leadership-requests/{leadership_request.id}/decide",
         {
-            "approve": True,
-            "justification": "Nova análise da solicitação.",
+            "status": "APPROVED",
+            "decision_justification": "Nova análise da solicitação.",
         },
         format="json",
     )
@@ -703,8 +707,8 @@ def test_professor_nao_decide_solicitacao_inexistente():
     response = client.post(
         "/api/leadership-requests/999999/decide",
         {
-            "approve": True,
-            "justification": "Solicitação analisada.",
+            "status": "APPROVED",
+            "decision_justification": "Solicitação analisada.",
         },
         format="json",
     )
@@ -748,8 +752,8 @@ def test_professor_nao_decide_solicitacao_de_equipe_desclassificada():
     response = client.post(
         f"/api/leadership-requests/{leadership_request.id}/decide",
         {
-            "approve": True,
-            "justification": "Solicitação analisada.",
+            "status": "APPROVED",
+            "decision_justification": "Solicitação analisada.",
         },
         format="json",
     )
@@ -788,8 +792,8 @@ def test_professor_nao_decide_solicitacao_de_equipe_com_lider_ativo():
     response = client.post(
         f"/api/leadership-requests/{leadership_request.id}/decide",
         {
-            "approve": True,
-            "justification": "Solicitação analisada.",
+            "status": "APPROVED",
+            "decision_justification": "Solicitação analisada.",
         },
         format="json",
     )
@@ -824,8 +828,8 @@ def test_aluno_nao_decide_solicitacao_de_lideranca():
     response = client.post(
         f"/api/leadership-requests/{leadership_request.id}/decide",
         {
-            "approve": True,
-            "justification": "Tentativa de decisão por aluno.",
+            "status": "APPROVED",
+            "decision_justification": "Tentativa de decisão por aluno.",
         },
         format="json",
     )
