@@ -7466,6 +7466,107 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+    patch:
+      tags:
+      - teams
+      operationId: teamsUpdate
+      summary: Editar o nome da equipe
+      description: |-
+        Altera o nome da equipe durante a formação (Art. 15 § 1º: até o prazo, só o líder atualiza a inscrição).
+
+        **Requisitos:** RF21
+
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
+
+        **Perfis permitidos:** STUDENT
+
+        **Autorização adicional:** O usuário deve ser o LEADER ativo da equipe. Erro 403: not_team_leader.
+
+        **Regras de negócio:**
+        - Somente durante o prazo da etapa FORMATION.
+        - Nome único na edição (equipe desfeita libera o nome); de 1 a 150 caracteres, sem espaços nas pontas.
+        - Equipe desclassificada não edita.
+      x-status: confirmed
+      x-requirements:
+      - RF21
+      x-roles:
+      - STUDENT
+      parameters:
+      - $ref: '#/components/parameters/TeamId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TeamUpdate'
+            example:
+              name: Equipe Aurora
+      responses:
+        '200':
+          description: Operação concluída.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Team'
+              example:
+                id: 12
+                edition_id: 3
+                name: Equipe Aurora
+                code: DXA7K2
+                status: ACTIVE
+                situation: COMPLETE
+                disqualification_reason: null
+                disqualified_at: null
+                disqualified_by: null
+                formation_extended_until: null
+                members:
+                - id: 101
+                  student:
+                    user_id: 42
+                    name: Maria Souza
+                    course:
+                      id: 1
+                      name: Engenharia de Software
+                  role: LEADER
+                  joined_at: '2026-10-22T16:00:00Z'
+                created_at: '2026-10-22T16:00:00Z'
+                updated_at: '2026-10-22T16:00:00Z'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Conflito com uma regra de negócio.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                formation_closed:
+                  summary: O prazo de formação de equipes está encerrado.
+                  value:
+                    error:
+                      code: formation_closed
+                      message: O prazo de formação de equipes está encerrado.
+                      details: null
+                team_name_taken:
+                  summary: Já existe equipe com este nome na edição.
+                  value:
+                    error:
+                      code: team_name_taken
+                      message: Já existe equipe com este nome na edição.
+                      details: null
+                team_disqualified:
+                  summary: A equipe está desclassificada.
+                  value:
+                    error:
+                      code: team_disqualified
+                      message: A equipe está desclassificada.
+                      details: null
   /api/teams/{team_id}/invitable-students:
     get:
       tags:
@@ -11550,6 +11651,19 @@ components:
           - false
       additionalProperties: false
       description: Corpo opcional.
+    TeamUpdate:
+      type: object
+      description: Só o nome é editável; integrantes, liderança e projeto têm rotas próprias.
+      properties:
+        name:
+          type: string
+          maxLength: 150
+          minLength: 1
+          examples:
+          - Equipe Aurora
+      required:
+      - name
+      additionalProperties: false
     TeamCreate:
       type: object
       properties:

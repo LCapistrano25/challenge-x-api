@@ -373,3 +373,17 @@ class InvitableStudentSerializer(serializers.Serializer):
 
     def get_course(self, obj):
         return {"id": obj.course_id, "name": obj.course.name}
+
+
+class TeamUpdateSerializer(serializers.Serializer):
+    """Só o nome é editável (#233); outros campos são recusados."""
+
+    name = serializers.CharField(max_length=150, trim_whitespace=True)
+
+    def validate(self, attrs):
+        extra = set(self.initial_data) - set(self.fields)
+        if extra:
+            raise serializers.ValidationError(
+                {field: "Campo não permitido." for field in sorted(extra)}
+            )
+        return attrs
