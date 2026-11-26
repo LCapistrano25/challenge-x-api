@@ -35,8 +35,8 @@ def review_leadership_request(
     *,
     actor: User,
     leadership_request_id: int,
-    approve: bool,
-    justification: str,
+    status: RequestStatus,
+    decision_justification: str,
 ) -> LeadershipRequest:
     """Aprova ou rejeita uma solicitação de liderança por um professor."""
     if actor.role != UserRole.TEACHER:
@@ -51,9 +51,9 @@ def review_leadership_request(
             "O perfil de professor não foi encontrado."
         )
 
-    justification = justification.strip()
+    decision_justification = decision_justification.strip()
 
-    if not justification:
+    if not decision_justification:
         raise LeadershipRequestReviewInvalid(
             "A justificativa da decisão é obrigatória."
         )
@@ -127,7 +127,7 @@ def review_leadership_request(
 
     now = timezone.now()
 
-    if approve:
+    if status == RequestStatus.APPROVED:
         TeamMember.objects.filter(
             team=team,
             role=MemberRole.LEADER,
@@ -162,7 +162,7 @@ def review_leadership_request(
         )
 
     leadership_request.teacher = teacher
-    leadership_request.decision_justification = justification
+    leadership_request.decision_justification = decision_justification
     leadership_request.decided_at = now
     leadership_request.save(
         update_fields=[
