@@ -1087,7 +1087,7 @@ def test_aluno_que_nao_e_lider_nao_consulta_solicitacoes_da_equipe():
     response = client.get(f"{TEAMS_URL}/{team.id}/join-requests")
 
     assert response.status_code == 404
-    assert response.data["error"]["code"] == "team_not_found"
+    assert response.data["error"]["code"] == "not_found"
 
 
 def test_lider_aprova_solicitacao_de_entrada_pela_api():
