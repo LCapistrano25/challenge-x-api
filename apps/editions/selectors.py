@@ -9,6 +9,7 @@ from apps.editions.models import (
     Edition,
     EditionReviewer,
     Stage,
+    StageCriterion,
     StageSubmissionField,
 )
 
@@ -32,6 +33,15 @@ def stages_with_submission_fields():
 def list_edition_stages(edition_id: int) -> QuerySet[Stage]:
     return (
         stages_with_submission_fields().filter(edition_id=edition_id).order_by("order")
+    )
+
+
+def list_stage_criteria(stage_id: int) -> QuerySet[StageCriterion]:
+    """Matriz de avaliação da etapa (RF08)."""
+    return (
+        StageCriterion.objects.filter(stage_id=stage_id)
+        .select_related("criterion")
+        .order_by("criterion_id")
     )
 
 

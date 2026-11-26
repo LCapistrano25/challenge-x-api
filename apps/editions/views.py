@@ -28,6 +28,7 @@ from apps.editions.selectors import (
     list_edition_sdgs,
     list_edition_stages,
     list_editions,
+    list_stage_criteria,
     stages_with_submission_fields,
 )
 from apps.editions.serializers import (
@@ -47,8 +48,13 @@ from apps.editions.serializers import (
     EditionSdgsUpdateSerializer,
     EditionSerializer,
     EditionUpdateSerializer,
+    StageCriteriaUpdateSerializer,
+    StageCriterionSerializer,
     StageSerializer,
     StageWriteSerializer,
+)
+from apps.editions.use_cases.configure_stage_criteria import (
+    configure_stage_criteria,
 )
 from apps.editions.use_cases.create_category import create_category
 from apps.editions.use_cases.create_challenge import create_challenge
@@ -111,6 +117,27 @@ class StageDetailView(APIView):
         )
         stage = stages_with_submission_fields().get(pk=stage.pk)
         return Response(StageSerializer(stage).data)
+
+
+class StageCriteriaView(APIView):
+    """Lista e define os critérios e pontuações da etapa (UC08, RF08)."""
+
+    permission_classes = [IsAdmin]
+    parser_classes = [JSONParser]
+
+    def get(self, request, stage_id):
+        stage = get_object_or_404(Stage, pk=stage_id)
+        criteria = list_stage_criteria(stage.pk)
+        return Response(StageCriterionSerializer(criteria, many=True).data)
+
+    def put(self, request, stage_id):
+        stage = get_object_or_404(Stage, pk=stage_id)
+        serializer = StageCriteriaUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        criteria = configure_stage_criteria(
+            actor=request.user, stage=stage, **serializer.validated_data
+        )
+        return Response(StageCriterionSerializer(criteria, many=True).data)
 
 
 class EditionCriteriaView(APIView):
