@@ -27,7 +27,6 @@ from apps.teams.models import (
 )
 from apps.teams.selectors import list_invitable_students
 from apps.teams.serializers import (
-    AdminTeamDetailSerializer,
     AdminTeamListItemSerializer,
     AdminTeamListQuerySerializer,
     DisqualifyTeamSerializer,
@@ -198,8 +197,7 @@ class TeamDetailView(APIView):
         team = rename_team(
             actor=request.user, team_id=team_id, **serializer.validated_data
         )
-        # Resposta no schema Team do contrato.
-        return Response(AdminTeamDetailSerializer(team).data)
+        return Response(TeamSerializer(team).data)
 
 
 class TeamInvitationView(APIView):
@@ -979,7 +977,7 @@ class AdminTeamDisqualifyView(APIView):
         )
 
         return Response(
-            AdminTeamDetailSerializer(team).data,
+            TeamSerializer(team).data,
             status=status.HTTP_200_OK,
         )
 

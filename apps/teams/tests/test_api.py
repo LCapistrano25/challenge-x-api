@@ -112,6 +112,7 @@ def test_aluno_integrante_consulta_equipe():
 
     assert response.status_code == 200
     assert response.data["id"] == team.id
+    assert mismatches(response.json(), schema("Team")) == []
 
 
 def test_professor_com_vinculo_ativo_consulta_equipe():

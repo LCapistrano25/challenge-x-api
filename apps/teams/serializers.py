@@ -64,7 +64,9 @@ class MemberNoteSerializer(serializers.ModelSerializer):
         }
 
 
-class AdminTeamDetailSerializer(serializers.ModelSerializer):
+class TeamSerializer(serializers.ModelSerializer):
+    """Schema Team do contrato: GET, criação, edição, desclassificação e painel."""
+
     edition_id = serializers.IntegerField(read_only=True)
     disqualified_by = serializers.IntegerField(
         source="disqualified_by_id",
@@ -97,38 +99,6 @@ class AdminTeamDetailSerializer(serializers.ModelSerializer):
             "student__course",
         )
         return TeamMemberSerializer(members, many=True).data
-
-
-class TeamSerializer(serializers.ModelSerializer):
-    edition_id = serializers.IntegerField(read_only=True)
-    members = serializers.SerializerMethodField()
-    qualification = serializers.SerializerMethodField()
-
-    class Meta:
-        model = Team
-        fields = [
-            "id",
-            "edition_id",
-            "name",
-            "code",
-            "status",
-            "qualification",
-            "disqualification_reason",
-            "formation_extended_until",
-            "members",
-            "created_at",
-            "updated_at",
-        ]
-
-    def get_members(self, obj):
-        members = obj.members.filter(active=True).select_related(
-            "student__user",
-            "student__course",
-        )
-        return TeamMemberSerializer(members, many=True).data
-
-    def get_qualification(self, obj):
-        return None
 
 
 class InvitationCreateSerializer(serializers.Serializer):
