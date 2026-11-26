@@ -29,6 +29,7 @@ INSTALLED_APPS = [
     "apps.results.apps.ResultsConfig",
     "apps.notifications",
     "apps.public",
+    "apps.support.apps.SupportConfig",
 ]
 
 MIDDLEWARE = [

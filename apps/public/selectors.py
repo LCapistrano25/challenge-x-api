@@ -60,9 +60,8 @@ def list_edition_winners(edition: Edition) -> QuerySet[ProjectResult]:
                 to_attr="active_members",
             )
         )
-        .order_by(
-            "project__challenge__course__name", "project__category__name", "award"
-        )
+        # Pódio por categoria na edição inteira (D-01).
+        .order_by("project__category__name", "award", "project_id")
     )
 
 

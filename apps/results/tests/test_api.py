@@ -11,10 +11,11 @@ from apps.editions.enums import EditionStatus
 from apps.evaluations.factories import FinalEvaluationFactory
 from apps.evaluations.models import StageScore
 from apps.results.models import ProjectResult
+from apps.results.tests.test_use_cases import evaluate_final
 
 pytestmark = pytest.mark.django_db
 
-ROUTES = ["results/calculate", "finalists", "results/homologate"]
+ROUTES = ["results/calculate", "finalists", "awards/calculate", "results/homologate"]
 
 
 def url(edition, suffix):
@@ -42,9 +43,12 @@ def test_fluxo_completo_200(admin, edition, make_project):
 
     calculated = post(client, edition, "results/calculate")
     chosen = post(client, edition, "finalists", [project.pk])
+    evaluate_final(project)
+    awarded = post(client, edition, "awards/calculate")
     approved = post(client, edition, "results/homologate")
 
-    assert [r.status_code for r in (calculated, chosen, approved)] == [200] * 3
+    responses = (calculated, chosen, awarded, approved)
+    assert [r.status_code for r in responses] == [200] * 4
     assert calculated.json()["approved_at"] is None
     assert calculated.json()["results"][0]["finalist"] is False
     body = approved.json()
@@ -55,9 +59,11 @@ def test_fluxo_completo_200(admin, edition, make_project):
     assert row["project"] == {"id": project.pk, "title": project.title}
     assert row["team"]["id"] == project.team_id
     assert row["course"]["id"] == project.challenge.course_id
-    assert row["category"] is None
+    assert row["category"] == {"id": project.category_id, "name": project.category.name}
     assert row["final_score"] == "5.50"
     assert row["course_rank"] == 1
+    assert row["category_rank"] == 1
+    assert row["award"] == 1
     assert row["finalist"] is True
 
 
@@ -151,7 +157,13 @@ def test_400_nos_finalistas(admin, edition, make_project, body):
         ("sem_calculo", "finalists", "results_not_calculated"),
         ("sem_calculo", "results/homologate", "results_not_calculated"),
         ("sem_finalista", "results/homologate", "no_finalists"),
+        ("pendente", "results/homologate", "results_pending_scores"),
+        ("sem_podio", "results/homologate", "awards_not_calculated"),
         ("defasada", "results/homologate", "results_outdated"),
+        ("encerrada", "awards/calculate", "edition_closed"),
+        ("homologada", "awards/calculate", "results_already_approved"),
+        ("sem_calculo", "awards/calculate", "results_not_calculated"),
+        ("sem_finalista", "awards/calculate", "no_finalists"),
         ("avaliado", "finalists", "finalist_already_evaluated"),
     ],
 )
@@ -162,14 +174,21 @@ def test_409(admin, edition, request, case, route, code):
         make_project = request.getfixturevalue("make_project")
         first = make_project("3.00", "3.00")
         second = make_project("1.00", "1.00")
+        if case == "pendente":
+            make_project("1.00")
         ids = [second.pk]
         if case != "sem_calculo":
             post(client, edition, "results/calculate")
         if case == "homologada":
             ProjectResult.objects.update(approved_at=timezone.now())
-        elif case == "defasada":
+        elif case in ("defasada", "pendente"):
             post(client, edition, "finalists", [first.pk])
-            StageScore.objects.filter(project=first).update(value=Decimal("2.00"))
+            evaluate_final(first)
+            post(client, edition, "awards/calculate")
+            if case == "defasada":
+                StageScore.objects.filter(project=first).update(value=Decimal("2.00"))
+        elif case == "sem_podio":
+            post(client, edition, "finalists", [first.pk])
         elif case == "avaliado":
             post(client, edition, "finalists", [first.pk])
             FinalEvaluationFactory(project=first)

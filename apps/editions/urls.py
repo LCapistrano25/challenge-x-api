@@ -15,6 +15,11 @@ urlpatterns = [
         name="edition-detail",
     ),
     path(
+        "editions/<int:edition_id>/sdgs",
+        views.EditionSdgsView.as_view(),
+        name="edition-sdgs",
+    ),
+    path(
         "editions/<int:edition_id>/evaluators",
         views.EditionReviewView.as_view(),
         name="edition-evaluators",

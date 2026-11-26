@@ -38,6 +38,11 @@ class EditionClosed(EditionError):
     default_message = "A edição está encerrada e não pode ser alterada."
 
 
+class EditionSdgInUse(EditionError):
+    code = "sdg_in_use"
+    default_message = "A ODS está vinculada a desafios da edição."
+
+
 class ReviewerAlreadyLinked(EditionError):
     code = "evaluator_already_linked"
     default_message = "O avaliador já está vinculado a esta edição."

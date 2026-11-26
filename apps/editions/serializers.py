@@ -2,6 +2,7 @@ from collections.abc import Mapping
 
 from rest_framework import serializers
 
+from apps.core.models import Sdg
 from apps.editions.models import Edition, EditionReviewer
 
 
@@ -95,6 +96,31 @@ class RejectUnknownFieldsMixin:
                     {field: ["Campo não permitido."] for field in sorted(unknown)}
                 )
         return super().to_internal_value(data)
+
+
+class EditionSdgSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Sdg
+        fields = [
+            "id",
+            "number",
+            "title",
+            "description",
+            "icon",
+            "active",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = fields
+
+
+class EditionSdgsUpdateSerializer(RejectUnknownFieldsMixin, serializers.Serializer):
+    sdg_ids = serializers.ListField(child=StrictIntegerField())
+
+    def validate_sdg_ids(self, ids):
+        if len(ids) != len(set(ids)):
+            raise serializers.ValidationError("Informe cada ODS apenas uma vez.")
+        return ids
 
 
 class EditionCreateSerializer(RejectUnknownFieldsMixin, serializers.Serializer):

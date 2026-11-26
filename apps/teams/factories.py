@@ -81,6 +81,16 @@ class MemberNoteFactory(DjangoModelFactory):
     class Meta:
         model = MemberNote
 
-    member = factory.SubFactory(TeamMemberFactory)
-    author = factory.SubFactory(StudentFactory)
+    member = factory.SubFactory(
+        TeamMemberFactory,
+        team__leader=True,
+    )
+    author = factory.LazyAttribute(
+        lambda obj: (
+            obj.member.team.members.get(
+                role=MemberRole.LEADER,
+                active=True,
+            ).student
+        )
+    )
     text = "Integrante não participou das reuniões."

@@ -1,9 +1,10 @@
 from datetime import timedelta
+from unittest.mock import patch
 
 import pytest
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.db import IntegrityError
+from django.db import DatabaseError, IntegrityError
 from django.utils import timezone
 
 from apps.accounts.enums import UserRole
@@ -18,6 +19,7 @@ from apps.editions.factories import (
     StageFactory,
     StageSubmissionFieldFactory,
 )
+from apps.notifications.models import Notification, NotificationType
 from apps.projects.exceptions import (
     CategoryNotAvailable,
     ChallengeNotEligible,
@@ -960,6 +962,35 @@ def test_canvas_incompleto_nao_grava_nada(
     assert not SubmissionVersion.objects.filter(
         submission__project=delivery_project
     ).exists()
+
+
+def test_envio_notifica_apenas_integrantes_ativos(
+    delivery_project, delivery_leader, delivery_stage, link_field
+):
+    ativo = TeamMemberFactory(team=delivery_project.team)
+    inativo = TeamMemberFactory(
+        team=delivery_project.team, active=False, left_at=timezone.now()
+    )
+
+    send(delivery_leader, delivery_project, delivery_stage, link_field)
+
+    notifs = Notification.objects.filter(type=NotificationType.DELIVERABLE)
+    destinatarios = set(notifs.values_list("user_id", flat=True))
+    assert destinatarios == {delivery_leader.id, ativo.student.user_id}
+    assert inativo.student.user_id not in destinatarios
+
+
+def test_envio_nao_quebra_se_notificacao_falhar(
+    delivery_project, delivery_leader, delivery_stage, link_field
+):
+    with patch(
+        "apps.notifications.services.Notification.objects.create",
+        side_effect=DatabaseError("erro simulado"),
+    ):
+        version = send(delivery_leader, delivery_project, delivery_stage, link_field)
+
+    assert SubmissionVersion.objects.filter(pk=version.pk).exists()
+    assert Notification.objects.count() == 0
 
 
 # --- extend_deadline (UC14, RF14) ---

@@ -21,13 +21,13 @@
 | P-03 | Expiração por inatividade × JWT de 7 dias — **resolvida** | Média | `accounts` |
 | P-04 | Professor define o próprio escopo de avaliação — **resolvida** | Alta | `accounts`, `evaluations` |
 | P-05 | Criação de avaliador externo sem vínculo à edição — **resolvida** | Média | `accounts`, `evaluations` |
-| P-06 | Status de chamado divergentes | Alta | `support` |
-| P-07 | Justificativa de recusa e histórico do chamado | Média | `support` |
-| P-08 | `WAITING_USER` sem canal de resposta do usuário | Média | `support` |
+| P-06 | Status de chamado divergentes — **resolvida** | Alta | `support` |
+| P-07 | Justificativa de recusa e histórico do chamado — **resolvida** | Média | `support` |
+| P-08 | `WAITING_USER` sem canal de resposta do usuário — **resolvida** | Média | `support` |
 | P-09 | Tipo de solicitação e prioridade do chamado | Baixa | `support` |
-| P-10 | Quem abre e quem atende chamados | Média | `support` |
+| P-10 | Quem abre e quem atende chamados — **resolvida** | Média | `support` |
 | P-11 | Nomes de campos do chamado na API | Baixa | `support` |
-| P-12 | Regra de `resolved_at` | Baixa | `support` |
+| P-12 | Regra de `resolved_at` — **resolvida** | Baixa | `support` |
 | P-13 | Notificação de convite por e-mail sem usuário | Média | `teams`, notificações |
 | P-14 | Formato do `link` da notificação | Baixa | notificações |
 | P-15 | Ação de exclusão das FKs novas | Baixa | `support`, notificações |
@@ -44,9 +44,9 @@
 | P-26 | Transições de `project_status` | Média | `projects` |
 | P-27 | Status de entrega e nota zero automática — **resolvida** | Média | `projects`, `evaluations` |
 | P-28 | Visibilidade pública do acervo | Baixa | `results` |
-| P-29 | Seleção de finalistas sem requisito | Alta | `results`, `evaluations` |
-| P-30 | Nota final, ranking e premiação | Alta | `results` |
-| P-31 | Fórmula da pontuação individual | Alta | `results` |
+| P-29 | Seleção de finalistas sem requisito — **resolvida** | Alta | `results`, `evaluations` |
+| P-30 | Nota final, ranking e premiação — **resolvida** | Alta | `results` |
+| P-31 | Fórmula da pontuação individual — **resolvida** | Alta | `results` |
 | P-32 | Banca do avaliador externo — **resolvida** | Média | `evaluations` |
 | P-33 | Significado de `PARTIAL` em `stage_score` | Baixa | `evaluations` |
 | P-34 | Tipos de certificado incompletos | Média | `results` |
@@ -114,16 +114,19 @@
 
 - O DBML não tem um estado equivalente a **recusado**.
 - **Mapeamento sugerido, para revisão:** PENDENTE→`OPEN`, EM_ANALISE→`IN_PROGRESS`, ATENDIDO→`RESOLVED`, RECUSADO→`CLOSED` com `support_response` obrigatório. Também é preciso definir as **transições permitidas** entre os estados.
+- **Resolvida (24/11/2026, #217):** em análise = `IN_PROGRESS`, atendido = `RESOLVED`, recusado = `CLOSED`. Transições: `CLOSED` é final; `RESOLVED` só volta para `IN_PROGRESS` ou vai para `CLOSED`; transição proibida responde 409 `invalid_status_transition`.
 
 ### P-07 — Justificativa de recusa e histórico · Média
 - O RF exige justificativa na recusa e o contrato pede preservar o "histórico básico do atendimento".
 - O DBML tem um único campo, `support_response`, que é sobrescrito a cada atualização. Não há histórico de mudanças de status nem de respostas.
 - **Decidir:** se um único campo basta ou se é necessária uma tabela de histórico ou mensagens.
+- **Resolvida (24/11/2026, #217):** um único campo. Encerrar (`CLOSED`) equivale a recusar e exige `support_response`. Sem histórico de respostas: guarda só a última.
 
 ### P-08 — `WAITING_USER` sem canal de resposta do usuário · Média
 - O status `WAITING_USER` pressupõe que o solicitante possa responder ou complementar o chamado.
 - O contrato proíbe o usuário de alterar o chamado e não existe tabela de mensagens.
 - **Decidir:** como o usuário responde (novo campo, tabela de mensagens ou edição da `description`) e quem tira o chamado de `WAITING_USER`.
+- **Resolvida (24/11/2026, #217):** `WAITING_USER` continua no contrato, mas a orientação aos admins é não usar, porque o usuário não tem como responder. A API não bloqueia o status.
 
 ### P-09 — Tipo de solicitação e prioridade · Baixa
 - O RFXX (Aluno/Professor) recebe um "tipo de solicitação", mas não existe campo para isso no DBML.
@@ -133,6 +136,7 @@
 - O RF e o contrato falam em **alunos e professores**, enquanto a nota do DBML fala em "authenticated users". Avaliadores externos e admins também podem abrir chamados?
 - `assigned_to` aponta para qualquer `users`, e a nota cita "support/admin roles", mas `user_role` não tem papel de suporte.
 - **Suposição:** apenas `ADMIN` pode ser atribuído e atender (validação na aplicação).
+- **Resolvida (24/11/2026, #217):** abrem STUDENT e TEACHER; só ADMIN ativo é atribuído (`assigned_to`) e atende. O chamado não altera o cadastro: o admin corrige pelas rotas de usuários. O solicitante é notificado (SYSTEM) quando muda o status ou a resposta.
 
 ### P-11 — Nomes de campos na API · Baixa
 - O contrato usa `subject` e `response`, enquanto o DBML usa `title` e `support_response`.
@@ -140,6 +144,7 @@
 
 ### P-12 — Regra de `resolved_at` · Baixa
 - Não há regra nem CHECK dizendo quando `resolved_at` é preenchido (apenas em `RESOLVED`? também em `CLOSED`?) e se volta a nulo em caso de reabertura.
+- **Resolvida (24/11/2026, #217):** `resolved_at` é preenchido em `RESOLVED` e `CLOSED` e volta a nulo na reabertura (`IN_PROGRESS`).
 
 ---
 
@@ -243,6 +248,7 @@
 
 ### P-29 — Seleção de finalistas sem requisito · Alta
 - `project_result.finalist` existe e o RF42 depende dele ("homologados pelo Administrador", citando o RF15). Porém **o RF15 foi removido** e nenhum outro requisito define quem marca os finalistas nem com qual critério.
+- **Resolvida (24/11/2026, D-01, #221):** finalistas são os 3 primeiros de cada curso por `final_score` e desempate (Cap. VIII IV). `POST .../finalists` sem lista marca os 3 primeiros (empatados no 3º entram todos); com `project_ids`, a comissão ajusta.
 
 ### P-30 — Nota final, ranking e premiação · Alta
 - **Nota final (0–10):** não está explícito que `final_score` é a soma dos `stage_score.value` das etapas pontuadas.
@@ -250,9 +256,15 @@
 - **Agregação das notas externas:** média ou soma das `final_evaluation`? Conta só `FINALIZED`?
 - **Desempate (RF06, Art. 24):** os critérios de desempate valem para qual ranking?
 - **Homologação:** quem homologa (`homologated_at`) e o que fica bloqueado depois disso.
+- **Resolvida (24/11/2026, #217):**
+  - Nota final = soma das notas das etapas pontuadas (total 10). Nota da etapa = `(soma dos points / soma dos max_score dos critérios) × Stage.max_score`, média entre os professores (D-02, #228).
+  - Pódio único: 1º a 3º **por categoria na edição inteira** (Art. 26), pela média das `FinalEvaluation` `EVALUATED`; desempate por `final_score` e pelos critérios (D-01, #230). O RF49 ("dentro do curso") precisa ser corrigido nos requisitos.
+  - Desempate (Art. 24): `Criterion.tiebreak_order` (padrão Critério 1, depois 4), nota do critério normalizada por etapa (`points / max_score × 10`), média dos professores e soma entre etapas; empate total divide a posição (#221).
+  - Homologação: o ADMIN homologa (`approve_finalists`) por último, depois do pódio (`POST .../awards/calculate`, `awards_not_calculated`). Recusa enquanto houver nota de etapa pendente (`results_pending_scores`), decidido em 25/11/2026 (#230).
 
 ### P-31 — Fórmula da pontuação individual · Alta
 - O RF19 (regra 6) diz que o período do aluno é a base da pontuação individual, e `student_score` congela `considered_period`. A fórmula não está em nenhum requisito.
+- **Resolvida (24/11/2026, D-04, #221):** fora do escopo. O sistema não calcula pontos do aluno na disciplina, porque o período não se atualiza; o professor converte a nota final. `StudentScore` foi removido (#221).
 
 ### P-32 — Banca do avaliador externo · Média
 - O RF43 exige avaliar todos os finalistas "alocados para a sua banca", mas não existe tabela de alocação. Só existe a abrangência por curso em `edition_evaluator.course_id`.
@@ -266,6 +278,7 @@
 ### P-34 — Tipos de certificado incompletos · Média
 - O RF17 lista como elegíveis: Participante, Finalista, Premiado, **Professor Avaliador** e **Avaliador Externo**.
 - `certificate_type` só tem `PARTICIPATION`, `FINALIST` e `AWARD`. Com a unicidade `(edition_id, type)` em `certificate_template`, não dá para ter modelos distintos para professores e avaliadores.
+- **Adiada (24/11/2026, D-07):** certificados aguardam a coordenação. A universidade talvez emita pelo site dela; nesse caso o sistema só listaria os elegíveis.
 
 ---
 
