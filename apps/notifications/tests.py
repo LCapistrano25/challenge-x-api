@@ -1,5 +1,6 @@
 # Create your tests here.
 import uuid
+from datetime import timedelta
 
 import pytest
 from django.http import Http404
@@ -82,6 +83,10 @@ def test_listar_notificacoes_segue_contrato_e_isola_usuario(api_client):
     n1 = make_notification(user, title="Primeira")
     n2 = make_notification(user, title="Segunda")
     make_notification(outro, title="De outro usuário")
+    # As duas podem nascer no mesmo instante; a mais antiga fica explícita.
+    Notification.objects.filter(pk=n1.pk).update(
+        created_at=n2.created_at - timedelta(seconds=1)
+    )
 
     api_client.force_authenticate(user=user)
     response = api_client.get("/api/notifications")

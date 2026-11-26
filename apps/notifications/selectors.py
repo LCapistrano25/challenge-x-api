@@ -10,4 +10,5 @@ def list_user_notifications(
     qs = Notification.objects.filter(user=user)
     if unread_only:
         qs = qs.filter(read_at__isnull=True)
-    return qs.order_by("-created_at")
+    # Desempate pelo id: com created_at igual, a ordem e a paginação ficam estáveis.
+    return qs.order_by("-created_at", "-pk")
