@@ -9,25 +9,28 @@ CENT = Decimal("0.01")
 
 @dataclass(frozen=True)
 class RankEntry:
-    """Projeto a classificar; `tiebreak` segue a ordem dos critérios de desempate."""
+    """Projeto a classificar dentro do grupo (curso ou categoria).
+
+    `tiebreak` segue a ordem de desempate depois da nota.
+    """
 
     project_id: int
-    course_id: int
-    final_score: Decimal
+    group_id: int
+    score: Decimal
     tiebreak: tuple[Decimal, ...] = ()
 
 
-def compute_course_ranks(entries: list[RankEntry]) -> dict[int, int]:
-    """Posição de cada projeto no curso, pela nota e pelo desempate (Art. 24).
+def compute_ranks(entries: list[RankEntry]) -> dict[int, int]:
+    """Posição de cada projeto no grupo, pela nota e pelo desempate (Art. 24).
 
     Empate que sobra divide a posição, e a seguinte é pulada (1, 1, 3).
     """
-    by_course = defaultdict(list)
+    by_group = defaultdict(list)
     for entry in entries:
-        by_course[entry.course_id].append(entry)
+        by_group[entry.group_id].append(entry)
     ranks = {}
-    for course_entries in by_course.values():
-        keys = [(e.final_score, *e.tiebreak) for e in course_entries]
-        for entry, key in zip(course_entries, keys, strict=True):
+    for group in by_group.values():
+        keys = [(e.score, *e.tiebreak) for e in group]
+        for entry, key in zip(group, keys, strict=True):
             ranks[entry.project_id] = 1 + sum(other > key for other in keys)
     return ranks

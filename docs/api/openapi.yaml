@@ -865,6 +865,112 @@ paths:
                       code: edition_closed
                       message: A edição está encerrada e não pode ser alterada.
                       details: null
+  /api/admin/editions/{edition_id}/awards/calculate:
+    post:
+      tags:
+      - results
+      operationId: resultsCalculateAwards
+      summary: Calcular o pódio
+      description: |-
+        **Status: PROPOSTO** — o contrato depende da decisão de P-30 e pode mudar.
+
+        Calcula e grava o pódio: 1º a 3º por categoria na edição inteira, entre os finalistas (Art. 26, D-01). Pode repetir até a homologação.
+
+        **Requisitos:** RF49
+
+        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
+
+        **Perfis permitidos:** ADMIN
+
+        **Regras de negócio:**
+        - Ordem: média das avaliações externas EVALUATED (soma das respostas de nota), depois final_score, depois os critérios do Art. 24; empate total divide a posição.
+        - Finalista sem categoria ou sem avaliação externa finalizada fica sem posição (category_rank e award nulos).
+        - Grava category_rank de todos os finalistas com posição e award (1 a 3) nos três primeiros de cada categoria.
+
+        **Pendências relacionadas (api-pendencias.md):** P-30
+      x-status: proposed
+      x-requirements:
+      - RF49
+      x-roles:
+      - ADMIN
+      x-pendencias:
+      - P-30
+      parameters:
+      - $ref: '#/components/parameters/EditionId'
+      responses:
+        '200':
+          description: Operação concluída.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EditionResults'
+              example:
+                edition_id: 3
+                approved_at: null
+                results:
+                - project:
+                    id: 40
+                    title: Monitoramento inteligente do consumo de água
+                  team:
+                    id: 12
+                    name: Equipe Aurora
+                    code: DXA7K2
+                  course:
+                    id: 1
+                    name: Engenharia de Software
+                  category:
+                    id: 2
+                    name: Protótipos e Artefatos
+                  final_score: '7.50'
+                  course_rank: 1
+                  finalist: true
+                  category_rank: 1
+                  award: 1
+                excluded:
+                - project_id: 40
+                  team_id: 12
+                  reason: DISQUALIFIED
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Conflito com uma regra de negócio.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                results_not_calculated:
+                  summary: Calcule os resultados antes.
+                  value:
+                    error:
+                      code: results_not_calculated
+                      message: Calcule os resultados antes.
+                      details: null
+                no_finalists:
+                  summary: Escolha os finalistas antes.
+                  value:
+                    error:
+                      code: no_finalists
+                      message: Escolha os finalistas antes.
+                      details: null
+                results_already_approved:
+                  summary: O resultado da edição já foi homologado.
+                  value:
+                    error:
+                      code: results_already_approved
+                      message: O resultado da edição já foi homologado.
+                      details: null
+                edition_closed:
+                  summary: A edição está encerrada e não pode ser alterada.
+                  value:
+                    error:
+                      code: edition_closed
+                      message: A edição está encerrada e não pode ser alterada.
+                      details: null
   /api/admin/editions/{edition_id}/categories:
     get:
       tags:
@@ -1916,6 +2022,8 @@ paths:
                   final_score: '7.50'
                   course_rank: 1
                   finalist: true
+                  category_rank: 1
+                  award: 1
                 excluded:
                 - project_id: 40
                   team_id: 12
@@ -2107,6 +2215,8 @@ paths:
                   final_score: '7.50'
                   course_rank: 1
                   finalist: true
+                  category_rank: 1
+                  award: 1
                 excluded:
                 - project_id: 40
                   team_id: 12
@@ -2152,7 +2262,7 @@ paths:
       operationId: resultsApprove
       summary: Homologar o resultado
       description: |-
-        Grava a homologação em todos os projetos classificados. Depois dela o resultado não muda.
+        Grava a homologação em todos os projetos classificados. É o último passo: depois das notas, dos finalistas, da avaliação externa e do pódio. Depois dela o resultado não muda.
 
         **Requisitos:** RF15
 
@@ -2162,6 +2272,7 @@ paths:
 
         **Regras de negócio:**
         - Não recalcula: se as notas mudaram depois do cálculo, recusa com results_outdated.
+        - Recusa enquanto houver projeto com nota de etapa pendente (results_pending_scores), para nenhuma equipe sair do resultado por atraso na avaliação.
 
         **Pendências relacionadas (api-pendencias.md):** P-46
       x-status: confirmed
@@ -2200,6 +2311,8 @@ paths:
                   final_score: '7.50'
                   course_rank: 1
                   finalist: true
+                  category_rank: 1
+                  award: 1
                 excluded:
                 - project_id: 40
                   team_id: 12
@@ -2230,6 +2343,20 @@ paths:
                     error:
                       code: no_finalists
                       message: Escolha os finalistas antes.
+                      details: null
+                results_pending_scores:
+                  summary: Há projeto com nota de etapa pendente.
+                  value:
+                    error:
+                      code: results_pending_scores
+                      message: Há projeto com nota de etapa pendente.
+                      details: null
+                awards_not_calculated:
+                  summary: Calcule o pódio antes de homologar.
+                  value:
+                    error:
+                      code: awards_not_calculated
+                      message: Calcule o pódio antes de homologar.
                       details: null
                 results_outdated:
                   summary: As notas mudaram depois do cálculo; calcule de novo.
@@ -6600,7 +6727,7 @@ paths:
       description: |-
         **Status: PROPOSTO** — o contrato depende da decisão de P-30 e pode mudar.
 
-        Pódio (1º a 3º) por curso e categoria de uma edição encerrada e homologada.
+        Pódio (1º a 3º) por categoria, na edição inteira, de uma edição encerrada e homologada (D-01). Ordenado por categoria e colocação.
 
         **Requisitos:** RF35, RF46
 
@@ -13082,6 +13209,26 @@ components:
           type: boolean
           examples:
           - true
+        category_rank:
+          type:
+          - integer
+          - 'null'
+          description: Posição do finalista na categoria, na edição inteira (D-01); nula até o pódio ser calculado ou sem
+            avaliação externa.
+          minimum: 1
+          examples:
+          - 1
+        award:
+          type:
+          - integer
+          - 'null'
+          description: Colocação premiada (1 a 3) na categoria; nula quando não premiado.
+          enum:
+          - 1
+          - 2
+          - 3
+          examples:
+          - 1
       required:
       - project
       - team
@@ -13090,6 +13237,8 @@ components:
       - final_score
       - course_rank
       - finalist
+      - category_rank
+      - award
     ResultExcluded:
       type: object
       properties:

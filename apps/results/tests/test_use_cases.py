@@ -11,15 +11,21 @@ from apps.accounts.factories import StudentFactory
 from apps.core.factories import CourseFactory
 from apps.editions.enums import EditionStatus
 from apps.editions.exceptions import EditionClosed
-from apps.evaluations.factories import FinalEvaluationFactory
-from apps.evaluations.models import StageScore
+from apps.evaluations.factories import (
+    FinalAnswerFactory,
+    FinalEvaluationFactory,
+    FinalFormFactory,
+)
+from apps.evaluations.models import FinalForm, StageScore
 from apps.notifications.models import Notification, NotificationType
 from apps.projects.enums import ProjectStatus
 from apps.projects.models import Project
 from apps.results.exceptions import (
+    AwardsNotCalculated,
     FinalistAlreadyEvaluated,
     NoFinalists,
     NoScoredStages,
+    PendingScores,
     ResultsAlreadyApproved,
     ResultsNotCalculated,
     ResultsOutdated,
@@ -28,6 +34,7 @@ from apps.results.factories import ProjectResultFactory
 from apps.results.models import ProjectResult
 from apps.results.use_cases.approve_finalists import approve_finalists
 from apps.results.use_cases.calculate_results import calculate_results
+from apps.results.use_cases.compute_awards import compute_awards
 from apps.results.use_cases.select_finalists import select_finalists
 from apps.teams.enums import MemberRole, TeamStatus
 from apps.teams.factories import TeamMemberFactory
@@ -171,6 +178,27 @@ def calculated(admin, edition, make_project):
     return first, second, pending
 
 
+def evaluate_final(project, value="8.00"):
+    """Avaliação externa finalizada, com uma resposta de nota."""
+    form = FinalForm.objects.filter(edition=project.edition).first()
+    evaluation = FinalEvaluationFactory(
+        project=project,
+        form=form or FinalFormFactory(edition=project.edition),
+        evaluated=True,
+    )
+    FinalAnswerFactory(evaluation=evaluation, value=Decimal(value))
+
+
+def homologable(admin, edition, calculated, chosen):
+    """Deixa a edição pronta para homologar: sem nota pendente e com pódio."""
+    *_, pending = calculated
+    Project.objects.filter(pk=pending.pk).update(status=ProjectStatus.DISQUALIFIED)
+    select_finalists(actor=admin, edition=edition, project_ids=[p.pk for p in chosen])
+    for project in chosen:
+        evaluate_final(project)
+    compute_awards(actor=admin, edition=edition)
+
+
 def finalists(edition):
     return set(
         ProjectResult.objects.filter(
@@ -249,7 +277,7 @@ def test_homologacao_grava_o_mesmo_instante_em_todos_os_classificados(
     admin, edition, calculated
 ):
     first, second, _ = calculated
-    select_finalists(actor=admin, edition=edition, project_ids=[first.pk])
+    homologable(admin, edition, calculated, [first])
 
     approve_finalists(actor=admin, edition=edition)
 
@@ -271,7 +299,7 @@ def test_homologacao_exige_calculo(admin, edition):
 @pytest.mark.parametrize("change", ["nota", "desclassificacao"])
 def test_homologacao_barra_resultado_defasado(admin, edition, calculated, change):
     first, second, _ = calculated
-    select_finalists(actor=admin, edition=edition, project_ids=[first.pk])
+    homologable(admin, edition, calculated, [first])
     if change == "nota":
         StageScore.objects.filter(project=second).update(value=Decimal("2.00"))
     else:
@@ -309,6 +337,7 @@ def test_finalistas_e_homologacao_barram(admin, edition, calculated, run, case, 
     elif case == "encerrada":
         close(edition)
     else:
+        homologable(admin, edition, calculated, [first])
         approve_finalists(actor=admin, edition=edition)
     before = list(ProjectResult.objects.values_list("finalist", "approved_at"))
 
@@ -320,17 +349,19 @@ def test_finalistas_e_homologacao_barram(admin, edition, calculated, run, case, 
 
 def test_nada_muda_depois_de_homologar(admin, edition, calculated):
     first, *_ = calculated
-    select_finalists(actor=admin, edition=edition, project_ids=[first.pk])
+    homologable(admin, edition, calculated, [first])
     approve_finalists(actor=admin, edition=edition)
 
     with pytest.raises(ResultsAlreadyApproved):
         calculate_results(actor=admin, edition=edition)
+    with pytest.raises(ResultsAlreadyApproved):
+        compute_awards(actor=admin, edition=edition)
 
 
 def test_homologacao_notifica_finalistas_e_classificados(admin, edition, calculated):
     first, second, pending = calculated
     inativo = TeamMemberFactory(team=first.team, active=False, left_at=timezone.now())
-    select_finalists(actor=admin, edition=edition, project_ids=[first.pk])
+    homologable(admin, edition, calculated, [first])
 
     approve_finalists(actor=admin, edition=edition)
 
@@ -342,7 +373,7 @@ def test_homologacao_notifica_finalistas_e_classificados(admin, edition, calcula
     lider_pendente = leader_of(pending).student.user_id
 
     assert set(por_usuario) == {lider_finalista, lider_classificado}
-    assert "final" in por_usuario[lider_finalista].title.lower()
+    assert "premiado" in por_usuario[lider_finalista].title.lower()
     assert "resultado" in por_usuario[lider_classificado].title.lower()
     assert lider_pendente not in por_usuario
     assert inativo.student.user_id not in por_usuario
@@ -350,7 +381,7 @@ def test_homologacao_notifica_finalistas_e_classificados(admin, edition, calcula
 
 def test_homologacao_nao_quebra_se_notificacao_falhar(admin, edition, calculated):
     first, second, _ = calculated
-    select_finalists(actor=admin, edition=edition, project_ids=[first.pk])
+    homologable(admin, edition, calculated, [first])
 
     with patch(
         "apps.notifications.services.Notification.objects.create",
@@ -361,3 +392,70 @@ def test_homologacao_nao_quebra_se_notificacao_falhar(admin, edition, calculated
     assert result_of(first).approved_at is not None
     assert result_of(second).approved_at is not None
     assert Notification.objects.count() == 0
+
+
+# compute_awards (Art. 26, D-01) e ordem da homologação (#230)
+
+
+def test_homologacao_recusa_nota_pendente(admin, edition, calculated):
+    first, *_ = calculated
+    select_finalists(actor=admin, edition=edition, project_ids=[first.pk])
+    evaluate_final(first)
+    compute_awards(actor=admin, edition=edition)
+
+    with pytest.raises(PendingScores):
+        approve_finalists(actor=admin, edition=edition)
+
+    assert not ProjectResult.objects.filter(approved_at__isnull=False).exists()
+
+
+def test_homologacao_exige_podio(admin, edition, calculated):
+    first, _, pending = calculated
+    Project.objects.filter(pk=pending.pk).update(status=ProjectStatus.DISQUALIFIED)
+    select_finalists(actor=admin, edition=edition, project_ids=[first.pk])
+
+    with pytest.raises(AwardsNotCalculated):
+        approve_finalists(actor=admin, edition=edition)
+
+
+def test_podio_por_categoria_na_edicao_inteira(admin, edition, make_project):
+    # Cursos diferentes na mesma categoria disputam o mesmo pódio (D-01).
+    a = make_project("3.00", "3.00", course=CourseFactory())
+    b = make_project("2.00", "2.00", course=CourseFactory())
+    c = make_project("1.00", "1.00", course=CourseFactory())
+    other = make_project("1.00", "1.00", course=CourseFactory())
+    for project in (b, c):
+        project.category = a.category
+        project.save()
+    calculate_results(actor=admin, edition=edition)
+    select_finalists(
+        actor=admin, edition=edition, project_ids=[a.pk, b.pk, c.pk, other.pk]
+    )
+    evaluate_final(a, "7.00")
+    evaluate_final(b, "9.00")
+    evaluate_final(c, "7.00")
+    evaluate_final(other, "5.00")
+
+    compute_awards(actor=admin, edition=edition)
+
+    # b tem a maior média externa; a e c empatam e a nota final desempata.
+    assert [result_of(p).award for p in (b, a, c)] == [1, 2, 3]
+    # Sozinho na sua categoria, o outro projeto é o 1º dela.
+    assert result_of(other).award == 1
+
+
+def test_finalista_sem_avaliacao_externa_fica_sem_posicao(admin, edition, calculated):
+    first, second, _ = calculated
+    select_finalists(actor=admin, edition=edition, project_ids=[first.pk, second.pk])
+    evaluate_final(first)
+
+    compute_awards(actor=admin, edition=edition)
+
+    assert result_of(first).award == 1
+    assert result_of(second).category_rank is None
+    assert result_of(second).award is None
+
+
+def test_podio_exige_finalistas(admin, edition, calculated):
+    with pytest.raises(NoFinalists):
+        compute_awards(actor=admin, edition=edition)

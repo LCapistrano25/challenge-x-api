@@ -15,7 +15,7 @@ Este documento consolida as decisões tomadas após a revisão do Regulamento e 
 
 | # | Decisão final | Situação em 25/11 |
 |---|---|---|
-| **D-01** | Um pódio só: 1º a 3º **por categoria na edição inteira** (Art. 26), pela média das `FinalEvaluation` `EVALUATED`; desempate por `final_score` e pelos critérios do Art. 24. Finalistas: 3 por curso. Banca da final por curso ou única (recomendação: única). | Finalistas automáticos na `developer` (#221). Falta `compute_awards` por categoria e a homologação depois do pódio (#230). |
+| **D-01** | Um pódio só: 1º a 3º **por categoria na edição inteira** (Art. 26), pela média das `FinalEvaluation` `EVALUATED`; desempate por `final_score` e pelos critérios do Art. 24. Finalistas: 3 por curso. Banca da final por curso ou única (recomendação: única). | Aplicado: finalistas automáticos (#221); pódio por categoria e homologação depois do pódio (#230). |
 | **D-02** | **Opção B.** Cada critério vale 10 por padrão (`StageCriterion.max_score`, o admin pode mudar como peso). Nota da etapa = `(soma dos points / soma dos max_score) × Stage.max_score`, média entre os professores. Sai `ensure_criterion_fits_stage` (INT-02, #183); fica a soma das etapas = 10 (INT-01). Contrato muda só nas descrições. | Aplicado (#228). |
 | **Desempate (Art. 24)** | Configurável por `Criterion.tiebreak_order` (padrão: Critério 1, depois Critério 4). Por etapa, nota do critério normalizada (`points / max_score × 10`) e média dos professores; soma entre etapas. Empate total divide a posição (1, 1, 3). | Aplicado (#221). |
 | **D-03** | 1 ODS principal por desafio; a 2ª ODS vai na `description`. Sem mudança de banco. | Vale para a carga do Apêndice A. |
@@ -31,7 +31,7 @@ Este documento consolida as decisões tomadas após a revisão do Regulamento e 
 | **Ano e limites (#122)** | `year` de 2000 a 2100; limites de equipe de 1 a 20; JSON malformado = `400 parse_error`. | Aplicado (#218). |
 | **Branch de emergência** | Fica sem aplicação, como reserva de código. | — |
 
-**Em aberto (decisão do dono):** homologar com nota pendente — recusar ou deixar o projeto de fora?
+**Decidido em 25/11 (#230):** homologar com nota de etapa pendente é recusado (`409 results_pending_scores`); o pódio é calculado por rota própria (`POST /api/admin/editions/{id}/awards/calculate`).
 
 ---
 
