@@ -137,6 +137,19 @@ class EditionCreateSerializer(RejectUnknownFieldsMixin, serializers.Serializer):
     )
 
 
+class EditionPublishSerializer(serializers.Serializer):
+    notice_file = serializers.FileField()
+
+    def validate_notice_file(self, file):
+        header = file.read(5)
+        file.seek(max(0, file.size - 1024))
+        trailer = file.read().rstrip()
+        file.seek(0)
+        if header != b"%PDF-" or not trailer.endswith(b"%%EOF"):
+            raise serializers.ValidationError("Envie um arquivo PDF.")
+        return file
+
+
 class EditionUpdateSerializer(RejectUnknownFieldsMixin, serializers.Serializer):
     """Entrada da atualização parcial (EditionUpdate): nome e limites da equipe.
 

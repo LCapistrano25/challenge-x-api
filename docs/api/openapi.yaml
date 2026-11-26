@@ -2156,6 +2156,17 @@ paths:
                       code: publication_requirements_not_met
                       message: Há parametrizações obrigatórias pendentes; ver details.
                       details: null
+        '503':
+          description: Armazenamento de arquivos indisponível.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  code: storage_unavailable
+                  message: Armazenamento indisponível.
+                  details: null
   /api/admin/editions/{edition_id}/results/calculate:
     post:
       tags:
@@ -6718,6 +6729,58 @@ paths:
                     title: Indústria, Inovação e Infraestrutura
         '404':
           $ref: '#/components/responses/NotFound'
+  /api/public/editions/{edition_id}/regulation/{token}:
+    get:
+      tags:
+      - public
+      operationId: publicDownloadRegulation
+      summary: Baixar o edital da edição
+      description: |-
+        Devolve o PDF do edital publicado. É o endereço do regulation_url da edição.
+
+        **Requisitos:** RF09
+
+        **Autenticação:** pública (não exige sessão).
+
+        **Perfis permitidos:** qualquer visitante
+
+        **Regras de negócio:**
+        - Somente edições PUBLISHED ou CLOSED; o caminho precisa ser o do regulation_url da edição (404 nos demais casos).
+        - O arquivo fica em armazenamento próprio; a URL não expõe o caminho do disco (P-43).
+
+        **Pendências relacionadas (api-pendencias.md):** P-43
+      x-status: confirmed
+      x-requirements:
+      - RF09
+      x-roles: []
+      x-pendencias:
+      - P-43
+      security: []
+      parameters:
+      - $ref: '#/components/parameters/EditionId'
+      - $ref: '#/components/parameters/RegulationToken'
+      responses:
+        '200':
+          description: 'PDF do edital, como anexo (`Content-Disposition: attachment; filename=edital.pdf`, `X-Content-Type-Options:
+            nosniff`).'
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          description: Armazenamento do edital indisponível.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  code: storage_unavailable
+                  message: Armazenamento indisponível.
+                  details: null
   /api/public/editions/{edition_id}/winners:
     get:
       tags:
@@ -8749,6 +8812,14 @@ components:
       description: Identificador do item da entrega.
       schema:
         type: integer
+    RegulationToken:
+      name: token
+      in: path
+      required: true
+      description: Identificador do arquivo do edital, gerado na publicação; vem pronto no regulation_url.
+      schema:
+        type: string
+        format: uuid
     VersionId:
       name: version_id
       in: path

@@ -15,8 +15,8 @@ RUN uv sync --locked --no-dev --no-install-project
 COPY . .
 
 RUN useradd --create-home app \
-    && mkdir -p /app/staticfiles /data/deliveries \
-    && chown app /app/staticfiles /data/deliveries
+    && mkdir -p /app/staticfiles /data/deliveries /data/regulations \
+    && chown app /app/staticfiles /data/deliveries /data/regulations
 USER app
 
 EXPOSE 8000

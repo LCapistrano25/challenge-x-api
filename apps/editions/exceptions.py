@@ -1,6 +1,6 @@
 from http import HTTPStatus
 
-from apps.core.exceptions import BusinessRuleViolation
+from apps.core.exceptions import BusinessRuleViolation, ExternalServiceError
 
 
 class EditionError(BusinessRuleViolation):
@@ -46,3 +46,22 @@ class EditionSdgInUse(EditionError):
 class ReviewerAlreadyLinked(EditionError):
     code = "evaluator_already_linked"
     default_message = "O avaliador já está vinculado a esta edição."
+
+
+class EditionNotInSetup(EditionError):
+    code = "edition_not_in_setup"
+    default_message = "Somente edições em configuração podem ser publicadas."
+
+
+class PublicationRequirementsNotMet(EditionError):
+    code = "publication_requirements_not_met"
+    default_message = "Há parametrizações obrigatórias pendentes."
+
+    def __init__(self, details: dict[str, str]):
+        self.details = details
+        super().__init__()
+
+
+class RegulationStorageUnavailable(ExternalServiceError):
+    code = "storage_unavailable"
+    default_message = "Armazenamento indisponível."
