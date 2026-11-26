@@ -26,6 +26,20 @@ def ensure_sdg_enabled_in_edition(edition_id: int, sdg_id: int) -> None:
         raise ValidationError({"sdg": "A ODS não está habilitada nesta edição."})
 
 
+def ensure_challenge_catalog_is_valid(
+    edition_id: int, course_id: int, sdg_id: int
+) -> None:
+    """Exige curso ativo e ODS ativa habilitada para o desafio (RF05, RN09)."""
+    ensure_course_is_active(course_id)
+    if (
+        not apps.get_model("core", "Sdg")
+        .objects.filter(pk=sdg_id, active=True)
+        .exists()
+    ):
+        raise ValidationError({"sdg_id": "A ODS deve existir e estar ativa."})
+    ensure_sdg_enabled_in_edition(edition_id, sdg_id)
+
+
 def ensure_sdg_not_used_by_challenges(edition_id: int, sdg_id: int) -> None:
     """Impede tirar da edição uma ODS que algum desafio usa (RN09)."""
     challenges = apps.get_model("editions", "Challenge").objects
