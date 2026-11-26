@@ -4,7 +4,6 @@ from apps.results.models import (
     Certificate,
     CertificateTemplate,
     ProjectResult,
-    StudentScore,
 )
 
 
@@ -21,13 +20,6 @@ class ProjectResultAdmin(admin.ModelAdmin):
     )
     list_filter = ("finalist", "project__edition")
     list_select_related = ("project",)
-
-
-@admin.register(StudentScore)
-class StudentScoreAdmin(admin.ModelAdmin):
-    list_display = ("student", "project", "term", "points", "calculated_at")
-    list_filter = ("project__edition",)
-    list_select_related = ("student__user", "project")
 
 
 @admin.register(CertificateTemplate)

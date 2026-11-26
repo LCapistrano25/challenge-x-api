@@ -14,7 +14,7 @@ from apps.accounts.factories import (
     TeacherFactory,
     UserFactory,
 )
-from apps.editions.enums import FieldKind
+from apps.editions.enums import EditionStatus, FieldKind
 from apps.editions.factories import (
     CategoryFactory,
     ChallengeFactory,
@@ -22,12 +22,14 @@ from apps.editions.factories import (
     StageSubmissionFieldFactory,
 )
 from apps.projects.factories import (
+    DeadlineExtensionFactory,
     ProjectFactory,
     SubmissionFactory,
     SubmissionReceiptFactory,
     SubmissionVersionFactory,
 )
 from apps.projects.files import get_delivery_storage
+from apps.projects.models import DeadlineExtension
 from apps.projects.tests.conftest import stored_keys, valid_canvas
 from apps.teams.enums import MemberRole
 from apps.teams.factories import TeamFactory, TeamMemberFactory
@@ -166,7 +168,7 @@ def test_aluno_integrante_consulta_o_projeto(team, member, challenge):
 
 
 def test_projeto_sem_desafio_mostra_desafio_nulo(team, member):
-    ProjectFactory(team=team, challenge=None, title="")
+    ProjectFactory(team=team, challenge=None, category=None, title="")
 
     response = client_for(member).get(url(team))
 
@@ -450,10 +452,11 @@ def test_escolher_categoria_exige_login(team, project, category):
 
 def test_admin_nao_escolhe_categoria(team, project, category):
     admin = UserFactory(role=UserRole.ADMIN)
+    before = project.category_id
     response = put_category(admin, team, {"category_id": category.pk})
     assert response.status_code == 403
     project.refresh_from_db()
-    assert project.category is None
+    assert project.category_id == before
 
 
 def test_categoria_recusa_quem_nao_e_lider(team, member, project, category):
@@ -562,7 +565,7 @@ def test_lider_envia_a_entrega(dproject, dleader, dstage, dfield):
     response = post_version(dleader, dproject, dstage, payload(dfield, notes="Ok"))
 
     assert response.status_code == 201
-    assert response.data["version_number"] == 1
+    assert response.data["number"] == 1
     assert response.data["notes"] == "Ok"
     assert response.data["submitted_by"] == {
         "user_id": dleader.pk,
@@ -582,12 +585,19 @@ def test_envio_exige_login(dproject, dstage, dfield):
         versions_url(dproject, dstage), payload(dfield), format="json"
     )
     assert response.status_code == 401
+    assert error_code(response) == "not_authenticated"
 
 
-def test_professor_e_admin_nao_enviam(dproject, dstage, dfield):
-    for user in (TeacherFactory().user, UserFactory(role=UserRole.ADMIN)):
+def test_quem_nao_e_aluno_nao_envia(dproject, dstage, dfield):
+    users = (
+        TeacherFactory().user,
+        UserFactory(role=UserRole.ADMIN),
+        ExternalReviewerFactory().user,
+    )
+    for user in users:
         response = post_version(user, dproject, dstage, payload(dfield))
         assert response.status_code == 403
+        assert error_code(response) == "permission_denied"
 
 
 def test_nao_lider_recebe_403_not_team_leader(dproject, dstage, dfield):
@@ -664,6 +674,16 @@ def test_envio_com_projeto_incompleto_da_400(dproject, dleader, dstage, dfield):
     assert error_code(response) == "validation_error"
 
 
+def test_envio_sem_categoria_da_400(dproject, dleader, dstage, dfield):
+    # Categoria obrigatória para a premiação (D-06).
+    dproject.category = None
+    dproject.save()
+    response = post_version(dleader, dproject, dstage, payload(dfield))
+    assert response.status_code == 400
+    assert error_code(response) == "validation_error"
+    assert "category" in response.data["error"]["details"]
+
+
 def test_envio_com_prazo_encerrado_da_409(dproject, dleader):
     stage = make_stage(dproject, start=-5, end=-1)
     field = StageSubmissionFieldFactory(stage=stage)
@@ -719,14 +739,14 @@ def test_aluno_integrante_consulta_as_entregas(dproject, dleader, dstage, dfield
     assert len(response.data) == 1
     entry = response.data[0]
     assert entry["stage"]["id"] == dstage.pk
-    assert entry["stage"]["position"] == dstage.order
+    assert entry["stage"]["order"] == dstage.order
     assert entry["stage"]["phase_status"] == "OPEN"
     assert entry["fields"][0]["id"] == dfield.pk
-    assert entry["fields"][0]["type"] == "LINK"
+    assert entry["fields"][0]["kind"] == "LINK"
     assert entry["fields"][0]["required"] is True
     assert entry["status"] == "SUBMITTED"
     assert entry["official_version_id"] is None
-    assert [v["version_number"] for v in entry["versions"]] == [2, 1]
+    assert [v["number"] for v in entry["versions"]] == [2, 1]
     assert entry["versions"][0]["receipt"]["verification_code"]
 
 
@@ -762,7 +782,9 @@ def test_consulta_de_entregas_recusa_quem_nao_pode(dproject, dstage, dfield):
 
 
 def test_consulta_de_entregas_exige_login(dproject):
-    assert APIClient().get(deliverables_url(dproject)).status_code == 401
+    response = APIClient().get(deliverables_url(dproject))
+    assert response.status_code == 401
+    assert error_code(response) == "not_authenticated"
 
 
 def test_consulta_de_entregas_de_projeto_inexistente_da_404(dleader):
@@ -1113,7 +1135,9 @@ def test_download_recusa_perfil_sem_permissao(sent_file):
 
 
 def test_download_exige_login(sent_file):
-    assert APIClient().get(sent_file["file_url"]).status_code == 401
+    response = APIClient().get(sent_file["file_url"])
+    assert response.status_code == 401
+    assert error_code(response) == "not_authenticated"
 
 
 def test_download_de_item_inexistente_da_404(dleader):
@@ -1242,7 +1266,7 @@ def test_lider_consulta_o_comprovante(receipt, dproject, dstage, dleader):
     assert response.data["stage"] == {
         "id": dstage.pk,
         "name": dstage.name,
-        "position": dstage.order,
+        "order": dstage.order,
     }
     assert response.data["submitted_at"] is not None
 
@@ -1268,7 +1292,9 @@ def test_comprovante_traz_o_mesmo_codigo_do_envio(dproject, dleader, dstage, dfi
 
 
 def test_consulta_do_comprovante_exige_login(receipt):
-    assert APIClient().get(receipt_url(receipt.version)).status_code == 401
+    response = APIClient().get(receipt_url(receipt.version))
+    assert response.status_code == 401
+    assert error_code(response) == "not_authenticated"
 
 
 def test_aluno_de_fora_nao_consulta_o_comprovante(receipt):
@@ -1278,9 +1304,11 @@ def test_aluno_de_fora_nao_consulta_o_comprovante(receipt):
     assert error_code(response) == "project_access_denied"
 
 
-def test_professor_nao_consulta_o_comprovante(receipt):
-    response = client_for(TeacherFactory().user).get(receipt_url(receipt.version))
-    assert response.status_code == 403
+def test_professor_e_avaliador_externo_nao_consultam_o_comprovante(receipt):
+    for user in (TeacherFactory().user, ExternalReviewerFactory().user):
+        response = client_for(user).get(receipt_url(receipt.version))
+        assert response.status_code == 403
+        assert error_code(response) == "permission_denied"
 
 
 def test_comprovante_inexistente_da_404(dleader):
@@ -1318,4 +1346,185 @@ def test_comprovante_continua_visivel_depois_do_prazo(dproject, dleader):
 @pytest.mark.parametrize("method", ["post", "put", "patch", "delete"])
 def test_comprovante_nao_aceita_escrita(receipt, dleader, method):
     response = getattr(client_for(dleader), method)(receipt_url(receipt.version))
+    assert response.status_code == 405
+
+
+# --- prorrogação de prazo da equipe (RF14) ---
+
+
+def extension_url(team):
+    return f"/api/admin/teams/{team.pk}/deadline-extensions"
+
+
+@pytest.fixture
+def admin():
+    return UserFactory(role=UserRole.ADMIN)
+
+
+@pytest.fixture
+def extension_ctx():
+    project = ProjectFactory()
+    now = timezone.now()
+    stage = StageFactory(
+        edition=project.edition,
+        starts_at=now - timedelta(days=5),
+        ends_at=now - timedelta(days=1),
+    )
+    body = {
+        "stage_id": stage.pk,
+        "ends_at": (stage.ends_at + timedelta(days=3)).isoformat(),
+        "reason": "Atestado médico do líder.",
+    }
+    return project, stage, body
+
+
+def test_prorrogacao_201_como_admin(admin, extension_ctx):
+    project, stage, body = extension_ctx
+
+    response = client_for(admin).post(extension_url(project.team), body, format="json")
+
+    assert response.status_code == 201
+    saved = DeadlineExtension.objects.get()
+    assert response.json() == {
+        "id": saved.pk,
+        "team_id": project.team_id,
+        "project_id": project.pk,
+        "stage_id": stage.pk,
+        "ends_at": response.json()["ends_at"],
+        "reason": "Atestado médico do líder.",
+        "granted_by": admin.pk,
+        "granted_at": response.json()["granted_at"],
+    }
+    assert saved.granted_by == admin
+
+
+def test_prorrogacao_exige_login(extension_ctx):
+    project, _, body = extension_ctx
+    response = APIClient().post(extension_url(project.team), body, format="json")
+    assert response.status_code == 401
+
+
+@pytest.mark.parametrize(
+    "papel",
+    [StudentFactory, TeacherFactory, ExternalReviewerFactory],
+)
+def test_prorrogacao_barra_quem_nao_e_admin(papel, extension_ctx):
+    project, _, body = extension_ctx
+    response = client_for(papel().user).post(
+        extension_url(project.team), body, format="json"
+    )
+    assert response.status_code == 403
+    assert DeadlineExtension.objects.count() == 0
+
+
+def test_prorrogacao_404_equipe_inexistente(admin, extension_ctx):
+    _, _, body = extension_ctx
+    response = client_for(admin).post(
+        "/api/admin/teams/999999/deadline-extensions", body, format="json"
+    )
+    assert response.status_code == 404
+
+
+def test_prorrogacao_404_equipe_sem_projeto(admin, extension_ctx):
+    _, _, body = extension_ctx
+    response = client_for(admin).post(extension_url(TeamFactory()), body, format="json")
+    assert response.status_code == 404
+    assert DeadlineExtension.objects.count() == 0
+
+
+def test_prorrogacao_404_etapa_inexistente(admin, extension_ctx):
+    project, _, body = extension_ctx
+    response = client_for(admin).post(
+        extension_url(project.team), {**body, "stage_id": 999999}, format="json"
+    )
+    assert response.status_code == 404
+
+
+@pytest.mark.parametrize(
+    "mudanca",
+    [
+        {"ends_at": "ANTES"},
+        {"ends_at": "IGUAL"},
+        {"stage_id": "OUTRA_EDICAO"},
+        {"reason": ""},
+        {"reason": "   "},
+        {"reason": None},
+        {"ends_at": None},
+    ],
+)
+def test_prorrogacao_400_corpo_ou_regra_invalida(admin, extension_ctx, mudanca):
+    project, stage, body = extension_ctx
+    valores = {
+        "ANTES": (stage.ends_at - timedelta(hours=1)).isoformat(),
+        "IGUAL": stage.ends_at.isoformat(),
+        "OUTRA_EDICAO": StageFactory().pk,
+    }
+    corpo = {
+        **body,
+        **{
+            k: valores.get(v, v) if isinstance(v, str) else v
+            for k, v in mudanca.items()
+        },
+    }
+
+    response = client_for(admin).post(extension_url(project.team), corpo, format="json")
+
+    assert response.status_code == 400
+    assert DeadlineExtension.objects.count() == 0
+
+
+def test_prorrogacao_400_sem_campo_obrigatorio(admin, extension_ctx):
+    project, _, body = extension_ctx
+    body.pop("reason")
+    response = client_for(admin).post(extension_url(project.team), body, format="json")
+    assert response.status_code == 400
+
+
+def test_prorrogacao_409_na_segunda_chamada(admin, extension_ctx):
+    project, _, body = extension_ctx
+    client = client_for(admin)
+    client.post(extension_url(project.team), body, format="json")
+
+    response = client.post(extension_url(project.team), body, format="json")
+
+    assert response.status_code == 409
+    assert error_code(response) == "deadline_extension_already_granted"
+    assert DeadlineExtension.objects.count() == 1
+
+
+def test_prorrogacao_409_edicao_encerrada(admin, extension_ctx):
+    project, _, body = extension_ctx
+    project.edition.status = EditionStatus.CLOSED
+    project.edition.save()
+
+    response = client_for(admin).post(extension_url(project.team), body, format="json")
+
+    assert response.status_code == 409
+    assert error_code(response) == "edition_closed"
+
+
+def test_prorrogacao_ignora_campos_de_auditoria_no_corpo(admin, extension_ctx):
+    project, _, body = extension_ctx
+    outro_projeto = ProjectFactory()
+    corpo = {
+        **body,
+        "granted_by": UserFactory(role=UserRole.ADMIN).pk,
+        "granted_at": "2020-01-01T00:00:00Z",
+        "project_id": outro_projeto.pk,
+    }
+
+    response = client_for(admin).post(extension_url(project.team), corpo, format="json")
+
+    assert response.status_code == 201
+    saved = DeadlineExtension.objects.get()
+    assert saved.granted_by == admin
+    assert saved.project == project
+    assert saved.granted_at.year != 2020
+
+
+@pytest.mark.parametrize("metodo", ["get", "put", "patch", "delete"])
+def test_prorrogacao_so_aceita_post(admin, extension_ctx, metodo):
+    project, _, _ = extension_ctx
+    DeadlineExtensionFactory(project=project)
+    response = getattr(client_for(admin), metodo)(extension_url(project.team))
     assert response.status_code == 405

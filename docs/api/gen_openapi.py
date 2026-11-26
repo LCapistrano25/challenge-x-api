@@ -100,7 +100,7 @@ def op(method, path, opid, tag, summary, rf, roles, desc, *, authz=None, rules=(
     if authz: lines += ["", "**Autorização adicional:** " + authz]
     if rules: lines += ["", "**Regras de negócio:**"] + ["- " + r for r in rules]
     if pend: lines += ["", "**Pendências relacionadas (api-pendencias.md):** " + ", ".join(pend)]
-    HIGH = {"P-01", "P-04", "P-06", "P-19", "P-21", "P-23", "P-25", "P-29", "P-30", "P-31"}
+    HIGH = {"P-19", "P-21"}  # só as de prioridade alta ainda abertas
     blocking = sorted(set(pend) & HIGH)
     status = "proposed" if blocking else "confirmed"
     if blocking:
@@ -152,11 +152,12 @@ enum("FieldType", ["LINK", "FILE", "CANVAS", "SWOT"], "Tipo do campo de entrega 
 enum("InvitationStatus", ["PENDING", "ACCEPTED", "DECLINED", "CANCELLED"], "Situação do convite (enum InvitationStatus).")
 enum("RequestStatus", ["PENDING", "APPROVED", "REJECTED", "CANCELLED"], "Situação de solicitação (enum RequestStatus).")
 enum("EvaluationStatus", ["DRAFT", "FINALIZED"], "Situação da avaliação do professor (enum EvaluationStatus).")
+enum("ResultExclusionReason", ["DISQUALIFIED", "NO_CHALLENGE", "PENDING_SCORE"], "Por que o projeto ficou fora do ranking da edição (calculado, não gravado).")
 enum("ScoreStatus", ["PENDING", "DEFINITIVE", "ZERO_NO_SUBMISSION"], "Situação da nota consolidada da etapa (enum ScoreStatus).")
 enum("QuestionType", ["SCORE", "CONCEPT", "TEXT"], "Tipo de pergunta do formulário final (enum QuestionKind).")
 enum("FinalEvaluationStatus", ["PENDING", "EVALUATED"], "Situação da avaliação final (enum FinalEvaluationStatus).")
 enum("CertificateType", ["PARTICIPATION", "FINALIST", "AWARD"], "Tipo de certificado (enum CertificateKind). Incompleto em relação ao RF17 (P-34).")
-enum("SupportTicketStatus", ["OPEN", "IN_PROGRESS", "WAITING_USER", "RESOLVED", "CLOSED"], "Situação do chamado (enum support_ticket_status). Mapeamento com os requisitos pendente (P-06).")
+enum("SupportTicketStatus", ["OPEN", "IN_PROGRESS", "WAITING_USER", "RESOLVED", "CLOSED"], "Situação do chamado (enum support_ticket_status). WAITING_USER existe, mas os admins não usam: o usuário não tem como responder (P-06, P-08).")
 enum("SupportTicketPriority", ["LOW", "MEDIUM", "HIGH", "URGENT"], "Prioridade do chamado (enum support_ticket_priority).")
 enum("NotificationType", ["SYSTEM", "TEAM", "PROJECT", "DELIVERABLE", "EVALUATION", "RESULT", "CERTIFICATE"], "Tipo da notificação (enum notification_type).")
 # derivados (não persistidos)
@@ -304,9 +305,9 @@ SC["Edition"] = obj({
     "min_members": INT(ex=3, minimum=1), "max_members": INT(ex=5, minimum=1),
     "published_at": nul(DT(ex=None)), "closed_at": nul(DT(ex=None)), "created_at": DT(), "updated_at": DT(),
 }, ["id", "year", "semester", "name", "status", "regulation_url", "min_members", "max_members", "published_at", "closed_at", "created_at", "updated_at"])
-SC["EditionCreate"] = obj({"year": INT(ex=2026), "semester": INT(ex=1, enum=[1, 2]), "name": nul(STR(ex="Desafio X 2026/1", maxLength=100))},
+SC["EditionCreate"] = obj({"year": INT(ex=2026, minimum=2000, maximum=2100), "semester": INT(ex=1, enum=[1, 2]), "name": nul(STR(ex="Desafio X 2026/1", maxLength=100))},
                           ["year", "semester"], strict=True)
-SC["EditionUpdate"] = obj({"name": nul(STR(ex="Desafio X 2026/1", maxLength=100)), "min_members": INT(ex=3, minimum=1), "max_members": INT(ex=5, minimum=1)},
+SC["EditionUpdate"] = obj({"name": nul(STR(ex="Desafio X 2026/1", maxLength=100)), "min_members": INT(ex=3, minimum=1, maximum=20), "max_members": INT(ex=5, minimum=1, maximum=20)},
                           desc="Ao menos um campo deve ser informado.", strict=True, minProperties=1)
 SC["EditionPublish"] = obj({"notice_file": STR("PDF do edital oficial.", contentMediaType="application/pdf", format="binary")}, ["notice_file"])
 SC["EditionClose"] = obj({"confirm": {"type": "boolean", "const": True, "description": "Confirmação explícita do encerramento irreversível (P-45).", "examples": [True]}}, ["confirm"], strict=True)
@@ -376,9 +377,9 @@ SC["StageUpdate"] = obj({
     "max_score": nul(DEC(ex="3.00")), "min_evaluations": INT(ex=2, minimum=1),
     "submission_fields": arr(ref("DeliverableFieldWrite"), description="Quando informado, substitui o conjunto de campos da etapa."),
 }, desc="Ao menos um campo deve ser informado.", strict=True, minProperties=1)
-SC["StageCriterion"] = obj({"id": INT(ex=51), "criterion": obj({"id": INT(ex=21), "name": STR(ex="Inovação")}, ["id", "name"]), "max_score": DEC(ex="1.50")},
+SC["StageCriterion"] = obj({"id": INT(ex=51), "criterion": obj({"id": INT(ex=21), "name": STR(ex="Inovação")}, ["id", "name"]), "max_score": DEC("Pontuação máxima do critério na etapa. Padrão 10 (escala do Quadro 1); funciona como peso, sem somar o valor da etapa (D-02).", "10.00")},
                            ["id", "criterion", "max_score"])
-SC["StageCriteriaUpdate"] = obj({"items": arr(obj({"criterion_id": INT(ex=21), "max_score": DEC(ex="1.50")}, ["criterion_id", "max_score"], strict=True),
+SC["StageCriteriaUpdate"] = obj({"items": arr(obj({"criterion_id": INT(ex=21), "max_score": DEC("Pontuação máxima do critério na etapa. Padrão 10 (escala do Quadro 1); funciona como peso, sem somar o valor da etapa (D-02).", "10.00")}, ["criterion_id", "max_score"], strict=True),
                                               description="Conjunto completo de critérios da etapa.")}, ["items"], strict=True)
 SC["FinalQuestion"] = obj({"id": INT(ex=61), "order": INT(ex=1), "prompt": TXT(ex="Clareza e qualidade do pitch"), "kind": ref("QuestionType"),
                            "max_score": nul(DEC(ex="10.00"))}, ["id", "order", "prompt", "kind", "max_score"])
@@ -442,6 +443,8 @@ SC["Team"] = obj({
     desc="formation_extended_until: fim da janela extra para repor a vaga, concedida uma vez quando uma saída nas últimas 24 horas do prazo deixa a equipe abaixo do mínimo; nulo se não houve.")
 SC["TeamLeave"] = obj({"confirm": BOOL("Confirma a saída que deixa a equipe abaixo do mínimo de integrantes. Corpo opcional; sem ele, confirm é false.", False)},
                       description="Corpo opcional.", strict=True)
+SC["TeamUpdate"] = obj({"name": STR(ex="Equipe Aurora", maxLength=150, minLength=1)}, ["name"], strict=True,
+                       desc="Só o nome é editável; integrantes, liderança e projeto têm rotas próprias.")
 SC["TeamCreate"] = obj({"name": STR(ex="Equipe Aurora", maxLength=150),
                         "invitations": arr(ref("InvitationCreate"), minItems=1,
                                            description="Alunos a convidar, por student_id ou email. De min_members - 1 a max_members - 1 (nunca menos de 1).")},
@@ -454,7 +457,15 @@ SC["AdminTeamListItem"] = obj({"id": INT(ex=12), "edition_id": INT(ex=3), "name"
                                "project": nul(ref("ProjectRef"))},
                               ["id", "edition_id", "name", "code", "status", "situation", "member_count", "project"])
 SC["TeamDisqualify"] = obj({"reason": TXT("Justificativa obrigatória.", "Plágio comprovado na entrega preliminar.", minLength=1)}, ["reason"], strict=True)
-SC["InvitationCreate"] = obj({"student_id": USER_ID("Aluno cadastrado a ser convidado.")}, ["student_id"], strict=True)
+SC["InvitableStudent"] = obj({"id": USER_ID("Use como student_id no convite.", 42), "name": STR(ex="Maria Souza"), "course": ref("CourseSummary")},
+                            ["id", "name", "course"], desc="Sem e-mail, matrícula ou período (LGPD).")
+SC["InvitationCreate"] = {
+    "oneOf": [
+        obj({"student_id": USER_ID("Aluno cadastrado a ser convidado.")}, ["student_id"], strict=True),
+        obj({"email": EMAIL("E-mail de aluno cadastrado, ativo e com e-mail confirmado.")}, ["email"], strict=True),
+    ],
+    "description": "Um aluno, por student_id ou por email, nunca os dois (400 validation_error).",
+}
 SC["Invitation"] = obj(
     {
         "id": INT(ex=88),
@@ -495,12 +506,18 @@ SC["LeadershipRequest"] = obj({
 SC["LeadershipDecision"] = obj({"status": STR(ex="APPROVED", enum=["APPROVED", "REJECTED"]),
                                 "decision_justification": TXT(ex="Integrante ativo e com participação regular.", minLength=1)},
                                ["status", "decision_justification"], strict=True)
-SC["MemberNoteCreate"] = obj({"member_id": INT("Vínculo (team_member) observado.", 103), "text": TXT(ex="Não participou das duas últimas reuniões.", minLength=1)},
-                             ["member_id", "text"], strict=True)
+SC["MemberNoteCreate"] = obj({
+    "member_id": INT("Vínculo (team_member) observado.", 103),
+    "text": TXT(ex="Não participou das duas últimas reuniões.", minLength=1),
+}, ["member_id", "text"], strict=True)
 SC["MemberNoteCreated"] = obj({"id": INT(ex=17), "created_at": DT()}, ["id", "created_at"], desc="Não retorna o conteúdo: o líder não pode visualizá-lo (RF33).")
-SC["MemberNote"] = obj({"id": INT(ex=17), "member": ref("UserSummary"), "author": ref("UserSummary"),
-                        "text": TXT(ex="Não participou das duas últimas reuniões."), "created_at": DT()},
-                       ["id", "member", "author", "text", "created_at"])
+SC["MemberNote"] = obj({
+    "id": INT(ex=17),
+    "member": ref("UserSummary"),
+    "author": ref("UserSummary"),
+    "text": TXT(ex="Não participou das duas últimas reuniões."),
+    "created_at": DT(),
+}, ["id", "member", "author", "text", "created_at"])
 
 # ---------------------------------------------------------------- projects
 SC["Project"] = obj({
@@ -568,6 +585,18 @@ SC["Receipt"] = obj({
     "team": ref("TeamRef"), "project": ref("ProjectRef"), "stage": ref("StageRef"), "submitted_at": DT(),
 }, ["id", "version_id", "number", "verification_code", "file_url", "generated_at", "team", "project", "stage", "submitted_at"])
 
+SC["DeadlineExtensionWrite"] = obj({
+    "stage_id": INT("Etapa a prorrogar; precisa ser da edição do projeto.", 12),
+    "ends_at": DT("Novo prazo da equipe; precisa ser depois do fim da etapa.", "2026-11-25T23:59:00Z"),
+    "reason": TXT("Justificativa da prorrogação (obrigatória, sem ser só espaços).", "Atestado médico do líder."),
+}, ["stage_id", "ends_at", "reason"], strict=True)
+SC["DeadlineExtension"] = obj({
+    "id": INT(ex=3), "team_id": INT(ex=15), "project_id": INT(ex=9), "stage_id": INT(ex=12),
+    "ends_at": DT("Novo prazo da equipe na etapa.", "2026-11-25T23:59:00Z"), "reason": TXT(ex="Atestado médico do líder."),
+    "granted_by": INT("Id do administrador.", 1), "granted_at": DT(ex="2026-11-20T14:30:00Z"),
+}, ["id", "team_id", "project_id", "stage_id", "ends_at", "reason", "granted_by", "granted_at"],
+    desc="Prorrogação gravada; é o histórico do ajuste e não se altera nem se apaga (P-21).")
+
 # ---------------------------------------------------------------- dashboard
 SC["ScoreSummary"] = obj({"status": ref("ScoreStatus"), "value": nul(DEC(ex="2.40"))}, ["status", "value"])
 SC["DashboardStage"] = obj({"stage": ref("StageSchedule"), "deliverable_status": nul(ref("DeliverableStatus")), "score": nul(ref("ScoreSummary"))},
@@ -587,7 +616,7 @@ SC["TeacherProjectRow"] = obj({
     "deliverable_status": ref("DeliverableStatus"), "evaluation_count": INT("Avaliações finalizadas na etapa.", 1),
     "min_evaluations": INT(ex=2), "my_evaluation_status": ref("MyEvaluationStatus"),
 }, ["project", "team", "challenge_course", "stage", "deliverable_status", "evaluation_count", "min_evaluations", "my_evaluation_status"])
-SC["EvaluationItem"] = obj({"stage_criterion_id": INT(ex=51), "points": DEC(ex="1.25"), "comment": nul(TXT(ex="Boa fundamentação."))},
+SC["EvaluationItem"] = obj({"stage_criterion_id": INT(ex=51), "points": DEC("Nota do critério, de 0 ao max_score do critério (padrão 10).", "8.00"), "comment": nul(TXT(ex="Boa fundamentação."))},
                            ["stage_criterion_id", "points", "comment"])
 SC["Evaluation"] = obj({"id": INT(ex=201), "project_id": INT(ex=40), "stage_id": INT(ex=7), "status": ref("EvaluationStatus"),
                         "comment": nul(TXT(ex="Projeto bem estruturado; detalhar custos.")), "items": arr(ref("EvaluationItem")),
@@ -597,10 +626,10 @@ SC["EvaluationForm"] = obj({
     "project": ref("ProjectRef"), "stage": obj({"id": INT(ex=7), "name": STR(ex="Entrega Preliminar"), "max_score": DEC(ex="3.00")}, ["id", "name", "max_score"]),
     "criteria": arr(obj({"stage_criterion_id": INT(ex=51), "criterion": obj({"id": INT(ex=21), "name": STR(ex="Inovação"),
                                                                              "rubric": nul(TXT(ex="Avalia o grau de originalidade..."))}, ["id", "name", "rubric"]),
-                         "max_score": DEC(ex="1.50")}, ["stage_criterion_id", "criterion", "max_score"])),
+                         "max_score": DEC(ex="10.00")}, ["stage_criterion_id", "criterion", "max_score"])),
     "evaluation": nul(ref("Evaluation")),
 }, ["project", "stage", "criteria", "evaluation"])
-SC["EvaluationItemWrite"] = obj({"stage_criterion_id": INT(ex=51), "points": DEC(ex="1.25"), "comment": nul(TXT(ex="Boa fundamentação."))},
+SC["EvaluationItemWrite"] = obj({"stage_criterion_id": INT(ex=51), "points": DEC("Nota do critério, de 0 ao max_score do critério (padrão 10).", "8.00"), "comment": nul(TXT(ex="Boa fundamentação."))},
                                 ["stage_criterion_id", "points"], strict=True)
 SC["EvaluationWrite"] = obj({"status": STR("DRAFT salva rascunho; FINALIZED conclui e torna a avaliação imutável.", "FINALIZED", enum=["DRAFT", "FINALIZED"]),
                              "comment": nul(TXT(ex="Projeto bem estruturado; detalhar custos.")),
@@ -618,12 +647,12 @@ SC["Rectification"] = obj({
 }, ["id", "evaluation_id", "stage_criterion_id", "previous_points", "new_points", "reason", "rectified_by", "rectified_at", "stage_score"])
 SC["StageScoreDetail"] = obj({
     "stage": ref("StageRef"), "max_score": DEC(ex="3.00"), "status": ref("ScoreStatus"),
-    "value": nul(DEC("Média aritmética das avaliações finalizadas; exibida quando DEFINITIVE. Zero quando ZERO_NO_SUBMISSION.", "2.40")),
+    "value": nul(DEC("Cada avaliação finalizada vale (soma dos points / soma dos max_score dos critérios) × max_score da etapa; o valor é a média entre elas (D-02). Exibida quando DEFINITIVE. Zero quando ZERO_NO_SUBMISSION.", "2.40")),
     "evaluation_count": INT(ex=2), "min_evaluations": INT(ex=2), "deliverable_status": ref("DeliverableStatus"),
-    "criteria": arr(obj({"criterion": ref("CriterionRef"), "max_score": DEC(ex="1.50"), "average": nul(DEC(ex="1.20"))}, ["criterion", "max_score", "average"]),
+    "criteria": arr(obj({"criterion": ref("CriterionRef"), "max_score": DEC(ex="10.00"), "average": nul(DEC(ex="8.00"))}, ["criterion", "max_score", "average"]),
                     description="Média por critério entre as avaliações finalizadas."),
     "feedback": arr(obj({"comment": nul(TXT(ex="Projeto bem estruturado; detalhar custos.")),
-                         "items": arr(obj({"criterion_name": STR(ex="Inovação"), "points": DEC(ex="1.25"), "comment": nul(TXT(ex="Boa fundamentação."))},
+                         "items": arr(obj({"criterion_name": STR(ex="Inovação"), "points": DEC(ex="8.00"), "comment": nul(TXT(ex="Boa fundamentação."))},
                                           ["criterion_name", "points", "comment"]))}, ["comment", "items"]),
                     description="Feedbacks das avaliações finalizadas, sem identificar o professor (P-44)."),
 }, ["stage", "max_score", "status", "value", "evaluation_count", "min_evaluations", "deliverable_status", "criteria", "feedback"])
@@ -643,6 +672,20 @@ SC["FinalEvaluationWrite"] = obj({"status": STR(ex="EVALUATED", enum=["PENDING",
                                   "answers": arr(ref("FinalAnswerWrite"))}, ["status", "answers"], strict=True)
 
 # ---------------------------------------------------------------- results
+SC["ResultRow"] = obj({"project": ref("ProjectRef"), "team": ref("TeamRef"), "course": ref("CourseSummary"), "category": nul(ref("CategoryRef")),
+                      "final_score": DEC("Soma das notas das etapas de entrega pontuadas (0 a 10).", "7.50"),
+                      "course_rank": INT("Posição no curso; empate total divide a posição (1, 1, 3).", 1, minimum=1),
+                      "finalist": BOOL(ex=True),
+                      "category_rank": nul(INT("Posição do finalista na categoria, na edição inteira (D-01); nula até o pódio ser calculado ou sem avaliação externa.", 1, minimum=1)),
+                      "award": nul(INT("Colocação premiada (1 a 3) na categoria; nula quando não premiado.", 1, enum=[1, 2, 3]))},
+                     ["project", "team", "course", "category", "final_score", "course_rank", "finalist", "category_rank", "award"])
+SC["ResultExcluded"] = obj({"project_id": INT(ex=40), "team_id": INT(ex=12), "reason": ref("ResultExclusionReason")}, ["project_id", "team_id", "reason"])
+SC["EditionResults"] = obj({"edition_id": INT(ex=3), "approved_at": nul(DT(ex=None)), "results": arr(ref("ResultRow")), "excluded": arr(ref("ResultExcluded"))},
+                          ["edition_id", "approved_at", "results", "excluded"],
+                          desc="Ranking gravado da edição, por curso, e os projetos que estão fora dele agora.")
+SC["FinalistsSelect"] = obj({"project_ids": arr(INT(ex=40, minimum=1), minItems=1, uniqueItems=True,
+                                                description="Lista completa de finalistas. Omitida: os 3 primeiros de cada curso (course_rank ≤ 3).")},
+                           strict=True, description="Corpo opcional.")
 SC["CertificateTemplate"] = obj({"id": INT(ex=6), "edition_id": INT(ex=3), "kind": ref("CertificateType"),
                                  "template_url": nul(URL(ex="https://storage.projetox.edu.br/certificados/modelos/participacao-2026-1.pdf")),
                                  "signatures": nul(TXT(ex="Reitoria; Coordenação do Desafio X")), "created_at": DT(), "updated_at": DT()},
@@ -684,7 +727,7 @@ SC["Notification"] = obj({"id": UUID(ex="c1d2e3f4-a5b6-4c7d-8e9f-0a1b2c3d4e5f"),
 # ---------------------------------------------------------------- paginated
 PStudent = paginated("StudentAdmin"); PTeacher = paginated("TeacherAdmin"); PEval = paginated("ExternalEvaluatorAdmin")
 PPublicProject = paginated("PublicProject"); PTeamListing = paginated("TeamListing"); PAdminTeam = paginated("AdminTeamListItem")
-PTeacherRow = paginated("TeacherProjectRow"); PFinalist = paginated("FinalistRow"); PLeader = paginated("LeadershipRequest")
+PInvitable = paginated("InvitableStudent"); PTeacherRow = paginated("TeacherProjectRow"); PFinalist = paginated("FinalistRow"); PLeader = paginated("LeadershipRequest")
 PTicket = paginated("SupportTicket"); PTicketAdmin = paginated("SupportTicketAdmin"); PNotif = paginated("Notification")
 
 # ---------------------------------------------------------------- parameters
@@ -710,6 +753,7 @@ PARAMS = {
     "EvaluationId": pp("evaluation_id", {"type": "integer"}, "Identificador da avaliação."),
     "ProjectId": pp("project_id", {"type": "integer"}, "Identificador do projeto."),
     "ItemId": pp("item_id", {"type": "integer"}, "Identificador do item da entrega."),
+    "RegulationToken": pp("token", {"type": "string", "format": "uuid"}, "Identificador do arquivo do edital, gerado na publicação; vem pronto no regulation_url."),
     "VersionId": pp("version_id", {"type": "integer"}, "Identificador da versão da entrega."),
     "TicketId": pp("ticket_id", {"type": "string", "format": "uuid"}, "Identificador do chamado."),
     "NotificationId": pp("notification_id", {"type": "string", "format": "uuid"}, "Identificador da notificação."),
@@ -717,6 +761,8 @@ PARAMS = {
     "Page": qp("page", {"type": "integer", "minimum": 1, "default": 1}, "Número da página (P-38)."),
     "PageSize": qp("page_size", {"type": "integer", "minimum": 1, "maximum": 100, "default": 20}, "Itens por página (P-38)."),
     "Search": qp("search", {"type": "string"}, "Busca textual."),
+    "StudentNameSearch": {"name": "search", "in": "query", "required": True, "description": "Parte do nome do aluno, com pelo menos 3 caracteres.",
+                          "schema": {"type": "string", "minLength": 3}},
     "ActiveFilter": qp("active", {"type": "boolean"}, "Filtra pelo status de ativação."),
     "InstitutionalRoleFilter": qp("role", {"type": "string", "enum": ["STUDENT", "TEACHER"]}, "Filtra pelo perfil institucional."),
     "CourseFilter": qp("course_id", {"type": "integer"}, "Filtra por curso."),
@@ -883,10 +929,12 @@ op("patch", "/api/admin/editions/{edition_id}", "editionsUpdate", "editions", "A
 op("post", "/api/admin/editions/{edition_id}/publish", "editionsPublish", "editions", "Publicar edital da edição", ["RF09"], ["ADMIN"],
    "Valida as parametrizações obrigatórias, armazena o PDF do edital e muda o status para PUBLISHED.",
    params=["EditionId"], body=ref("EditionPublish"), ct="multipart/form-data", ok=ref("Edition"), errs=["404"],
-   rules=["Pré-condições: cursos ativos, ODS habilitadas, desafios, categorias, limites, critérios, etapas pontuadas somando 10,00 e critérios por etapa somando o valor de cada etapa.",
+   rules=["Pré-condições: cursos ativos, ODS habilitadas, desafios, categorias, limites, critérios, etapas pontuadas somando 10,00 e critérios vinculados às etapas pontuadas.",
           "Após publicar, congela etapas, pontuação, critérios por etapa e limites de equipe."],
    conflicts=[("edition_not_in_setup", "Somente edições em configuração podem ser publicadas."),
-              ("publication_requirements_not_met", "Há parametrizações obrigatórias pendentes; ver details.")], pend=["P-16", "P-43"])
+              ("publication_requirements_not_met", "Há parametrizações obrigatórias pendentes; ver details.")], pend=["P-16", "P-43"],
+   more={"503": {"description": "Armazenamento de arquivos indisponível.", "content": {"application/json": {"schema": ref("Error"),
+         "example": {"error": {"code": "storage_unavailable", "message": "Armazenamento indisponível.", "details": None}}}}}})
 op("post", "/api/admin/editions/{edition_id}/close", "editionsClose", "editions", "Encerrar edição", ["RF47"], ["ADMIN"],
    "Encerra a edição de forma irreversível.", params=["EditionId"], body=ref("EditionClose"), ok=ref("Edition"), errs=["404"],
    rules=["Bloqueia novas entregas, avaliações e alterações (inclusive do ADMIN), exceto emissão de certificados.", "O acesso dos avaliadores externos expira."],
@@ -896,7 +944,7 @@ op("get", "/api/admin/editions/{edition_id}/sdgs", "editionsListSdgs", "editions
    "Lista as ODS habilitadas.", params=["EditionId"], ok=arr(ref("Sdg")), errs=["404"])
 op("put", "/api/admin/editions/{edition_id}/sdgs", "editionsSetSdgs", "editions", "Definir ODS habilitadas na edição", ["RF04"], ["ADMIN"],
    "Substitui o conjunto de ODS habilitadas.", params=["EditionId"], body=ref("EditionSdgsUpdate"), ok=arr(ref("Sdg")), errs=["404"],
-   rules=["Somente ODS ativas.", "Uma ODS usada por desafio da edição não pode ser removida."],
+   rules=["Somente ODS ativas podem ser incluídas; as já habilitadas permanecem mesmo se inativadas no catálogo.", "Uma ODS usada por desafio da edição não pode ser removida."],
    conflicts=[("sdg_in_use", "A ODS está vinculada a desafios da edição."), CLOSED])
 op("get", "/api/admin/editions/{edition_id}/challenges", "editionsListChallenges", "editions", "Listar desafios da edição", ["RF05"], ["ADMIN"],
    "Lista os desafios da edição.", params=["EditionId", "CourseFilter", "SdgFilter", "ActiveFilter"], ok=arr(ref("Challenge")), errs=["404"])
@@ -952,7 +1000,7 @@ op("get", "/api/admin/stages/{stage_id}/criteria", "editionsListStageCriteria", 
 op("put", "/api/admin/stages/{stage_id}/criteria", "editionsSetStageCriteria", "editions", "Definir critérios e pontuações da etapa", ["RF08"], ["ADMIN"],
    "Substitui os critérios vinculados à etapa pontuada e suas pontuações máximas.", params=["StageId"], body=ref("StageCriteriaUpdate"),
    ok=arr(ref("StageCriterion")), errs=["404"],
-   rules=["Somente etapas pontuadas.", "max_score > 0.", "Soma dos max_score dos critérios igual ao max_score da etapa (400 stage_criteria_sum_mismatch).",
+   rules=["Somente etapas pontuadas.", "max_score > 0.", "Cada critério vale 10 por padrão e funciona como peso; a soma dos critérios não precisa igualar o max_score da etapa (D-02).",
           "Critério e etapa da mesma edição."], conflicts=[FROZEN, CLOSED])
 op("get", "/api/admin/editions/{edition_id}/final-form", "editionsGetFinalForm", "editions", "Consultar formulário da etapa final", ["RF12"], ["ADMIN"],
    "Retorna o formulário de avaliação dos avaliadores externos.", params=["EditionId"], ok=ref("FinalForm"), errs=["404"])
@@ -990,8 +1038,18 @@ op("get", "/api/public/projects", "publicListProjects", "public", "Vitrine e ace
 op("get", "/api/public/projects/{project_id}", "publicGetProject", "public", "Detalhe público do projeto", ["RF34", "RF45"], [],
    "Retorna a identidade pública de um projeto.", public=True, params=["ProjectId"], ok=ref("PublicProject"), errs=["404"],
    rules=["Projeto de equipe desclassificada retorna 404."])
+op("get", "/api/public/editions/{edition_id}/regulation/{token}", "publicDownloadRegulation", "public", "Baixar o edital da edição", ["RF09"], [],
+   "Devolve o PDF do edital publicado. É o endereço do regulation_url da edição.", public=True, params=["EditionId", "RegulationToken"],
+   ok=None, ok_desc="PDF do edital.", errs=["404"],
+   more={"200": {"description": "PDF do edital, como anexo (`Content-Disposition: attachment; filename=edital.pdf`, `X-Content-Type-Options: nosniff`).",
+                 "content": {"application/pdf": {"schema": {"type": "string", "format": "binary"}}}},
+         "503": {"description": "Armazenamento do edital indisponível.",
+                 "content": {"application/json": {"schema": ref("Error"),
+                 "example": {"error": {"code": "storage_unavailable", "message": "Armazenamento indisponível.", "details": None}}}}}},
+   rules=["Somente edições PUBLISHED ou CLOSED; o caminho precisa ser o do regulation_url da edição (404 nos demais casos).",
+          "O arquivo fica em armazenamento próprio; a URL não expõe o caminho do disco (P-43)."], pend=["P-43"])
 op("get", "/api/public/editions/{edition_id}/winners", "publicListWinners", "public", "Galeria de vencedores da edição", ["RF35", "RF46"], [],
-   "Pódio (1º a 3º) por curso e categoria de uma edição encerrada e homologada.", public=True, params=["EditionId"], ok=arr(ref("Winner")),
+   "Pódio (1º a 3º) por categoria, na edição inteira, de uma edição encerrada e homologada (D-01). Ordenado por categoria e colocação.", public=True, params=["EditionId"], ok=arr(ref("Winner")),
    errs=["404"], rules=["Somente edições CLOSED com resultados homologados."], pend=["P-28", "P-30"])
 
 # ---------- teams
@@ -1017,13 +1075,26 @@ op("get", "/api/teams", "teamsListAvailable", "teams", "Consultar equipes com va
 op("get", "/api/teams/{team_id}", "teamsGet", "teams", "Consultar equipe", ["RF13", "RF20"], ["STUDENT", "TEACHER", "ADMIN"],
    "Retorna a equipe com integrantes ativos e situação.", params=["TeamId"], ok=ref("Team"), errs=["404"],
    authz="STUDENT: integrante ativo. TEACHER: vínculo ativo com o curso do desafio do projeto da equipe. ADMIN: qualquer equipe. Sem acesso retorna 404.")
+op("patch", "/api/teams/{team_id}", "teamsUpdate", "teams", "Editar o nome da equipe", ["RF21"], ["STUDENT"],
+   "Altera o nome da equipe durante a formação (Art. 15 § 1º: até o prazo, só o líder atualiza a inscrição).",
+   params=["TeamId"], body=ref("TeamUpdate"), ok=ref("Team"), errs=["404"], authz=LEADER + " Erro 403: not_team_leader.",
+   rules=["Somente durante o prazo da etapa FORMATION.", "Nome único na edição (equipe desfeita libera o nome); de 1 a 150 caracteres, sem espaços nas pontas.",
+          "Equipe desclassificada não edita."],
+   conflicts=[FORM_CLOSED, ("team_name_taken", "Já existe equipe com este nome na edição."), ("team_disqualified", "A equipe está desclassificada.")])
 op("post", "/api/teams/{team_id}/invitations", "teamsCreateInvitation", "teams", "Enviar convite", ["RF22"], ["STUDENT"],
    "Convida um aluno (por identificador ou e-mail institucional).", params=["TeamId"], body=ref("InvitationCreate"),
    req_ex={"student_id": 42}, ok=ref("Invitation"), ok_code="201", ok_desc="Convite enviado.", errs=["404"],
    authz=LEADER,
    rules=["Somente durante a formação.", "Total de integrantes atual < max_members.", "Convidado não pode estar em outra equipe da edição.",
+          "Por e-mail, o aluno precisa estar cadastrado, ativo e com e-mail confirmado; senão, 404.",
           "Não pode haver convite PENDING para o mesmo aluno/e-mail e equipe.", "Gera notificação TEAM ao convidado quando ele já possui usuário (P-13)."],
    conflicts=[FORM_CLOSED, TEAM_FULL, IN_TEAM, ("invitation_pending_exists", "Já existe convite pendente para este aluno.")], pend=["P-13"])
+op("get", "/api/teams/{team_id}/invitable-students", "teamsListInvitableStudents", "teams", "Buscar alunos para convidar", ["RF22"], ["STUDENT"],
+   "Lista os alunos que a equipe pode convidar, para o popup de convite; o convite vai com o id como student_id.",
+   params=["TeamId", "StudentNameSearch"] + PAGE, ok=PInvitable, errs=["404"], authz=LEADER + " Erro 403: not_team_leader.",
+   rules=["search é obrigatório, com pelo menos 3 caracteres, e busca pelo nome (400 validation_error).",
+          "Só alunos ativos, com e-mail confirmado e sem equipe ativa na edição da equipe (as regras do convite); quem já tem convite pendente desta equipe fica de fora.",
+          "Sem restrição por curso. Ordenado por nome."], pend=["P-13"])
 op("get", "/api/teams/{team_id}/invitations", "teamsListInvitations", "teams", "Listar convites enviados pela equipe", ["RF22"], ["STUDENT"],
    "Lista os convites da equipe.", params=["TeamId", "InvitationStatusFilter"], ok=arr(ref("Invitation")), errs=["404"], authz=LEADER)
 op("get", "/api/me/invitations", "teamsListMyInvitations", "teams", "Listar convites recebidos", ["RF23"], ["STUDENT"],
@@ -1084,10 +1155,11 @@ op("post", "/api/leadership-requests/{leadership_request_id}/decide", "teamsDeci
    pend=["P-24"])
 op("post", "/api/teams/{team_id}/member-notes", "teamsCreateMemberNote", "teams", "Registrar observação sobre integrante", ["RF33"], ["STUDENT"],
    "Registra observação confidencial sobre um integrante.", params=["TeamId"], body=ref("MemberNoteCreate"), ok=ref("MemberNoteCreated"),
-   ok_code="201", ok_desc="Observação registrada.", errs=["404"], authz=LEADER,
+   ok_code="201", ok_desc="Observação registrada.", errs=["400", "403", "404"],
+   authz=LEADER + " Erro 403: not_team_leader.",
    rules=["O integrante deve pertencer à equipe.", "O conteúdo não é retornado nem consultável pelo líder ou pelos alunos."])
 op("get", "/api/teams/{team_id}/member-notes", "teamsListMemberNotes", "teams", "Consultar observações sobre integrantes", ["RF39"], ["TEACHER", "ADMIN"],
-   "Lista as observações registradas pelo líder.", params=["TeamId"], ok=arr(ref("MemberNote")), errs=["404"],
+   "Lista as observações confidenciais registradas pelos líderes da equipe.", params=["TeamId"], ok=arr(ref("MemberNote")), errs=["404"],
    authz="TEACHER com vínculo ativo no curso do desafio do projeto; ADMIN.")
 op("get", "/api/admin/teams", "teamsAdminList", "teams", "Listar equipes (administração)", ["RF13"], ["ADMIN"], "Lista equipes com situação.",
    params=["EditionFilter", "TeamStatusFilter", "Search"] + PAGE, ok=PAdminTeam)
@@ -1145,7 +1217,7 @@ op("post", "/api/projects/{project_id}/stages/{stage_id}/versions", "projectsSub
           "Arquivo: extensão permitida pelos formatos do campo (400 file_format_not_allowed), até o tamanho máximo do campo e do servidor (400 file_too_large), não vazio e com conteúdo que combine com a extensão. Executáveis e scripts nunca entram.",
           "JSON aceita links, canvas e SWOT. Arquivos exigem multipart/form-data: `items` em string JSON, com `file_index` apontando para `files[]`; arquivo sobrando ou índice inexistente é 400.",
           "Os arquivos ficam em armazenamento privado, sem URL pública; o download é por GET /api/deliverable-items/{item_id}/file.",
-          "O projeto precisa ter desafio, título e resumo (400 validation_error).",
+          "O projeto precisa ter desafio, categoria, título e resumo (400 validation_error; D-06).",
           "Cada envio cria number sequencial; versões anteriores são preservadas.", "Equipe desclassificada ou incompleta não envia (P-23)."],
    conflicts=[("stage_deadline_closed", "O prazo da etapa está encerrado."), ("team_disqualified", "A equipe está desclassificada."),
               ("team_incomplete", "Equipes incompletas não podem realizar entregas."), ("stage_not_open", "A etapa ainda não está aberta."), CLOSED], pend=["P-23", "P-43", "P-47"])
@@ -1163,6 +1235,17 @@ op("get", "/api/deliverable-versions/{version_id}/receipt", "projectsGetReceipt"
           "Somente leitura: o comprovante e a versão não se alteram depois de criados.",
           "A consulta continua permitida com equipe desclassificada, edição encerrada ou prazo vencido.",
           "file_url é nulo enquanto o PDF do comprovante não for gerado."], pend=["P-43"])
+
+op("post", "/api/admin/teams/{team_id}/deadline-extensions", "projectsCreateDeadlineExtension", "projects", "Prorrogar o prazo de uma equipe", ["RF14"], ["ADMIN"],
+   "Concede à equipe um prazo de entrega maior que o da etapa e grava a prorrogação no histórico, que não pode ser alterado nem excluído.",
+   params=["TeamId"], body=ref("DeadlineExtensionWrite"), ok=ref("DeadlineExtension"), ok_code="201", ok_desc="Prorrogação registrada.", errs=["404"],
+   rules=["Uma prorrogação por projeto e etapa; a segunda recebe 409 deadline_extension_already_granted.",
+          "O novo prazo precisa ser depois do fim da etapa e a etapa, da edição do projeto (400 validation_error).",
+          "Justificativa obrigatória.",
+          "Vale só para esta equipe; os envios e a nota zero passam a usar o novo prazo.",
+          "Equipe sem projeto, equipe ou etapa inexistente: 404. Edição encerrada não aceita (RN33).",
+          "O administrador (granted_by) e a data (granted_at) vêm da sessão e do servidor, nunca do corpo."],
+   conflicts=[("deadline_extension_already_granted", "A equipe já tem prorrogação de prazo nesta etapa."), CLOSED], pend=["P-46"])
 
 # ---------- evaluations
 op("get", "/api/teacher/projects", "evaluationsListTeacherProjects", "evaluations", "Painel de acompanhamento do curso", ["RF37"], ["TEACHER"],
@@ -1225,6 +1308,43 @@ op("put", "/api/evaluator/finalists/{project_id}/final-evaluation", "evaluations
    conflicts=[("final_form_not_published", "O formulário da etapa final ainda não foi publicado."), ("final_evaluation_already_finalized", "A avaliação final já foi finalizada."), CLOSED], pend=["P-30"])
 
 # ---------- results
+op("post", "/api/admin/editions/{edition_id}/results/calculate", "resultsCalculate", "results", "Calcular nota final e ranking", ["RF15"], ["ADMIN"],
+   "Calcula e grava a nota final e a posição no curso de cada projeto da edição. Pode repetir até a homologação.",
+   params=["EditionId"], ok=ref("EditionResults"), errs=["404"],
+   rules=["Nota final = soma das etapas de entrega pontuadas; o projeto só entra no ranking com todas elas DEFINITIVE ou ZERO_NO_SUBMISSION.",
+          "Fora do ranking: equipe ou projeto desclassificado, projeto sem desafio, nota pendente (lista em excluded). Equipe desfeita não aparece.",
+          "Desempate (Art. 24): critérios com tiebreak_order, na ordem; nota do critério em escala 0 a 10 por etapa, média dos professores, soma entre etapas.",
+          "Recalcular preserva os finalistas ainda classificados; quem sai do ranking perde nota, posição e a marca de finalista.",
+          "O sistema não calcula pontos do aluno na disciplina (D-04)."],
+   conflicts=[("no_scored_stages", "A edição não tem etapa de entrega pontuada."), ("results_already_approved", "O resultado da edição já foi homologado."), CLOSED],
+   pend=["P-46"])
+op("post", "/api/admin/editions/{edition_id}/finalists", "resultsSelectFinalists", "results", "Escolher os finalistas", ["RF15", "RF42"], ["ADMIN"],
+   "Marca como finalistas exatamente os projetos da lista; sem lista, os 3 primeiros de cada curso (Cap. VIII IV).",
+   params=["EditionId"], body=ref("FinalistsSelect"), req_ex={}, ok=ref("EditionResults"), errs=["404"],
+   rules=["Sem project_ids, ficam os de course_rank ≤ 3; empate na 3ª posição leva todos os empatados, e a comissão ajusta mandando a lista.",
+          "Todo projeto da lista precisa estar no ranking da edição; lista vazia, repetida ou com projeto fora do ranking: 400 validation_error.",
+          "Finalista que já recebeu avaliação final não sai da lista."],
+   conflicts=[("results_not_calculated", "Calcule os resultados antes."), ("finalist_already_evaluated", "Um finalista retirado já foi avaliado."),
+              ("results_already_approved", "O resultado da edição já foi homologado."), CLOSED],
+   pend=["P-46"])
+op("post", "/api/admin/editions/{edition_id}/awards/calculate", "resultsCalculateAwards", "results", "Calcular o pódio", ["RF49"], ["ADMIN"],
+   "Calcula e grava o pódio: 1º a 3º por categoria na edição inteira, entre os finalistas (Art. 26, D-01). Pode repetir até a homologação.",
+   params=["EditionId"], ok=ref("EditionResults"), errs=["404"],
+   rules=["Ordem: média das avaliações externas EVALUATED (soma das respostas de nota), depois final_score, depois os critérios do Art. 24; empate total divide a posição.",
+          "Finalista sem categoria ou sem avaliação externa finalizada fica sem posição (category_rank e award nulos).",
+          "Grava category_rank de todos os finalistas com posição e award (1 a 3) nos três primeiros de cada categoria."],
+   conflicts=[("results_not_calculated", "Calcule os resultados antes."), ("no_finalists", "Escolha os finalistas antes."),
+              ("results_already_approved", "O resultado da edição já foi homologado."), CLOSED],
+   pend=["P-30"])
+op("post", "/api/admin/editions/{edition_id}/results/homologate", "resultsApprove", "results", "Homologar o resultado", ["RF15"], ["ADMIN"],
+   "Grava a homologação em todos os projetos classificados. É o último passo: depois das notas, dos finalistas, da avaliação externa e do pódio. Depois dela o resultado não muda.",
+   params=["EditionId"], ok=ref("EditionResults"), errs=["404"],
+   rules=["Não recalcula: se as notas mudaram depois do cálculo, recusa com results_outdated.",
+          "Recusa enquanto houver projeto com nota de etapa pendente (results_pending_scores), para nenhuma equipe sair do resultado por atraso na avaliação."],
+   conflicts=[("results_not_calculated", "Calcule os resultados antes."), ("no_finalists", "Escolha os finalistas antes."),
+              ("results_pending_scores", "Há projeto com nota de etapa pendente."), ("awards_not_calculated", "Calcule o pódio antes de homologar."),
+              ("results_outdated", "As notas mudaram depois do cálculo; calcule de novo."), ("results_already_approved", "O resultado da edição já foi homologado."), CLOSED],
+   pend=["P-46"])
 op("get", "/api/admin/editions/{edition_id}/certificate-templates", "resultsListCertificateTemplates", "results", "Listar modelos de certificado",
    ["RF17"], ["ADMIN"], "Lista os modelos de certificado da edição.", params=["EditionId"], ok=arr(ref("CertificateTemplate")), errs=["404"], pend=["P-34"])
 op("put", "/api/admin/editions/{edition_id}/certificate-templates/{certificate_type}", "resultsSaveCertificateTemplate", "results",
@@ -1311,8 +1431,9 @@ spec = {
         },
         "parameters": PARAMS,
         "responses": {
-            "BadRequest": {"description": "Requisição inválida: dados inválidos (`validation_error`) ou corpo acima de 2,5 MB, o `DATA_UPLOAD_MAX_MEMORY_SIZE` (`request_too_large`).", "content": {"application/json": {"schema": ref("Error"),
+            "BadRequest": {"description": "Requisição inválida: dados inválidos (`validation_error`), JSON malformado (`parse_error`) ou corpo acima de 2,5 MB, o `DATA_UPLOAD_MAX_MEMORY_SIZE` (`request_too_large`).", "content": {"application/json": {"schema": ref("Error"),
                            "examples": {"validation_error": {"value": err_example("validation_error", "Dados inválidos.", {"title": ["Este campo é obrigatório."]})},
+                                        "parse_error": {"value": err_example("parse_error", "O corpo contém JSON inválido.")},
                                         "request_too_large": {"value": err_example("request_too_large", "A requisição excede o tamanho permitido.")}}}}},
             "Unauthorized": {"description": "Autenticação ausente, inválida ou expirada.", "content": {"application/json": {"schema": ref("Error"),
                              "example": err_example("not_authenticated", "Credenciais de autenticação inválidas ou ausentes.")}}},

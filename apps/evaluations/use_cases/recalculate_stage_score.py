@@ -14,22 +14,28 @@ from apps.projects.models import Project
 
 @transaction.atomic
 def recalculate_stage_score(*, project: Project, stage: Stage) -> StageScore:
-    """Média simples dos totais das avaliações finalizadas (RN25).
+    """Média das notas das avaliações finalizadas (RN25, D-02).
 
-    Com menos avaliações que o mínimo da etapa a nota fica pendente e sem valor.
+    Cada avaliação vale (soma dos pontos / soma dos máximos dos critérios) × valor
+    da etapa: o critério vale 10 por padrão e funciona como peso. Com menos
+    avaliações que o mínimo da etapa a nota fica pendente e sem valor.
     """
     # Trava a nota antes de ler os totais: dois professores finalizando juntos
     # recalculam um depois do outro e o segundo vê as duas avaliações.
     score, _ = StageScore.objects.select_for_update().get_or_create(
         project=project, stage=stage
     )
-    totals = list(
-        Evaluation.objects.filter(
+    totals = [
+        points / maximum * stage.max_score
+        for points, maximum in Evaluation.objects.filter(
             project=project, stage=stage, status=EvaluationStatus.FINALIZED
         )
-        .annotate(total=Sum("items__points"))
-        .values_list("total", flat=True)
-    )
+        .annotate(
+            points=Sum("items__points"),
+            maximum=Sum("items__stage_criterion__max_score"),
+        )
+        .values_list("points", "maximum")
+    ]
     count = len(totals)
     if count >= stage.min_evaluations:
         status = ScoreStatus.DEFINITIVE

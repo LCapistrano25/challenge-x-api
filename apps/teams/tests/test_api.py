@@ -11,6 +11,7 @@ from apps.accounts.factories import (
     TeacherFactory,
     UserFactory,
 )
+from apps.core.tests.contract import mismatches, schema
 from apps.editions.enums import EditionStatus
 from apps.editions.factories import (
     ChallengeFactory,
@@ -35,6 +36,7 @@ from apps.teams.models import Invitation, Team, TeamMember
 pytestmark = pytest.mark.django_db
 
 TEAMS_URL = "/api/teams"
+DASHBOARD_URL = "/api/me/dashboard"
 
 
 def authenticated_client(user):
@@ -110,6 +112,7 @@ def test_aluno_integrante_consulta_equipe():
 
     assert response.status_code == 200
     assert response.data["id"] == team.id
+    assert mismatches(response.json(), schema("Team")) == []
 
 
 def test_professor_com_vinculo_ativo_consulta_equipe():
@@ -314,6 +317,40 @@ def test_convite_fora_do_prazo_retorna_409_e_nao_500():
 
     assert response.status_code == 409
     assert "prazo de formação" in response.data["error"]["message"]
+
+
+@pytest.mark.parametrize("cadastro", ["inexistente", "nao_confirmado"])
+def test_convite_por_email_de_aluno_sem_cadastro_valido_retorna_404(cadastro):
+    # InvitationCreate aceita student_id ou email (#231).
+    team = TeamFactory()
+    create_open_formation(team.edition)
+    leader = team.members.get(role="LEADER", active=True).student
+    email = "ninguem@a.catolica-to.edu.br"
+    if cadastro == "nao_confirmado":
+        email = StudentFactory(user__email_confirmed=False).user.email
+
+    response = authenticated_client(leader.user).post(
+        f"{TEAMS_URL}/{team.id}/invitations", {"email": email}, format="json"
+    )
+
+    assert response.status_code == 404
+    assert response.data["error"]["code"] == "not_found"
+    assert not Invitation.objects.exists()
+
+
+def test_convite_por_email_segue_o_contrato():
+    team = TeamFactory()
+    create_open_formation(team.edition)
+    leader = team.members.get(role="LEADER", active=True).student
+    body = {"email": StudentFactory().user.email}
+    assert mismatches(body, schema("InvitationCreate")) == []
+
+    response = authenticated_client(leader.user).post(
+        f"{TEAMS_URL}/{team.id}/invitations", body, format="json"
+    )
+
+    assert response.status_code == 201
+    assert mismatches(response.json(), schema("Invitation")) == []
 
 
 def test_lider_lista_convites_enviados_pela_equipe():
@@ -981,3 +1018,32 @@ def test_saida_abaixo_do_minimo_pede_confirmacao_pela_api():
     assert sem_confirmar.data["error"]["code"] == "leave_below_minimum"
     assert "1 de 3 integrantes" in sem_confirmar.data["error"]["message"]
     assert confirmando.status_code == 204
+
+
+def test_dashboard_sem_autenticacao_retorna_401():
+    response = APIClient().get(DASHBOARD_URL)
+
+    assert response.status_code == 401
+
+
+@pytest.mark.parametrize(
+    "user_factory",
+    [TeacherFactory, lambda: UserFactory(role=UserRole.ADMIN)],
+)
+def test_dashboard_para_usuario_sem_perfil_academico_retorna_403(user_factory):
+    user = user_factory()
+    response = authenticated_client(user.user if hasattr(user, "user") else user).get(
+        DASHBOARD_URL
+    )
+
+    assert response.status_code == 403
+
+
+def test_academico_consulta_dashboard_pela_api():
+    student = StudentFactory()
+    EditionFactory(status=EditionStatus.PUBLISHED)
+
+    response = authenticated_client(student.user).get(DASHBOARD_URL)
+
+    assert response.status_code == 200
+    assert mismatches(response.data, schema("StudentDashboard")) == []

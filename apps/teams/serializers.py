@@ -1,10 +1,11 @@
 from rest_framework import serializers
 
-from apps.teams.enums import InvitationStatus, RequestStatus
+from apps.teams.enums import InvitationStatus, RequestStatus, TeamStatus
 from apps.teams.models import (
     Invitation,
     JoinRequest,
     LeadershipRequest,
+    MemberNote,
     Team,
     TeamMember,
 )
@@ -33,10 +34,46 @@ class TeamMemberSerializer(serializers.ModelSerializer):
         }
 
 
+class MemberNoteCreateSerializer(serializers.Serializer):
+    member_id = serializers.IntegerField(min_value=1)
+    text = serializers.CharField(
+        min_length=1,
+        allow_blank=False,
+        trim_whitespace=True,
+    )
+
+
+class MemberNoteSerializer(serializers.ModelSerializer):
+    member = serializers.SerializerMethodField()
+    author = serializers.SerializerMethodField()
+
+    class Meta:
+        model = MemberNote
+        fields = ["id", "member", "author", "text", "created_at"]
+
+    def get_member(self, obj):
+        return {
+            "user_id": obj.member.student.user_id,
+            "name": obj.member.student.user.name,
+        }
+
+    def get_author(self, obj):
+        return {
+            "user_id": obj.author.user_id,
+            "name": obj.author.user.name,
+        }
+
+
 class TeamSerializer(serializers.ModelSerializer):
+    """Schema Team do contrato: GET, criação, edição, desclassificação e painel."""
+
     edition_id = serializers.IntegerField(read_only=True)
+    disqualified_by = serializers.IntegerField(
+        source="disqualified_by_id",
+        read_only=True,
+        allow_null=True,
+    )
     members = serializers.SerializerMethodField()
-    qualification = serializers.SerializerMethodField()
 
     class Meta:
         model = Team
@@ -46,8 +83,10 @@ class TeamSerializer(serializers.ModelSerializer):
             "name",
             "code",
             "status",
-            "qualification",
+            "situation",
             "disqualification_reason",
+            "disqualified_at",
+            "disqualified_by",
             "formation_extended_until",
             "members",
             "created_at",
@@ -60,9 +99,6 @@ class TeamSerializer(serializers.ModelSerializer):
             "student__course",
         )
         return TeamMemberSerializer(members, many=True).data
-
-    def get_qualification(self, obj):
-        return None
 
 
 class InvitationCreateSerializer(serializers.Serializer):
@@ -90,7 +126,6 @@ class TeamCreateSerializer(serializers.Serializer):
 class InvitationSerializer(serializers.ModelSerializer):
     team = serializers.SerializerMethodField()
     student = serializers.SerializerMethodField()
-    invited_email = serializers.SerializerMethodField()
 
     class Meta:
         model = Invitation
@@ -98,7 +133,6 @@ class InvitationSerializer(serializers.ModelSerializer):
             "id",
             "team",
             "student",
-            "invited_email",
             "status",
             "created_at",
             "responded_at",
@@ -116,9 +150,6 @@ class InvitationSerializer(serializers.ModelSerializer):
             "user_id": obj.student.user_id,
             "name": obj.student.user.name,
         }
-
-    def get_invited_email(self, obj):
-        return None
 
 
 class InvitationStatusFilterSerializer(serializers.Serializer):
@@ -248,3 +279,81 @@ class LeadershipRequestSerializer(serializers.ModelSerializer):
             "user_id": obj.teacher.user_id,
             "name": obj.teacher.user.name,
         }
+
+
+class DisqualifyTeamSerializer(serializers.Serializer):
+    reason = serializers.CharField(
+        min_length=1,
+        allow_blank=False,
+        trim_whitespace=True,
+    )
+
+
+class AdminTeamListQuerySerializer(serializers.Serializer):
+    edition_id = serializers.IntegerField(required=False, min_value=1)
+    status = serializers.ChoiceField(
+        choices=TeamStatus.choices,
+        required=False,
+    )
+    search = serializers.CharField(required=False, allow_blank=True)
+
+
+class ProjectRefSerializer(serializers.Serializer):
+    id = serializers.IntegerField(read_only=True)
+    title = serializers.CharField(read_only=True)
+
+
+class AdminTeamListItemSerializer(serializers.ModelSerializer):
+    edition_id = serializers.IntegerField(read_only=True)
+    member_count = serializers.IntegerField(read_only=True)
+    project = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Team
+        fields = [
+            "id",
+            "edition_id",
+            "name",
+            "code",
+            "status",
+            "situation",
+            "member_count",
+            "project",
+        ]
+
+    def get_project(self, obj):
+        project = getattr(obj, "project", None)
+
+        if project is None:
+            return None
+
+        return ProjectRefSerializer(project).data
+
+
+class InvitableStudentQuerySerializer(serializers.Serializer):
+    search = serializers.CharField(min_length=3, trim_whitespace=True)
+
+
+class InvitableStudentSerializer(serializers.Serializer):
+    """Aluno para o popup de convite: sem e-mail, matrícula ou período (LGPD)."""
+
+    id = serializers.IntegerField(source="pk")
+    name = serializers.CharField(source="user.name")
+    course = serializers.SerializerMethodField()
+
+    def get_course(self, obj):
+        return {"id": obj.course_id, "name": obj.course.name}
+
+
+class TeamUpdateSerializer(serializers.Serializer):
+    """Só o nome é editável (#233); outros campos são recusados."""
+
+    name = serializers.CharField(max_length=150, trim_whitespace=True)
+
+    def validate(self, attrs):
+        extra = set(self.initial_data) - set(self.fields)
+        if extra:
+            raise serializers.ValidationError(
+                {field: "Campo não permitido." for field in sorted(extra)}
+            )
+        return attrs

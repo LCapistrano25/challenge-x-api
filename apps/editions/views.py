@@ -1,18 +1,89 @@
+from urllib.parse import urlsplit
+
+from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404
-from rest_framework import status
+from rest_framework import generics, status
+from rest_framework.parsers import JSONParser, MultiPartParser
+from rest_framework.permissions import AllowAny
+from rest_framework.renderers import JSONRenderer
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts.permissions import IsAdmin
-from apps.editions.models import Edition, EditionReviewer
-from apps.editions.selectors import list_edition_reviewers
+from apps.editions.enums import EditionStatus
+from apps.editions.models import Challenge, Edition, EditionReviewer
+from apps.editions.regulation_files import open_regulation
+from apps.editions.selectors import (
+    list_edition_challenges,
+    list_edition_reviewers,
+    list_edition_sdgs,
+    list_editions,
+)
 from apps.editions.serializers import (
+    ChallengeFiltersSerializer,
+    ChallengeSerializer,
+    ChallengeWriteSerializer,
+    EditionCreateSerializer,
+    EditionPublishSerializer,
     EditionReviewerCreateSerializer,
     EditionReviewerSerializer,
     EditionReviewerUpdateSerializer,
+    EditionSdgSerializer,
+    EditionSdgsUpdateSerializer,
+    EditionSerializer,
+    EditionUpdateSerializer,
 )
+from apps.editions.use_cases.create_challenge import create_challenge
+from apps.editions.use_cases.create_edition import create_edition
 from apps.editions.use_cases.link_reviewer_to_edition import link_reviewer_to_edition
+from apps.editions.use_cases.publish_regulation import publish_regulation
+from apps.editions.use_cases.set_edition_sdgs import set_edition_sdgs
+from apps.editions.use_cases.update_challenge import update_challenge
+from apps.editions.use_cases.update_edition import update_edition
 from apps.editions.use_cases.update_reviewer_scope import update_reviewer_scope
+
+
+class EditionChallengesView(APIView):
+    """Lista e cadastra os desafios de uma edição (RF05)."""
+
+    permission_classes = [IsAdmin]
+    parser_classes = [JSONParser]
+
+    def get(self, request, edition_id):
+        edition = get_object_or_404(Edition, pk=edition_id)
+        filters = ChallengeFiltersSerializer(data=request.query_params.dict())
+        filters.is_valid(raise_exception=True)
+        challenges = list_edition_challenges(
+            edition_id=edition.pk, **filters.validated_data
+        )
+        return Response(ChallengeSerializer(challenges, many=True).data)
+
+    def post(self, request, edition_id):
+        edition = get_object_or_404(Edition, pk=edition_id)
+        serializer = ChallengeWriteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        challenge = create_challenge(
+            actor=request.user, edition=edition, **serializer.validated_data
+        )
+        return Response(
+            ChallengeSerializer(challenge).data, status=status.HTTP_201_CREATED
+        )
+
+
+class ChallengeDetailView(APIView):
+    """Atualiza um desafio da edição (RF05)."""
+
+    permission_classes = [IsAdmin]
+    parser_classes = [JSONParser]
+
+    def patch(self, request, challenge_id):
+        challenge = get_object_or_404(Challenge, pk=challenge_id)
+        serializer = ChallengeWriteSerializer(data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        challenge = update_challenge(
+            actor=request.user, challenge=challenge, **serializer.validated_data
+        )
+        return Response(ChallengeSerializer(challenge).data)
 
 
 class EditionReviewView(APIView):
@@ -52,3 +123,118 @@ class EditionReviewDetailView(APIView):
             actor=request.user, link=link, **serializer.validated_data
         )
         return Response(EditionReviewerSerializer(link).data)
+
+
+class EditionSdgsView(APIView):
+    """Lista e define as ODS habilitadas na edição (RF04)."""
+
+    permission_classes = [IsAdmin]
+    parser_classes = [JSONParser]
+
+    def get(self, request, edition_id):
+        edition = get_object_or_404(Edition, pk=edition_id)
+        return Response(
+            EditionSdgSerializer(list_edition_sdgs(edition.pk), many=True).data
+        )
+
+    def put(self, request, edition_id):
+        edition = get_object_or_404(Edition, pk=edition_id)
+        serializer = EditionSdgsUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        sdgs = set_edition_sdgs(
+            actor=request.user, edition=edition, **serializer.validated_data
+        )
+        return Response(EditionSdgSerializer(sdgs, many=True).data)
+
+
+class EditionListView(generics.ListAPIView):
+    """GET lista as edições (array simples); POST cadastra uma edição (RF47)."""
+
+    permission_classes = [IsAdmin]
+    # O contrato só declara application/json nas entradas.
+    parser_classes = [JSONParser]
+    serializer_class = EditionSerializer
+    pagination_class = None
+
+    def get_queryset(self):
+        return list_editions()
+
+    def post(self, request):
+        serializer = EditionCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        edition = create_edition(
+            actor=request.user,
+            year=data["year"],
+            semester=data["semester"],
+            name=data.get("name") or "",
+        )
+        return Response(EditionSerializer(edition).data, status=status.HTTP_201_CREATED)
+
+
+class EditionDetailView(generics.RetrieveAPIView):
+    """GET consulta e PATCH atualiza nome e limites de uma edição (RF47, RF48)."""
+
+    permission_classes = [IsAdmin]
+    # O contrato só declara application/json nas entradas.
+    parser_classes = [JSONParser]
+    serializer_class = EditionSerializer
+    queryset = Edition.objects.all()
+    lookup_url_kwarg = "edition_id"
+
+    def patch(self, request, *args, **kwargs):
+        edition = self.get_object()
+        serializer = EditionUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        edition = update_edition(
+            actor=request.user, edition=edition, **serializer.validated_data
+        )
+        return Response(EditionSerializer(edition).data)
+
+
+class EditionPublishView(APIView):
+    permission_classes = [IsAdmin]
+    parser_classes = [MultiPartParser]
+
+    def post(self, request, edition_id):
+        edition = get_object_or_404(Edition, pk=edition_id)
+        serializer = EditionPublishSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        edition = publish_regulation(
+            actor=request.user,
+            edition=edition,
+            public_origin=request.build_absolute_uri("/").rstrip("/"),
+            **serializer.validated_data,
+        )
+        return Response(EditionSerializer(edition).data)
+
+
+class EditionRegulationView(APIView):
+    permission_classes = [AllowAny]
+    renderer_classes = [JSONRenderer]
+
+    def perform_content_negotiation(self, request, force=False):
+        # FileResponse entrega o PDF; o renderer formata só os erros em JSON.
+        renderer = self.get_renderers()[0]
+        return renderer, renderer.media_type
+
+    def get(self, request, edition_id, token):
+        edition = get_object_or_404(
+            Edition,
+            pk=edition_id,
+            status__in=[EditionStatus.PUBLISHED, EditionStatus.CLOSED],
+        )
+        if urlsplit(edition.regulation_url).path != request.path:
+            raise Http404
+        try:
+            file = open_regulation(f"{edition.pk}/{token.hex}.pdf")
+        except FileNotFoundError as error:
+            raise Http404 from error
+        response = FileResponse(
+            file,
+            as_attachment=True,
+            filename="edital.pdf",
+            content_type="application/pdf",
+        )
+        response["X-Content-Type-Options"] = "nosniff"
+        return response

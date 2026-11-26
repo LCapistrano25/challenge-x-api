@@ -11,6 +11,7 @@ from apps.projects.exceptions import (
     CategoryNotAvailable,
     ChallengeNotEligible,
     ChallengeNotSelected,
+    DeadlineExtensionAlreadyGranted,
     FileFormatNotAllowed,
     FileTooLarge,
     FormationClosed,
@@ -48,9 +49,10 @@ def ensure_project_in_team_edition(project) -> None:
 
 
 def ensure_project_complete(project) -> None:
-    """Só entrega projeto com desafio, título e resumo (RF30, RF31, RF51)."""
+    """Só entrega projeto com desafio, categoria, título e resumo (RF30, RF31, D-06)."""
     filled = {
         "challenge": project.challenge_id,
+        "category": project.category_id,
         "title": project.title,
         "summary": project.summary,
     }
@@ -81,6 +83,12 @@ def ensure_extension_after_stage_end(extension) -> None:
         raise ValidationError(
             {"ends_at": "O novo prazo precisa ser depois do fim da etapa."}
         )
+
+
+def ensure_no_extension_for_stage(project, stage) -> None:
+    """Só uma prorrogação por projeto e etapa (RF14)."""
+    if project.deadline_extensions.filter(stage=stage).exists():
+        raise DeadlineExtensionAlreadyGranted()
 
 
 def ensure_actor_is_team_leader(team, actor) -> None:

@@ -8,6 +8,74 @@ Formato de erro de todas as rotas: `{"error": {"code", "message", "details"}}`.
 
 ---
 
+## 0. Mudanças de 24 a 26/11/2026 (decisões da #217)
+
+Tudo abaixo já está na `developer` e no contrato. As decisões estão na seção 0 do `docs/decisoes-regulamento.md`.
+
+### Equipes
+
+| O quê | Chamada | Para o front |
+|---|---|---|
+| **Editar o nome** (#233) | `PATCH /api/teams/{team_id}` com `{"name"}` | Só o líder, só na formação. `EditTeamDialog` só com o nome (tirar `description` de `TeamUpdate`). Erros: 403 `not_team_leader`, 409 `formation_closed`, 409 `team_disqualified`, 409 `team_name_taken`, 400 para outro campo no corpo. |
+| **Alunos para convidar** (#232) | `GET /api/teams/{team_id}/invitable-students?search=` | Popup de convite. `search` obrigatório, mínimo 3 caracteres (400). Paginado. Cada item: `{id, name, course}`; mande `{"student_id": id}` no convite. Só o líder (403 `not_team_leader`). |
+| **Convite por `student_id` ou `email`** (#231) | `POST /api/teams/{team_id}/invitations` e `invitations` do `POST /api/teams` | Um dos dois, nunca os dois. Aluno inexistente, inativo ou sem e-mail confirmado agora dá **404 `not_found`** (antes 409). |
+| **`Invitation` sem `invited_email`** (#231) | respostas de convite | O campo saiu (vinha sempre `null`). |
+| **Equipe no schema `Team`** (#245) | `GET /api/teams/{team_id}`, `POST /api/teams` | Sai `qualification`; entram `situation`, `disqualified_at` e `disqualified_by`. |
+| **Admin: listar e desclassificar** (#219) | `GET /api/admin/teams`, `POST /api/admin/teams/{team_id}/disqualify` | Lista paginada com `edition_id`, `status` e `search`. Desclassificar exige `reason`; também desclassifica o projeto. 409 `team_already_disqualified` e `edition_closed`. |
+| **Observações sobre integrantes** (#215) | `POST/GET /api/teams/{team_id}/member-notes` | Corpo `{member_id, text}`, sem `stage_id`. 403 `not_team_leader` no POST. |
+
+### Projeto, painel e entregas
+
+- **Categoria obrigatória (D-06, #238):** sem categoria, o envio de entrega dá `400 validation_error` com `details.category`. Projeto incompleto passa a ser: sem desafio, título, resumo **ou categoria**.
+- **Painel do aluno (#227):** `GET /api/me/dashboard`. A falta de categoria aparece como `PROJECT_DATA_MISSING` em `incomplete_requirements` e conta na pendência `PROJECT_DATA_PENDING`.
+- **Notificações (#223, #224):** entrega registrada, resultado homologado e mudança de chamado geram notificação no painel. **Não há e-mail** por enquanto (#234 adiada).
+
+### Edição (admin)
+
+- **Escala dos critérios (D-02, #237):** cada critério vale **10** por padrão (`max_score` do critério na etapa funciona como peso). A nota da etapa é `(soma dos points / soma dos max_score) × valor da etapa`. Os critérios **não** precisam somar o valor da etapa: tirar essa validação das telas de critérios da etapa.
+- **Publicar edital (#226):** `POST /api/admin/editions/{edition_id}/publish` (multipart, `notice_file`). Pré-condição nova: cada etapa pontuada com pelo menos um critério (`details.stage_criteria`). Falha do armazenamento: **503 `storage_unavailable`**. O `regulation_url` aponta para `GET /api/public/editions/{edition_id}/regulation/{token}` (download público do PDF).
+- **ODS da edição (#239):** `GET/PUT /api/admin/editions/{edition_id}/sdgs`. ODS inativa já habilitada pode ficar; incluir inativa dá 400; remover ODS usada por desafio dá 409 `sdg_in_use`.
+- **Desafios (#244):** `GET/POST /api/admin/editions/{edition_id}/challenges` (filtros `course_id`, `sdg_id` e `active`) e `PATCH /api/admin/challenges/{challenge_id}`. Uma ODS por desafio (D-03); a 2ª pode ir na descrição. Curso inativo, ODS inativa ou ODS não habilitada na edição dá `400 validation_error` em `course_id` ou `sdg_id`; no PATCH, só quando eles mudam. Sem limite de 3 a 5 desafios por curso (D-09).
+- **Cursos (#225):** respostas no schema `Course` completo; filtros `search` e `active`; 409 `course_name_taken` e `course_in_use`.
+
+### Resultado da edição (admin)
+
+Ordem do fluxo: **calcular → finalistas → avaliação externa → pódio → homologar**.
+
+| Passo | Chamada | Observações |
+|---|---|---|
+| Calcular | `POST /api/admin/editions/{edition_id}/results/calculate` | Nota final e posição no curso. Sem pontos do aluno (D-04). |
+| Finalistas | `POST .../finalists` | Sem corpo: os 3 primeiros de cada curso. Com `project_ids`: a lista exata. |
+| **Pódio (novo)** | `POST .../awards/calculate` | 1º a 3º **por categoria na edição inteira** (D-01). Botão novo na tela. |
+| Homologar | `POST .../results/homologate` | 409 `awards_not_calculated` sem pódio; 409 `results_pending_scores` com nota de etapa pendente. |
+
+- `ResultRow` ganhou `category_rank` e `award` (1 a 3, ou `null`).
+- Vencedores públicos (`GET /api/public/editions/{edition_id}/winners`): pódio **por categoria**, ordenado por categoria e colocação. Agrupar a galeria por categoria (não por curso).
+
+### Checklist desta seção
+
+- [ ] Tela de edição da equipe só com o nome (`PATCH /api/teams/{team_id}`)
+- [ ] Popup de convite com `invitable-students` e `{student_id}`
+- [ ] Convite: tratar 404 e remover `invited_email`
+- [ ] Equipe: `situation` e dados da desclassificação no lugar de `qualification`
+- [ ] Categoria obrigatória: avisar no projeto e tratar `details.category` no envio de entrega
+- [ ] Critérios valendo 10, sem exigir que somem o valor da etapa
+- [ ] Publicação do edital: `stage_criteria` e 503
+- [ ] Resultado: botão do pódio, `category_rank`, `award` e os dois 409 novos da homologação
+- [ ] Vencedores agrupados por categoria
+
+### Edições e JSON malformado (#122 e #71)
+
+- O POST administrativo aceita `year` de **2000 a 2100**. O PATCH aceita
+  **1 ≤ min_members ≤ max_members ≤ 20**. Valores fora dessas faixas retornam
+  `400 validation_error`. As colunas existentes comportam os valores aceitos.
+- JSON malformado retorna `400 parse_error`, com `error.details: null`.
+  Trate-o como falha na montagem do corpo da requisição. Dados inválidos
+  retornam `validation_error` e corpos acima do limite retornam
+  `request_too_large`.
+
+---
+
 ## 1. Projeto: o `PUT /api/teams/{team_id}/project` foi removido
 
 **Fazer:** apagar a chamada antiga e usar 3 chamadas, todas só para o **líder ativo** da equipe (403 `not_team_leader` para os demais) e só **durante a formação** (409 `formation_closed` depois).
@@ -184,7 +252,7 @@ Uma linha por projeto e etapa de entrega pontuada, só de edição publicada.
 
 - Antes: `student` podia ser `null` e tinha o formato de `UserSummary`.
 - Agora: `student` **nunca é null** e só tem `{"user_id": 42, "name": "João Lima"}`.
-- Convite por e-mail continua usando `invited_email` (pode ser `null`).
+- O campo `invited_email` saiu (#231); o convite por e-mail vai no corpo, não na resposta.
 
 **Fazer:** remover o `student?.` / checagem de null e qualquer uso de outros campos do aluno (e-mail, perfil etc.) nas telas de convites (`/api/me/invitations`, `/api/teams/{id}/invitations`).
 
@@ -287,6 +355,27 @@ SWOT (`type: "SWOT"`): uma lista de textos por quadrante, **ao menos um texto em
 
 ---
 
+## 11. Entregas e comprovante: nomes de campo (#187)
+
+As respostas passam a usar os nomes do contrato. Os antigos deixam de existir, sem período de transição.
+
+| Rota | Onde | Antes | Agora |
+|---|---|---|---|
+| `GET /api/projects/{project_id}/deliverables` | `stage` | `position` | `order` |
+| idem | `stage` | `type` | `kind` |
+| idem | `stage` | `points_value` | `max_score` (texto, ex.: `"3.00"`, ou `null`) |
+| idem | `stage` | (não vinha) | `evaluation_ends_at` (data e hora ou `null`) |
+| idem | `fields[]` | `type` | `kind` |
+| idem | `versions[]` | `version_number` | `number` |
+| `POST /api/projects/{project_id}/stages/{stage_id}/versions` | resposta 201 | `version_number` | `number` |
+| `GET /api/deliverable-versions/{version_id}/receipt` | `stage` | `position` | `order` |
+
+`items[].type` **não** mudou, e o corpo do envio também não.
+
+**Fazer:** trocar os nomes nas telas de entrega e de comprovante.
+
+---
+
 ## Checklist rápido
 
 - [ ] Remover `PUT .../project`; criar os 3 passos (desafio, dados, categoria)
@@ -303,6 +392,7 @@ SWOT (`type: "SWOT"`): uma lista de textos por quadrante, **ao menos um texto em
 - [ ] Tela de admin de domínios de e-mail
 - [ ] `institution` com máximo de 150 caracteres
 - [ ] Entrega: tipos `CANVAS` e `SWOT`, item com `content`, limites de 5000 caracteres e 20 itens, texto puro
+- [ ] Trocar os nomes de campo das entregas e do comprovante (item 11)
 
 ## Pontos em aberto (confirmar com o backend)
 

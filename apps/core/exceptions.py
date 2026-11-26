@@ -30,3 +30,13 @@ class ExternalServiceError(AppError):
     code = "external_service_error"
     default_message = "Serviço temporariamente indisponível."
     http_status = HTTPStatus.SERVICE_UNAVAILABLE
+
+
+class CourseNameTaken(BusinessRuleViolation):
+    code = "course_name_taken"
+    default_message = "Já existe curso com este nome."
+
+
+class CourseInUse(BusinessRuleViolation):
+    code = "course_in_use"
+    default_message = "O curso possui vínculos e só pode ser inativado."
