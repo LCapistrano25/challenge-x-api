@@ -1,8 +1,21 @@
 from django.db.models import QuerySet
 
 from apps.core.models import Sdg
-from apps.editions.exceptions import CategoryNotFound
-from apps.editions.models import Category, Challenge, Edition, EditionReviewer
+from apps.editions.exceptions import CategoryNotFound, CriterionNotFound
+from apps.editions.models import (
+    Category,
+    Challenge,
+    Criterion,
+    Edition,
+    EditionReviewer,
+)
+
+
+def get_locked_criterion(criterion_id: int) -> Criterion:
+    try:
+        return Criterion.objects.select_for_update().get(pk=criterion_id)
+    except Criterion.DoesNotExist as error:
+        raise CriterionNotFound() from error
 
 
 def list_edition_categories(edition_id: int) -> QuerySet[Category]:

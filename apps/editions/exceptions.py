@@ -41,6 +41,47 @@ class EditionClosed(EditionError):
     default_message = "A edição está encerrada e não pode ser alterada."
 
 
+class CriterionInUseByEvaluations(EditionError):
+    code = "criterion_in_use_by_evaluations"
+    default_message = "Há avaliações iniciadas em etapa que usa o critério."
+
+
+class CriterionNotFound(EditionError):
+    code = "not_found"
+    default_message = "Critério não encontrado."
+    http_status = HTTPStatus.NOT_FOUND
+
+
+class CriterionLinkedToStage(EditionError):
+    code = "criterion_linked_to_stage"
+    default_message = "O critério está vinculado a uma etapa."
+
+
+class CriterionNameTaken(EditionError):
+    code = "criterion_name_taken"
+    default_message = "Já existe critério com este nome na edição."
+
+
+class TiebreakOrderTaken(EditionError):
+    code = "tiebreak_order_taken"
+    default_message = "Já existe critério nesta posição de desempate."
+
+
+@contextmanager
+def translate_criterion_conflict():
+    """Traduz as violações das duas restrições de unicidade do critério."""
+    try:
+        yield
+    except IntegrityError as error:
+        diagnostics = getattr(error.__cause__, "diag", None)
+        match getattr(diagnostics, "constraint_name", None):
+            case "unique_criterion_name_per_edition":
+                raise CriterionNameTaken() from error
+            case "unique_tiebreak_order_per_edition":
+                raise TiebreakOrderTaken() from error
+        raise
+
+
 class CategoryNameTaken(EditionError):
     code = "category_name_taken"
     default_message = "Já existe categoria com este nome na edição."
