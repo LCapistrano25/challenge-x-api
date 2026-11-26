@@ -454,7 +454,20 @@ SC["AdminTeamListItem"] = obj({"id": INT(ex=12), "edition_id": INT(ex=3), "name"
                                "project": nul(ref("ProjectRef"))},
                               ["id", "edition_id", "name", "code", "status", "situation", "member_count", "project"])
 SC["TeamDisqualify"] = obj({"reason": TXT("Justificativa obrigatória.", "Plágio comprovado na entrega preliminar.", minLength=1)}, ["reason"], strict=True)
-SC["InvitationCreate"] = obj({"student_id": USER_ID("Aluno cadastrado a ser convidado.")}, ["student_id"], strict=True)
+SC["InvitationCreate"] = {
+    "oneOf": [
+        obj(
+            {"student_id": USER_ID("Aluno cadastrado a ser convidado.")},
+            ["student_id"],
+            strict=True,
+        ),
+        obj(
+            {"email": EMAIL("E-mail institucional do aluno a ser convidado.")},
+            ["email"],
+            strict=True,
+        ),
+    ]
+}
 SC["Invitation"] = obj(
     {
         "id": INT(ex=88),
@@ -466,6 +479,7 @@ SC["Invitation"] = obj(
             },
             ["user_id", "name"],
         ),
+        "invited_email": nul(EMAIL("E-mail do convidado, quando aplicável.", ex=None)),
         "status": ref("InvitationStatus"),
         "created_at": DT(),
         "responded_at": nul(DT(ex=None)),
@@ -474,6 +488,7 @@ SC["Invitation"] = obj(
         "id",
         "team",
         "student",
+        "invited_email",
         "status",
         "created_at",
         "responded_at",
