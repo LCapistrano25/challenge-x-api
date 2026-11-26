@@ -7487,6 +7487,7 @@ paths:
         - Somente durante a formação.
         - Total de integrantes atual < max_members.
         - Convidado não pode estar em outra equipe da edição.
+        - Por e-mail, o aluno precisa estar cadastrado, ativo e com e-mail confirmado; senão, 404.
         - Não pode haver convite PENDING para o mesmo aluno/e-mail e equipe.
         - Gera notificação TEAM ao convidado quando ele já possui usuário (P-13).
 
@@ -11590,17 +11591,31 @@ components:
       - reason
       additionalProperties: false
     InvitationCreate:
-      type: object
-      properties:
-        student_id:
-          type: integer
-          description: Aluno cadastrado a ser convidado.
-          minimum: 1
-          examples:
-          - 42
-      required:
-      - student_id
-      additionalProperties: false
+      oneOf:
+      - type: object
+        properties:
+          student_id:
+            type: integer
+            description: Aluno cadastrado a ser convidado.
+            minimum: 1
+            examples:
+            - 42
+        required:
+        - student_id
+        additionalProperties: false
+      - type: object
+        properties:
+          email:
+            type: string
+            description: E-mail de aluno cadastrado, ativo e com e-mail confirmado.
+            format: email
+            maxLength: 254
+            examples:
+            - maria.souza@a.catolica-to.edu.br
+        required:
+        - email
+        additionalProperties: false
+      description: Um aluno, por student_id ou por email, nunca os dois (400 validation_error).
     Invitation:
       type: object
       properties:

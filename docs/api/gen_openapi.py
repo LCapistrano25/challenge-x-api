@@ -455,7 +455,13 @@ SC["AdminTeamListItem"] = obj({"id": INT(ex=12), "edition_id": INT(ex=3), "name"
                                "project": nul(ref("ProjectRef"))},
                               ["id", "edition_id", "name", "code", "status", "situation", "member_count", "project"])
 SC["TeamDisqualify"] = obj({"reason": TXT("Justificativa obrigatória.", "Plágio comprovado na entrega preliminar.", minLength=1)}, ["reason"], strict=True)
-SC["InvitationCreate"] = obj({"student_id": USER_ID("Aluno cadastrado a ser convidado.")}, ["student_id"], strict=True)
+SC["InvitationCreate"] = {
+    "oneOf": [
+        obj({"student_id": USER_ID("Aluno cadastrado a ser convidado.")}, ["student_id"], strict=True),
+        obj({"email": EMAIL("E-mail de aluno cadastrado, ativo e com e-mail confirmado.")}, ["email"], strict=True),
+    ],
+    "description": "Um aluno, por student_id ou por email, nunca os dois (400 validation_error).",
+}
 SC["Invitation"] = obj(
     {
         "id": INT(ex=88),
@@ -1055,6 +1061,7 @@ op("post", "/api/teams/{team_id}/invitations", "teamsCreateInvitation", "teams",
    req_ex={"student_id": 42}, ok=ref("Invitation"), ok_code="201", ok_desc="Convite enviado.", errs=["404"],
    authz=LEADER,
    rules=["Somente durante a formação.", "Total de integrantes atual < max_members.", "Convidado não pode estar em outra equipe da edição.",
+          "Por e-mail, o aluno precisa estar cadastrado, ativo e com e-mail confirmado; senão, 404.",
           "Não pode haver convite PENDING para o mesmo aluno/e-mail e equipe.", "Gera notificação TEAM ao convidado quando ele já possui usuário (P-13)."],
    conflicts=[FORM_CLOSED, TEAM_FULL, IN_TEAM, ("invitation_pending_exists", "Já existe convite pendente para este aluno.")], pend=["P-13"])
 op("get", "/api/teams/{team_id}/invitations", "teamsListInvitations", "teams", "Listar convites enviados pela equipe", ["RF22"], ["STUDENT"],

@@ -156,7 +156,6 @@ class TeamCreateSerializer(serializers.Serializer):
 class InvitationSerializer(serializers.ModelSerializer):
     team = serializers.SerializerMethodField()
     student = serializers.SerializerMethodField()
-    invited_email = serializers.SerializerMethodField()
 
     class Meta:
         model = Invitation
@@ -164,7 +163,6 @@ class InvitationSerializer(serializers.ModelSerializer):
             "id",
             "team",
             "student",
-            "invited_email",
             "status",
             "created_at",
             "responded_at",
@@ -182,9 +180,6 @@ class InvitationSerializer(serializers.ModelSerializer):
             "user_id": obj.student.user_id,
             "name": obj.student.user.name,
         }
-
-    def get_invited_email(self, obj):
-        return None
 
 
 class InvitationStatusFilterSerializer(serializers.Serializer):

@@ -318,6 +318,40 @@ def test_convite_fora_do_prazo_retorna_409_e_nao_500():
     assert "prazo de formação" in response.data["error"]["message"]
 
 
+@pytest.mark.parametrize("cadastro", ["inexistente", "nao_confirmado"])
+def test_convite_por_email_de_aluno_sem_cadastro_valido_retorna_404(cadastro):
+    # InvitationCreate aceita student_id ou email (#231).
+    team = TeamFactory()
+    create_open_formation(team.edition)
+    leader = team.members.get(role="LEADER", active=True).student
+    email = "ninguem@a.catolica-to.edu.br"
+    if cadastro == "nao_confirmado":
+        email = StudentFactory(user__email_confirmed=False).user.email
+
+    response = authenticated_client(leader.user).post(
+        f"{TEAMS_URL}/{team.id}/invitations", {"email": email}, format="json"
+    )
+
+    assert response.status_code == 404
+    assert response.data["error"]["code"] == "not_found"
+    assert not Invitation.objects.exists()
+
+
+def test_convite_por_email_segue_o_contrato():
+    team = TeamFactory()
+    create_open_formation(team.edition)
+    leader = team.members.get(role="LEADER", active=True).student
+    body = {"email": StudentFactory().user.email}
+    assert mismatches(body, schema("InvitationCreate")) == []
+
+    response = authenticated_client(leader.user).post(
+        f"{TEAMS_URL}/{team.id}/invitations", body, format="json"
+    )
+
+    assert response.status_code == 201
+    assert mismatches(response.json(), schema("Invitation")) == []
+
+
 def test_lider_lista_convites_enviados_pela_equipe():
     team = TeamFactory()
     leader = team.members.get(role="LEADER", active=True).student
