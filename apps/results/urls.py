@@ -14,6 +14,11 @@ urlpatterns = [
         name="results-finalists",
     ),
     path(
+        "<int:edition_id>/awards/calculate",
+        views.AwardsCalculateView.as_view(),
+        name="results-awards-calculate",
+    ),
+    path(
         "<int:edition_id>/results/homologate",
         views.ResultsApproveView.as_view(),
         name="results-homologate",

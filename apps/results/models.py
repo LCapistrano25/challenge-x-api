@@ -22,7 +22,7 @@ class ProjectResult(TimeStampedModel):
     )
     # Posição no curso, usada na seleção de finalistas.
     course_rank = models.PositiveSmallIntegerField(null=True, blank=True)
-    # Posição na categoria dentro do curso, usada na premiação.
+    # Posição do finalista na categoria, na edição inteira (pódio, D-01).
     category_rank = models.PositiveSmallIntegerField(null=True, blank=True)
     finalist = models.BooleanField(default=False)
     # Colocação premiada (1, 2 ou 3); vazio quando não premiado.

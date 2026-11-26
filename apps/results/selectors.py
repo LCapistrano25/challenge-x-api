@@ -2,13 +2,19 @@ from collections import defaultdict
 from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal
 
+from django.db.models import Sum
+
 from apps.editions.enums import StageKind
 from apps.editions.models import Criterion, Stage
-from apps.evaluations.enums import EvaluationStatus, ScoreStatus
-from apps.evaluations.models import EvaluationItem, StageScore
+from apps.evaluations.enums import (
+    EvaluationStatus,
+    FinalEvaluationStatus,
+    ScoreStatus,
+)
+from apps.evaluations.models import EvaluationItem, FinalEvaluation, StageScore
 from apps.projects.enums import ProjectStatus
 from apps.projects.models import Project
-from apps.results.compute import CENT, RankEntry, compute_course_ranks
+from apps.results.compute import CENT, RankEntry, compute_ranks
 from apps.results.enums import ResultExclusionReason
 from apps.results.models import ProjectResult
 from apps.teams.enums import TeamStatus
@@ -36,11 +42,7 @@ def list_edition_standings(edition) -> list[Standing]:
         .select_related("team", "challenge__course", "category")
         .order_by("pk")
     )
-    stage_ids = list(
-        Stage.objects.filter(
-            edition=edition, kind=StageKind.SUBMISSION, scored=True
-        ).values_list("pk", flat=True)
-    )
+    stage_ids = _scored_stage_ids(edition)
     scores = defaultdict(list)
     for project_id, value in StageScore.objects.filter(
         project__in=projects,
@@ -64,7 +66,7 @@ def list_edition_standings(edition) -> list[Standing]:
             totals[project.pk] = sum(scores[project.pk], Decimal("0.00"))
 
     tiebreaks = _tiebreak_scores(edition, list(totals), stage_ids)
-    ranks = compute_course_ranks(
+    ranks = compute_ranks(
         [
             RankEntry(
                 project.pk,
@@ -85,6 +87,57 @@ def list_edition_standings(edition) -> list[Standing]:
         )
         for project in projects
     ]
+
+
+def compute_award_ranks(edition) -> dict[int, int]:
+    """Posição de cada finalista na categoria, na edição inteira (Art. 26, D-01).
+
+    Ordem: média das avaliações externas EVALUATED (soma das respostas de nota),
+    depois final_score, depois os critérios do Art. 24. Finalista sem categoria
+    ou sem avaliação externa finalizada fica sem posição. Devolve
+    {id do ProjectResult: posição}.
+    """
+    totals = defaultdict(list)
+    for project_id, total in (
+        FinalEvaluation.objects.filter(
+            project__edition=edition, status=FinalEvaluationStatus.EVALUATED
+        )
+        .annotate(total=Sum("answers__value"))
+        .values_list("project_id", "total")
+    ):
+        totals[project_id].append(total or Decimal(0))
+
+    finalists = list(
+        ProjectResult.objects.filter(
+            project__edition=edition,
+            finalist=True,
+            final_score__isnull=False,
+            project__category__isnull=False,
+            project_id__in=list(totals),
+        ).select_related("project")
+    )
+    stage_ids = _scored_stage_ids(edition)
+    tiebreaks = _tiebreak_scores(edition, [r.project_id for r in finalists], stage_ids)
+    by_project = compute_ranks(
+        [
+            RankEntry(
+                r.project_id,
+                r.project.category_id,
+                sum(totals[r.project_id]) / len(totals[r.project_id]),
+                (r.final_score, *tiebreaks[r.project_id]),
+            )
+            for r in finalists
+        ]
+    )
+    return {r.pk: by_project[r.project_id] for r in finalists}
+
+
+def _scored_stage_ids(edition) -> list[int]:
+    return list(
+        Stage.objects.filter(
+            edition=edition, kind=StageKind.SUBMISSION, scored=True
+        ).values_list("pk", flat=True)
+    )
 
 
 def get_edition_results(edition) -> dict:

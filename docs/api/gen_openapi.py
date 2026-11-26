@@ -665,8 +665,10 @@ SC["FinalEvaluationWrite"] = obj({"status": STR(ex="EVALUATED", enum=["PENDING",
 SC["ResultRow"] = obj({"project": ref("ProjectRef"), "team": ref("TeamRef"), "course": ref("CourseSummary"), "category": nul(ref("CategoryRef")),
                       "final_score": DEC("Soma das notas das etapas de entrega pontuadas (0 a 10).", "7.50"),
                       "course_rank": INT("Posição no curso; empate total divide a posição (1, 1, 3).", 1, minimum=1),
-                      "finalist": BOOL(ex=True)},
-                     ["project", "team", "course", "category", "final_score", "course_rank", "finalist"])
+                      "finalist": BOOL(ex=True),
+                      "category_rank": nul(INT("Posição do finalista na categoria, na edição inteira (D-01); nula até o pódio ser calculado ou sem avaliação externa.", 1, minimum=1)),
+                      "award": nul(INT("Colocação premiada (1 a 3) na categoria; nula quando não premiado.", 1, enum=[1, 2, 3]))},
+                     ["project", "team", "course", "category", "final_score", "course_rank", "finalist", "category_rank", "award"])
 SC["ResultExcluded"] = obj({"project_id": INT(ex=40), "team_id": INT(ex=12), "reason": ref("ResultExclusionReason")}, ["project_id", "team_id", "reason"])
 SC["EditionResults"] = obj({"edition_id": INT(ex=3), "approved_at": nul(DT(ex=None)), "results": arr(ref("ResultRow")), "excluded": arr(ref("ResultExcluded"))},
                           ["edition_id", "approved_at", "results", "excluded"],
@@ -1022,7 +1024,7 @@ op("get", "/api/public/projects/{project_id}", "publicGetProject", "public", "De
    "Retorna a identidade pública de um projeto.", public=True, params=["ProjectId"], ok=ref("PublicProject"), errs=["404"],
    rules=["Projeto de equipe desclassificada retorna 404."])
 op("get", "/api/public/editions/{edition_id}/winners", "publicListWinners", "public", "Galeria de vencedores da edição", ["RF35", "RF46"], [],
-   "Pódio (1º a 3º) por curso e categoria de uma edição encerrada e homologada.", public=True, params=["EditionId"], ok=arr(ref("Winner")),
+   "Pódio (1º a 3º) por categoria, na edição inteira, de uma edição encerrada e homologada (D-01). Ordenado por categoria e colocação.", public=True, params=["EditionId"], ok=arr(ref("Winner")),
    errs=["404"], rules=["Somente edições CLOSED com resultados homologados."], pend=["P-28", "P-30"])
 
 # ---------- teams
@@ -1287,11 +1289,22 @@ op("post", "/api/admin/editions/{edition_id}/finalists", "resultsSelectFinalists
    conflicts=[("results_not_calculated", "Calcule os resultados antes."), ("finalist_already_evaluated", "Um finalista retirado já foi avaliado."),
               ("results_already_approved", "O resultado da edição já foi homologado."), CLOSED],
    pend=["P-46"])
-op("post", "/api/admin/editions/{edition_id}/results/homologate", "resultsApprove", "results", "Homologar o resultado", ["RF15"], ["ADMIN"],
-   "Grava a homologação em todos os projetos classificados. Depois dela o resultado não muda.",
+op("post", "/api/admin/editions/{edition_id}/awards/calculate", "resultsCalculateAwards", "results", "Calcular o pódio", ["RF49"], ["ADMIN"],
+   "Calcula e grava o pódio: 1º a 3º por categoria na edição inteira, entre os finalistas (Art. 26, D-01). Pode repetir até a homologação.",
    params=["EditionId"], ok=ref("EditionResults"), errs=["404"],
-   rules=["Não recalcula: se as notas mudaram depois do cálculo, recusa com results_outdated."],
+   rules=["Ordem: média das avaliações externas EVALUATED (soma das respostas de nota), depois final_score, depois os critérios do Art. 24; empate total divide a posição.",
+          "Finalista sem categoria ou sem avaliação externa finalizada fica sem posição (category_rank e award nulos).",
+          "Grava category_rank de todos os finalistas com posição e award (1 a 3) nos três primeiros de cada categoria."],
    conflicts=[("results_not_calculated", "Calcule os resultados antes."), ("no_finalists", "Escolha os finalistas antes."),
+              ("results_already_approved", "O resultado da edição já foi homologado."), CLOSED],
+   pend=["P-30"])
+op("post", "/api/admin/editions/{edition_id}/results/homologate", "resultsApprove", "results", "Homologar o resultado", ["RF15"], ["ADMIN"],
+   "Grava a homologação em todos os projetos classificados. É o último passo: depois das notas, dos finalistas, da avaliação externa e do pódio. Depois dela o resultado não muda.",
+   params=["EditionId"], ok=ref("EditionResults"), errs=["404"],
+   rules=["Não recalcula: se as notas mudaram depois do cálculo, recusa com results_outdated.",
+          "Recusa enquanto houver projeto com nota de etapa pendente (results_pending_scores), para nenhuma equipe sair do resultado por atraso na avaliação."],
+   conflicts=[("results_not_calculated", "Calcule os resultados antes."), ("no_finalists", "Escolha os finalistas antes."),
+              ("results_pending_scores", "Há projeto com nota de etapa pendente."), ("awards_not_calculated", "Calcule o pódio antes de homologar."),
               ("results_outdated", "As notas mudaram depois do cálculo; calcule de novo."), ("results_already_approved", "O resultado da edição já foi homologado."), CLOSED],
    pend=["P-46"])
 op("get", "/api/admin/editions/{edition_id}/certificate-templates", "resultsListCertificateTemplates", "results", "Listar modelos de certificado",

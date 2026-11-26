@@ -36,3 +36,13 @@ class NoFinalists(ResultsError):
 class ResultsOutdated(ResultsError):
     code = "results_outdated"
     default_message = "As notas mudaram depois do cálculo. Calcule novamente."
+
+
+class AwardsNotCalculated(ResultsError):
+    code = "awards_not_calculated"
+    default_message = "Calcule o pódio antes de homologar."
+
+
+class PendingScores(ResultsError):
+    code = "results_pending_scores"
+    default_message = "Há projeto com nota de etapa pendente. Conclua as avaliações."

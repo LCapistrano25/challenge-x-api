@@ -11,6 +11,7 @@ from apps.results.serializers import (
 )
 from apps.results.use_cases.approve_finalists import approve_finalists
 from apps.results.use_cases.calculate_results import calculate_results
+from apps.results.use_cases.compute_awards import compute_awards
 from apps.results.use_cases.select_finalists import select_finalists
 
 
@@ -44,6 +45,15 @@ class FinalistsView(APIView):
         select_finalists(
             actor=request.user, edition=edition, **serializer.validated_data
         )
+        return results_response(edition)
+
+
+class AwardsCalculateView(APIView):
+    permission_classes = [IsAdmin]
+
+    def post(self, request, edition_id):
+        edition = get_edition(edition_id)
+        compute_awards(actor=request.user, edition=edition)
         return results_response(edition)
 
 
