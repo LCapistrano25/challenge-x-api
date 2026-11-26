@@ -1979,7 +1979,7 @@ paths:
         **Perfis permitidos:** ADMIN
 
         **Regras de negócio:**
-        - Pré-condições: cursos ativos, ODS habilitadas, desafios, categorias, limites, critérios, etapas pontuadas somando 10,00 e critérios por etapa somando o valor de cada etapa.
+        - Pré-condições: cursos ativos, ODS habilitadas, desafios, categorias, limites, critérios, etapas pontuadas somando 10,00 e critérios vinculados às etapas pontuadas.
         - Após publicar, congela etapas, pontuação, critérios por etapa e limites de equipe.
 
         **Pendências relacionadas (api-pendencias.md):** P-16, P-43
@@ -3453,7 +3453,7 @@ paths:
                 criterion:
                   id: 21
                   name: Inovação
-                max_score: '1.50'
+                max_score: '10.00'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -3477,7 +3477,7 @@ paths:
         **Regras de negócio:**
         - Somente etapas pontuadas.
         - max_score > 0.
-        - Soma dos max_score dos critérios igual ao max_score da etapa (400 stage_criteria_sum_mismatch).
+        - Cada critério vale 10 por padrão e funciona como peso; a soma dos critérios não precisa igualar o max_score da etapa (D-02).
         - Critério e etapa da mesma edição.
       x-status: confirmed
       x-requirements:
@@ -3495,7 +3495,7 @@ paths:
             example:
               items:
               - criterion_id: 21
-                max_score: '1.50'
+                max_score: '10.00'
       responses:
         '200':
           description: Operação concluída.
@@ -3510,7 +3510,7 @@ paths:
                 criterion:
                   id: 21
                   name: Inovação
-                max_score: '1.50'
+                max_score: '10.00'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -6150,13 +6150,13 @@ paths:
                   - criterion:
                       id: 21
                       name: Inovação
-                    max_score: '1.50'
-                    average: '1.20'
+                    max_score: '10.00'
+                    average: '8.00'
                   feedback:
                   - comment: Projeto bem estruturado; detalhar custos.
                     items:
                     - criterion_name: Inovação
-                      points: '1.25'
+                      points: '8.00'
                       comment: Boa fundamentação.
         '401':
           $ref: '#/components/responses/Unauthorized'
@@ -6209,7 +6209,7 @@ paths:
                     id: 21
                     name: Inovação
                     rubric: Avalia o grau de originalidade...
-                  max_score: '1.50'
+                  max_score: '10.00'
                 evaluation:
                   id: 201
                   project_id: 40
@@ -6218,7 +6218,7 @@ paths:
                   comment: Projeto bem estruturado; detalhar custos.
                   items:
                   - stage_criterion_id: 51
-                    points: '1.25'
+                    points: '8.00'
                     comment: Boa fundamentação.
                   total: '2.40'
                   created_at: '2026-10-22T16:00:00Z'
@@ -6282,7 +6282,7 @@ paths:
               comment: Projeto bem estruturado; detalhar custos.
               items:
               - stage_criterion_id: 51
-                points: '1.25'
+                points: '8.00'
                 comment: Boa fundamentação.
       responses:
         '200':
@@ -6299,7 +6299,7 @@ paths:
                 comment: Projeto bem estruturado; detalhar custos.
                 items:
                 - stage_criterion_id: 51
-                  points: '1.25'
+                  points: '8.00'
                   comment: Boa fundamentação.
                 total: '2.40'
                 created_at: '2026-10-22T16:00:00Z'
@@ -10776,10 +10776,12 @@ components:
           - name
         max_score:
           type: string
+          description: Pontuação máxima do critério na etapa. Padrão 10 (escala do Quadro 1); funciona como peso, sem somar
+            o valor da etapa (D-02).
           format: decimal
           pattern: ^\d{1,3}(\.\d{1,2})?$
           examples:
-          - '1.50'
+          - '10.00'
       required:
       - id
       - criterion
@@ -10798,10 +10800,12 @@ components:
                 - 21
               max_score:
                 type: string
+                description: Pontuação máxima do critério na etapa. Padrão 10 (escala do Quadro 1); funciona como peso, sem
+                  somar o valor da etapa (D-02).
                 format: decimal
                 pattern: ^\d{1,3}(\.\d{1,2})?$
                 examples:
-                - '1.50'
+                - '10.00'
             required:
             - criterion_id
             - max_score
@@ -12487,10 +12491,11 @@ components:
           - 51
         points:
           type: string
+          description: Nota do critério, de 0 ao max_score do critério (padrão 10).
           format: decimal
           pattern: ^\d{1,3}(\.\d{1,2})?$
           examples:
-          - '1.25'
+          - '8.00'
         comment:
           type:
           - string
@@ -12618,7 +12623,7 @@ components:
                 format: decimal
                 pattern: ^\d{1,3}(\.\d{1,2})?$
                 examples:
-                - '1.50'
+                - '10.00'
             required:
             - stage_criterion_id
             - criterion
@@ -12641,10 +12646,11 @@ components:
           - 51
         points:
           type: string
+          description: Nota do critério, de 0 ao max_score do critério (padrão 10).
           format: decimal
           pattern: ^\d{1,3}(\.\d{1,2})?$
           examples:
-          - '1.25'
+          - '8.00'
         comment:
           type:
           - string
@@ -12792,7 +12798,8 @@ components:
           type:
           - string
           - 'null'
-          description: Média aritmética das avaliações finalizadas; exibida quando DEFINITIVE. Zero quando ZERO_NO_SUBMISSION.
+          description: Cada avaliação finalizada vale (soma dos points / soma dos max_score dos critérios) × max_score da
+            etapa; o valor é a média entre elas (D-02). Exibida quando DEFINITIVE. Zero quando ZERO_NO_SUBMISSION.
           format: decimal
           pattern: ^\d{1,3}(\.\d{1,2})?$
           examples:
@@ -12819,7 +12826,7 @@ components:
                 format: decimal
                 pattern: ^\d{1,3}(\.\d{1,2})?$
                 examples:
-                - '1.50'
+                - '10.00'
               average:
                 type:
                 - string
@@ -12827,7 +12834,7 @@ components:
                 format: decimal
                 pattern: ^\d{1,3}(\.\d{1,2})?$
                 examples:
-                - '1.20'
+                - '8.00'
             required:
             - criterion
             - max_score
@@ -12858,7 +12865,7 @@ components:
                       format: decimal
                       pattern: ^\d{1,3}(\.\d{1,2})?$
                       examples:
-                      - '1.25'
+                      - '8.00'
                     comment:
                       type:
                       - string

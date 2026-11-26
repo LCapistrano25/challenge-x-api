@@ -257,7 +257,7 @@
 - **Desempate (RF06, Art. 24):** os critérios de desempate valem para qual ranking?
 - **Homologação:** quem homologa (`homologated_at`) e o que fica bloqueado depois disso.
 - **Resolvida (24/11/2026, #217):**
-  - Nota final = soma das notas das etapas pontuadas (total 10). Nota da etapa = `(soma dos points / soma dos max_score dos critérios) × Stage.max_score`, média entre os professores (D-02; a implementar).
+  - Nota final = soma das notas das etapas pontuadas (total 10). Nota da etapa = `(soma dos points / soma dos max_score dos critérios) × Stage.max_score`, média entre os professores (D-02, #228).
   - Pódio único: 1º a 3º **por categoria na edição inteira** (Art. 26), pela média das `FinalEvaluation` `EVALUATED`; desempate por `final_score` e pelos critérios (D-01; a implementar). O RF49 ("dentro do curso") precisa ser corrigido nos requisitos.
   - Desempate (Art. 24): `Criterion.tiebreak_order` (padrão Critério 1, depois 4), nota do critério normalizada por etapa (`points / max_score × 10`), média dos professores e soma entre etapas; empate total divide a posição (#221).
   - Homologação: o ADMIN homologa (`approve_finalists`). Em aberto: recusar homologar com nota pendente e mover a homologação para depois do pódio.
