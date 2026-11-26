@@ -11,15 +11,18 @@ from rest_framework.views import APIView
 
 from apps.accounts.permissions import IsAdmin
 from apps.editions.enums import EditionStatus
-from apps.editions.models import Challenge, Edition, EditionReviewer
+from apps.editions.models import Category, Challenge, Edition, EditionReviewer
 from apps.editions.regulation_files import open_regulation
 from apps.editions.selectors import (
+    list_edition_categories,
     list_edition_challenges,
     list_edition_reviewers,
     list_edition_sdgs,
     list_editions,
 )
 from apps.editions.serializers import (
+    CategorySerializer,
+    CategoryWriteSerializer,
     ChallengeFiltersSerializer,
     ChallengeSerializer,
     ChallengeWriteSerializer,
@@ -33,14 +36,61 @@ from apps.editions.serializers import (
     EditionSerializer,
     EditionUpdateSerializer,
 )
+from apps.editions.use_cases.create_category import create_category
 from apps.editions.use_cases.create_challenge import create_challenge
 from apps.editions.use_cases.create_edition import create_edition
+from apps.editions.use_cases.delete_category import delete_category
 from apps.editions.use_cases.link_reviewer_to_edition import link_reviewer_to_edition
 from apps.editions.use_cases.publish_regulation import publish_regulation
 from apps.editions.use_cases.set_edition_sdgs import set_edition_sdgs
+from apps.editions.use_cases.update_category import update_category
 from apps.editions.use_cases.update_challenge import update_challenge
 from apps.editions.use_cases.update_edition import update_edition
 from apps.editions.use_cases.update_reviewer_scope import update_reviewer_scope
+
+
+class EditionCategoriesView(APIView):
+    """Lista e cadastra categorias da edição para administradores (RF49)."""
+
+    permission_classes = [IsAdmin]
+    parser_classes = [JSONParser]
+
+    def get(self, request, edition_id):
+        edition = get_object_or_404(Edition, pk=edition_id)
+        categories = list_edition_categories(edition.pk)
+        return Response(CategorySerializer(categories, many=True).data)
+
+    def post(self, request, edition_id):
+        edition = get_object_or_404(Edition, pk=edition_id)
+        serializer = CategoryWriteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        category = create_category(
+            actor=request.user, edition=edition, **serializer.validated_data
+        )
+        return Response(
+            CategorySerializer(category).data, status=status.HTTP_201_CREATED
+        )
+
+
+class CategoryDetailView(APIView):
+    """Atualiza ou exclui uma categoria da edição (RF49)."""
+
+    permission_classes = [IsAdmin]
+    parser_classes = [JSONParser]
+
+    def patch(self, request, category_id):
+        category = get_object_or_404(Category, pk=category_id)
+        serializer = CategoryWriteSerializer(data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        category = update_category(
+            actor=request.user, category=category, **serializer.validated_data
+        )
+        return Response(CategorySerializer(category).data)
+
+    def delete(self, request, category_id):
+        category = get_object_or_404(Category, pk=category_id)
+        delete_category(actor=request.user, category=category)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class EditionChallengesView(APIView):
