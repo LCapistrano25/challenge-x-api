@@ -12,7 +12,7 @@ from apps.evaluations.rules import ensure_final_form_editable
 
 @transaction.atomic
 def configure_final_form(
-    *, actor: User, edition: Edition, title: str, questions: list[dict]
+    *, actor: User, edition: Edition, title: str | None = None, questions: list[dict]
 ) -> FinalForm:
     """Cria ou substitui o título e o conjunto de perguntas do formulário da edição.
 
