@@ -77,3 +77,17 @@ def test_api_update_sdg_field_too_long_returns_400(api_client, admin_user, field
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
     assert field in response.data["error"]["details"]
+
+
+@pytest.mark.django_db
+def test_api_admin_sdg_response_has_timestamps(api_client, admin_user):
+    """Testa se a ODS do admin traz created_at e updated_at, como o schema Sdg."""
+    sdg = Sdg.objects.first()
+    api_client.force_authenticate(user=admin_user)
+
+    response = api_client.patch(
+        f"/api/admin/sdgs/{sdg.pk}", data={"active": False}, format="json"
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert {"created_at", "updated_at"} <= response.data.keys()
