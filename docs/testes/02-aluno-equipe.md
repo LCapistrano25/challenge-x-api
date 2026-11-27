@@ -82,7 +82,7 @@ Coluna **Resultado**: `ok`, `falhou #N` ou `bloqueado`. Siga a ordem: os passos 
 |---|---|---|---|---|---|
 | 1 | aluno | `GET /api/teams/{TEAM_A}/join-requests?status=PENDING` | — | **200**, pedido de livre3 | |
 | 2 | aluno | `GET /api/teams/{TEAM_A}/join-requests?status=FOO` | — | **400** | |
-| 3 | membro1 | `GET /api/teams/{TEAM_A}/join-requests` | — | **403** | |
+| 3 | membro1 | `GET /api/teams/{TEAM_A}/join-requests` | — | **403** ou **404** (o contrato lista os dois; em 27/11 veio 404) | |
 | 4 | aluno | `POST /api/join-requests/{JOIN_REQUEST_LIVRE3}/respond` | `{"status":"APPROVED"}` | **200**; a equipe fica com 5 (cheia) | |
 | 5 | aluno | repetir o passo 4 | — | **409** `join_request_not_pending` | |
 | 6 | aluno | `POST /api/teams/{TEAM_A}/invitations` | `{"student_id":{LIVRE5_STUDENT_ID}}` | **409** `team_full` | |
@@ -114,7 +114,7 @@ Coluna **Resultado**: `ok`, `falhou #N` ou `bloqueado`. Siga a ordem: os passos 
 |---|---|---|---|---|---|
 | 1 | aluno | `POST /api/teams/{TEAM_A}/member-notes` | `{"member_id":{MEMBRO1_MEMBER_ID},"text":"Faltou à reunião."}` | **201**, só `{id, created_at}` (o texto não volta) | |
 | 2 | membro1 | `POST /api/teams/{TEAM_A}/member-notes` | o mesmo | **403** `not_team_leader` | |
-| 3 | aluno | `POST /api/teams/{TEAM_A}/member-notes` | `{"member_id":999999,"text":"x"}` | **400** (integrante de fora da equipe) | |
+| 3 | aluno | `POST /api/teams/{TEAM_A}/member-notes` | `{"member_id":999999,"text":"x"}` | **404** `not_found` (integrante de fora da equipe) | |
 | 4 | aluno | `POST /api/teams/{TEAM_A}/leadership-requests` | `{"justification":"x"}` | **409** `team_has_leader` | |
 | 5 | semliderc1 | `POST /api/teams/{TEAM_C}/leadership-requests` | `{}` | **400** `validation_error` em `justification` | |
 | 6 | semliderc1 | `POST /api/teams/{TEAM_C}/leadership-requests` | `{"justification":"O líder saiu da instituição."}` | **201**, `status: PENDING`, `teacher: null` | |
@@ -122,7 +122,7 @@ Coluna **Resultado**: `ok`, `falhou #N` ou `bloqueado`. Siga a ordem: os passos 
 | 8 | semliderc2 | `GET /api/teams/{TEAM_C}/leadership-requests` | — | **200**, o pedido do passo 6 | |
 | 9 | aluno | `GET /api/teams/{TEAM_C}/leadership-requests` | — | **403** ou **404** (não é integrante; anote qual veio) | |
 | 10 | aluno | `POST /api/teams/{TEAM_A}/leadership-transfer` | `{"member_id":999999}` | **400** | |
-| 11 | aluno | `POST /api/teams/{TEAM_A}/leadership-transfer` | `{"member_id":{MEMBRO1_MEMBER_ID}}` | **200**; membro1 vira `LEADER` e o aluno seed vira `MEMBER` | |
+| 11 | aluno | `POST /api/teams/{TEAM_A}/leadership-transfer` | `{"member_id":{MEMBRO1_MEMBER_ID}}` | **200** com a `Team`; membro1 vira `LEADER` e o aluno seed vira `MEMBER`. Em 27/11 a API exigiu `student_id` (divergência 9 do README): registre a falha e, para seguir o roteiro, repita com `{"student_id":<user_id do membro1>}`. | |
 | 12 | aluno | `PATCH /api/teams/{TEAM_A}` | `{"name":"Tentativa"}` | **403** `not_team_leader` | |
 
 ## 2.8 Sair da equipe
