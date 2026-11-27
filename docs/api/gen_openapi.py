@@ -127,6 +127,10 @@ def op(method, path, opid, tag, summary, rf, roles, desc, *, authz=None, rules=(
     if more: resp.update(more)
     codes = set(errs)
     if body is not None: codes.add("400")
+    # Decisão de 26/11/2026: filtro inválido em query = 400; página inexistente = 404.
+    query = {p for p in params if PARAMS[p]["in"] == "query"}
+    if query - set(PAGE): codes.add("400")
+    if "Page" in params: codes.add("404")
     if not public:
         codes.add("401")
         if set(roles) != set(ALL): codes.add("403")
@@ -221,8 +225,8 @@ SC["StudentAdmin"] = obj({
     "created_at": DT(), "updated_at": DT(),
 }, ["user_id", "name", "email", "active", "registration_number", "course", "term", "created_at", "updated_at"])
 SC["StudentAdminUpdate"] = obj({
-    "name": STR(ex="Maria Souza Lima", maxLength=150),
-    "registration_number": STR(ex="202600124", maxLength=30),
+    "name": STR(ex="Maria Souza Lima", minLength=1, maxLength=150),
+    "registration_number": STR(ex="202600124", minLength=1, maxLength=30),
     "course_id": INT(ex=1), "term": INT(ex=5, minimum=1),
 }, desc="Ao menos um campo deve ser informado.", strict=True, minProperties=1)
 SC["TeacherCourseLink"] = obj({"course": ref("CourseSummary"), "active": BOOL(ex=True)}, ["course", "active"])
@@ -232,7 +236,7 @@ SC["TeacherAdmin"] = obj({
 }, ["user_id", "name", "email", "active", "courses", "created_at", "updated_at"])
 SC["TeacherCourseLinkWrite"] = obj({"course_id": INT(ex=1), "active": BOOL(ex=True)}, ["course_id", "active"], strict=True)
 SC["TeacherAdminUpdate"] = obj({
-    "name": STR(ex="João Pereira", maxLength=150),
+    "name": STR(ex="João Pereira", minLength=1, maxLength=150),
     "courses": arr(ref("TeacherCourseLinkWrite"), description="Vínculos a criar ou atualizar. Vínculos não listados permanecem inalterados (inativação explícita com active=false)."),
 }, desc="Ao menos um campo deve ser informado.", strict=True, minProperties=1)
 SC["ExternalEvaluatorEditionLink"] = obj({"edition": ref("EditionSummary"), "course": nul(ref("CourseSummary"))}, ["edition", "course"])
@@ -242,11 +246,11 @@ SC["ExternalEvaluatorAdmin"] = obj({
     "editions": arr(ref("ExternalEvaluatorEditionLink")), "created_at": DT(), "updated_at": DT(),
 }, ["user_id", "name", "email", "active", "institution", "editions", "created_at", "updated_at"])
 SC["ExternalEvaluatorAdminUpdate"] = obj({
-    "name": STR(ex="Ana Ribeiro", maxLength=150), "institution": nul(STR(ex="Instituto Tecnológico do Tocantins", maxLength=150)),
+    "name": STR(ex="Ana Ribeiro", minLength=1, maxLength=150), "institution": nul(STR(ex="Instituto Tecnológico do Tocantins", maxLength=150)),
 }, desc="Ao menos um campo deve ser informado. A abrangência por edição é alterada em /api/admin/editions/{edition_id}/evaluators.", strict=True, minProperties=1)
 SC["ExternalEvaluatorCreate"] = obj({
-    "name": STR(ex="Ana Ribeiro", maxLength=150), "email": EMAIL(ex="avaliador@instituicao.com"),
-    "password": STR("Senha inicial; armazenada apenas como hash.", "SenhaInicial#2026", format="password"),
+    "name": STR(ex="Ana Ribeiro", minLength=1, maxLength=150), "email": EMAIL(ex="avaliador@instituicao.com"),
+    "password": STR("Senha inicial; armazenada apenas como hash.", "SenhaInicial#2026", format="password", minLength=1),
     "institution": nul(STR(ex="Instituto Tecnológico do Tocantins", maxLength=150)),
 }, ["name", "email", "password"], strict=True)
 SC["ExternalEvaluatorCreated"] = obj({"external_evaluator": obj({"user_id": USER_ID(), "email": EMAIL(ex="avaliador@instituicao.com")}, ["user_id", "email"])}, ["external_evaluator"])
@@ -256,12 +260,12 @@ SC["EmailDomain"] = obj({
     "active": BOOL(ex=True),
 }, ["id", "name", "role", "active"])
 SC["EmailDomainCreate"] = obj({
-    "name": STR(ex="a.catolica-to.edu.br", maxLength=100),
+    "name": STR("Domínio sem @, como em DOMAIN_NAME_PATTERN; gravado em minúsculas.", "a.catolica-to.edu.br", maxLength=100, pattern=r"^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$"),
     "role": {"type": "string", "enum": ["STUDENT", "TEACHER"], "example": "STUDENT"},
     "active": BOOL(ex=True, default=True),
 }, ["name", "role"], strict=True)
 SC["EmailDomainUpdate"] = obj({
-    "name": STR(ex="a.catolica-to.edu.br", maxLength=100),
+    "name": STR("Domínio sem @, como em DOMAIN_NAME_PATTERN; gravado em minúsculas.", "a.catolica-to.edu.br", maxLength=100, pattern=r"^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$"),
     "role": {"type": "string", "enum": ["STUDENT", "TEACHER"], "example": "TEACHER"},
     "active": BOOL(ex=False),
 }, desc="Ao menos um campo deve ser informado.", strict=True, minProperties=1)
@@ -272,11 +276,11 @@ SC["Course"] = obj({
     "term_count": INT(ex=8, enum=[8, 10]), "active": BOOL(ex=True), "created_at": DT(), "updated_at": DT(),
 }, ["id", "name", "term_count", "active", "created_at", "updated_at"])
 SC["CourseCreate"] = obj({
-    "name": STR(ex="Engenharia de Software", maxLength=150),
+    "name": STR(ex="Engenharia de Software", minLength=1, maxLength=150),
     "term_count": INT(ex=8, enum=[8, 10]), "active": BOOL(ex=True, default=True),
 }, ["name", "term_count"], strict=True)
 SC["CourseUpdate"] = obj({
-    "name": STR(ex="Engenharia de Software", maxLength=150),
+    "name": STR(ex="Engenharia de Software", minLength=1, maxLength=150),
     "term_count": INT(ex=10, enum=[8, 10]), "active": BOOL(ex=False),
 }, desc="Ao menos um campo deve ser informado.", strict=True, minProperties=1)
 SC["Sdg"] = obj({
@@ -285,12 +289,12 @@ SC["Sdg"] = obj({
     "icon": nul(STR(ex="ods-09.svg")), "active": BOOL(ex=True), "created_at": DT(), "updated_at": DT(),
 }, ["id", "number", "title", "description", "icon", "active", "created_at", "updated_at"])
 SC["SdgCreate"] = obj({
-    "number": INT(ex=9, minimum=1, maximum=17), "title": STR(ex="Indústria, Inovação e Infraestrutura", maxLength=200),
+    "number": INT(ex=9, minimum=1, maximum=17), "title": STR(ex="Indústria, Inovação e Infraestrutura", minLength=1, maxLength=200),
     "description": nul(TXT(ex="Construir infraestruturas resilientes, promover a industrialização inclusiva e sustentável e fomentar a inovação.")),
     "icon": nul(STR(ex="ods-09.svg", maxLength=100)), "active": BOOL(ex=True, default=True),
 }, ["number", "title"], strict=True)
 SC["SdgUpdate"] = obj({
-    "title": STR(ex="Indústria, Inovação e Infraestrutura", maxLength=200), "description": nul(TXT(ex="Texto oficial atualizado.")),
+    "title": STR(ex="Indústria, Inovação e Infraestrutura", minLength=1, maxLength=200), "description": nul(TXT(ex="Texto oficial atualizado.")),
     "icon": nul(STR(ex="ods-09.svg", maxLength=100)), "active": BOOL(ex=False),
 }, desc="O número da ODS não é editável. Ao menos um campo deve ser informado.", strict=True, minProperties=1)
 SC["PublicSdg"] = obj({"id": INT(ex=9), "number": INT(ex=9), "title": STR(ex="Indústria, Inovação e Infraestrutura"),
@@ -329,9 +333,9 @@ SC["Category"] = obj({
     "id": INT(ex=2), "edition_id": INT(ex=3), "name": STR(ex="Protótipos e Artefatos"),
     "description": nul(TXT(ex="Categoria A do Art. 2 do regulamento.")), "active": BOOL(ex=True), "created_at": DT(), "updated_at": DT(),
 }, ["id", "edition_id", "name", "description", "active", "created_at", "updated_at"])
-SC["CategoryCreate"] = obj({"name": STR(ex="Protótipos e Artefatos", maxLength=150), "description": nul(TXT(ex="Categoria A do Art. 2 do regulamento.")),
+SC["CategoryCreate"] = obj({"name": STR(ex="Protótipos e Artefatos", minLength=1, maxLength=150), "description": nul(TXT(ex="Categoria A do Art. 2 do regulamento.")),
                             "active": BOOL(ex=True, default=True)}, ["name"], strict=True)
-SC["CategoryUpdate"] = obj({"name": STR(ex="Protótipos e Artefatos", maxLength=150), "description": nul(TXT(ex="Descrição revisada.")), "active": BOOL(ex=False)},
+SC["CategoryUpdate"] = obj({"name": STR(ex="Protótipos e Artefatos", minLength=1, maxLength=150), "description": nul(TXT(ex="Descrição revisada.")), "active": BOOL(ex=False)},
                            desc="Ao menos um campo deve ser informado.", strict=True, minProperties=1)
 SC["Criterion"] = obj({
     "id": INT(ex=21), "edition_id": INT(ex=3), "name": STR(ex="Inovação"),
@@ -339,9 +343,9 @@ SC["Criterion"] = obj({
     "tiebreak_order": nul(INT("Ordem no desempate; nulo quando não participa.", 1, minimum=1)),
     "created_at": DT(), "updated_at": DT(),
 }, ["id", "edition_id", "name", "rubric", "tiebreak_order", "created_at", "updated_at"])
-SC["CriterionCreate"] = obj({"name": STR(ex="Inovação", maxLength=150), "rubric": nul(TXT(ex="Avalia o grau de originalidade da solução...")),
+SC["CriterionCreate"] = obj({"name": STR(ex="Inovação", minLength=1, maxLength=150), "rubric": nul(TXT(ex="Avalia o grau de originalidade da solução...")),
                              "tiebreak_order": nul(INT(ex=1, minimum=1, maximum=32767))}, ["name"], strict=True)
-SC["CriterionUpdate"] = obj({"name": STR(ex="Inovação", maxLength=150), "rubric": nul(TXT(ex="Faixas revisadas.")), "tiebreak_order": nul(INT(ex=None, minimum=1, maximum=32767))},
+SC["CriterionUpdate"] = obj({"name": STR(ex="Inovação", minLength=1, maxLength=150), "rubric": nul(TXT(ex="Faixas revisadas.")), "tiebreak_order": nul(INT(ex=None, minimum=1, maximum=32767))},
                             desc="Ao menos um campo deve ser informado.", strict=True, minProperties=1)
 SC["DeliverableField"] = obj({
     "id": INT(ex=31), "kind": ref("FieldType"), "label": STR(ex="Relatório técnico (PDF)"), "required": BOOL(ex=True),
@@ -385,7 +389,7 @@ SC["FinalQuestion"] = obj({"id": INT(ex=61), "order": INT(ex=1), "prompt": TXT(e
 SC["FinalForm"] = obj({"id": INT(ex=4), "edition_id": INT(ex=3), "title": nul(STR(ex="Avaliação da Apresentação Final")), "published": BOOL(ex=False),
                        "questions": arr(ref("FinalQuestion")), "created_at": DT(), "updated_at": DT()},
                       ["id", "edition_id", "title", "published", "questions", "created_at", "updated_at"])
-SC["FinalQuestionWrite"] = obj({"order": INT(ex=1, minimum=1), "prompt": TXT(ex="Clareza e qualidade do pitch"), "kind": ref("QuestionType"),
+SC["FinalQuestionWrite"] = obj({"order": INT(ex=1, minimum=1), "prompt": TXT(ex="Clareza e qualidade do pitch", minLength=1), "kind": ref("QuestionType"),
                                 "max_score": nul(DEC("Obrigatória e positiva para SCORE; nula para CONCEPT e TEXT.", "10.00"))},
                                ["order", "prompt", "kind"], strict=True)
 SC["FinalFormWrite"] = obj({"title": nul(STR(ex="Avaliação da Apresentação Final", maxLength=150)),
@@ -768,8 +772,8 @@ PARAMS = {
     "VersionId": pp("version_id", {"type": "integer"}, "Identificador da versão da entrega."),
     "TicketId": pp("ticket_id", {"type": "string", "format": "uuid"}, "Identificador do chamado."),
     "NotificationId": pp("notification_id", {"type": "string", "format": "uuid"}, "Identificador da notificação."),
-    "Page": qp("page", {"type": "integer", "minimum": 1, "default": 1}, "Número da página (P-38)."),
-    "PageSize": qp("page_size", {"type": "integer", "minimum": 1, "maximum": 100, "default": 20}, "Itens por página (P-38)."),
+    "Page": qp("page", {"type": "integer", "minimum": 1, "default": 1}, "Número da página (P-38). Página inexistente ou inválida responde 404 not_found."),
+    "PageSize": qp("page_size", {"type": "integer", "default": 20}, "Itens por página (P-38). Ausente, inválido ou menor que 1 usa 20; acima de 100 é limitado a 100, sem erro."),
     "Search": qp("search", {"type": "string"}, "Busca textual."),
     "StudentNameSearch": {"name": "search", "in": "query", "required": True, "description": "Parte do nome do aluno, com pelo menos 3 caracteres.",
                           "schema": {"type": "string", "minLength": 3}},
@@ -869,7 +873,7 @@ for kind, plural, sch, upd, ptype, rfname, extra_rules in [
     ("aluno", "students", "StudentAdmin", "StudentAdminUpdate", PStudent, "RFXX — Atualizar cadastro de aluno",
      ["registration_number continua única.", "term entre 1 e term_count do curso informado ou atual.", "Preserva vínculos com equipes, projetos, entregas e avaliações."]),
     ("professor", "teachers", "TeacherAdmin", "TeacherAdminUpdate", PTeacher, "RFXX — Atualizar cadastro de professor",
-     ["Cursos devem existir; vínculos duplicados não são criados.", "Inativar um vínculo (active=false) remove o escopo de avaliação naquele curso, preservando o histórico."]),
+     ["Cursos devem existir; o mesmo course_id repetido na lista responde 400 validation_error.", "Inativar um vínculo (active=false) remove o escopo de avaliação naquele curso, preservando o histórico."]),
     ("avaliador externo", "external-evaluators", "ExternalEvaluatorAdmin", "ExternalEvaluatorAdminUpdate", PEval, "RFXX — Atualizar cadastro de avaliador externo",
      ["Preserva avaliações já realizadas.", "Não existe exclusão física de avaliador; usa-se a desativação."]),
 ]:

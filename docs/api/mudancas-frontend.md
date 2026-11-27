@@ -153,6 +153,17 @@ Os certificados foram adiados (podem ser emitidos pela universidade). Estas rota
 
 Os schemas `Certificate`, `CertificateTemplate`, `CertificateTemplateWrite` e o enum `CertificateType` também saíram. Se o tema voltar, ele está no backlog (#263).
 
+### Paginação, filtros e validação (teste com Schemathesis, 26/11)
+
+| O quê | Onde | Para o front |
+|---|---|---|
+| **Página inexistente** | todas as listas paginadas | `?page=` além da última (ou inválida) responde **404 `not_found`** ("Página inválida."). Ao apagar o último item de uma página, volte para a anterior. |
+| **`page_size`** | todas as listas paginadas | Sem erro: ausente, inválido ou menor que 1 usa 20; acima de 100 vira 100. |
+| **Filtro inválido** | rotas com filtro em query (`active`, `status`, `course_id`, `unread`...) | **400 `validation_error`** com o filtro em `details`. `GET /api/notifications?unread=abc` passou a dar 400 (antes ignorava). |
+| **Solicitações de liderança do professor** | `GET /api/teacher/leadership-requests` | Agora vem **paginado** (`{count, next, previous, results}`), como o contrato já dizia. Antes vinha uma lista solta. |
+| **ODS com datas** | `GET/POST/PATCH /api/admin/sdgs` | A resposta passa a trazer `created_at` e `updated_at`, como o schema `Sdg`. |
+| **Regras declaradas no contrato** | cadastros do admin | Nomes obrigatórios não aceitam texto vazio (`minLength: 1`); domínio de e-mail tem `pattern`; curso repetido ao editar professor dá 400. A API já fazia isso; agora o contrato mostra. |
+
 ---
 
 ## 1. Projeto: o `PUT /api/teams/{team_id}/project` foi removido
