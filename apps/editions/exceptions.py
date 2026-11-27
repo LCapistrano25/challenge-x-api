@@ -41,6 +41,16 @@ class EditionClosed(EditionError):
     default_message = "A edição está encerrada e não pode ser alterada."
 
 
+class EditionNotPublished(EditionError):
+    code = "edition_not_published"
+    default_message = "Somente edições publicadas podem ser encerradas."
+
+
+class EditionAlreadyClosed(EditionError):
+    code = "edition_already_closed"
+    default_message = "A edição já está encerrada."
+
+
 class CriterionInUseByEvaluations(EditionError):
     code = "criterion_in_use_by_evaluations"
     default_message = "Há avaliações iniciadas em etapa que usa o critério."

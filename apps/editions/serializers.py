@@ -182,6 +182,17 @@ class StrictBooleanField(serializers.BooleanField):
         return super().to_internal_value(data)
 
 
+class EditionCloseSerializer(RejectUnknownFieldsMixin, serializers.Serializer):
+    """Confirmação explícita do encerramento irreversível (P-45)."""
+
+    confirm = StrictBooleanField()
+
+    def validate_confirm(self, value):
+        if value is not True:
+            raise serializers.ValidationError("Confirme o encerramento com true.")
+        return value
+
+
 class CriterionWriteSerializer(RejectUnknownFieldsMixin, serializers.Serializer):
     name = StrictCharField(max_length=150)
     rubric = StrictCharField(
