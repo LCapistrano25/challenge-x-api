@@ -139,7 +139,7 @@ Fora deste roteiro: `409 criterion_in_use_by_evaluations` precisa de avaliação
 | 8 | admin | `GET /api/admin/editions/{ED}/challenges?course_id=abc` | — | **400** `validation_error` | |
 | 9 | admin | `PATCH /api/admin/challenges/{CH}` | `{"description":"Texto revisado."}` | **200** | |
 | 10 | admin | `PUT /api/admin/editions/{ED}/sdgs` | `{"sdg_ids":[]}` | **409** `sdg_in_use` (a ODS 9 tem desafio) | |
-| 11 | admin | `DELETE /api/admin/sdgs/{ODS9}` | — | **409** `sdg_in_use` (em 27/11 voltou **500**: divergência 6 do README) | |
+| 11 | admin | `DELETE /api/admin/sdgs/{ODS9}` | — | **409** `sdg_in_use` (dava 500 até a correção da #280) | |
 
 ## 1.9 Publicar o edital
 
