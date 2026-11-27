@@ -180,7 +180,7 @@ Achados ao validar os passos na `developer` (`c46e676`), em 27/11/2026. Nada foi
 
 ### Segunda rodada (27/11, as 55 rotas que ainda não tinham sido chamadas)
 
-154 checagens, 144 conforme o contrato. Os desvios da API:
+154 checagens, 144 conforme o contrato. Os seis desvios abaixo já foram **corrigidos** na `developer` (#287 para core, #288 para teams) e conferidos com a API rodando; ficam aqui como registro:
 
 6. **`DELETE /api/admin/sdgs/{id}` com ODS usada por desafio responde 500** (`ProtectedError`), em vez de `409 sdg_in_use`. Roteiro 01, passo 1.8.11. Issue #280.
 7. **`POST /api/admin/sdgs` com número repetido responde `400 validation_error`** (`non_field_errors`), em vez de `409 sdg_number_taken`. Roteiro 01, passo 1.2.3. Issue #281.

@@ -72,7 +72,7 @@ Coluna **Resultado**: `ok`, `falhou #N` ou `bloqueado`. Siga a ordem: os passos 
 | 7 | aluno | `POST /api/teams/{TEAM_A}/invitations` | `{"email":"inativo@aluno.desafiox.local"}` | **404** `not_found` | |
 | 8 | aluno | `POST /api/teams/{TEAM_A}/invitations` | `{"student_id":{LIVRE2_STUDENT_ID}}` | **409** `student_already_in_team` | |
 | 9 | aluno | `POST /api/teams/{TEAM_A}/invitations` | `{}` | **400** `validation_error` | |
-| 10 | aluno | `POST /api/teams/{TEAM_B}/invitations` | `{"email":"livre5@aluno.desafiox.local"}` | **403** (não é líder da equipe B) | |
+| 10 | aluno | `POST /api/teams/{TEAM_B}/invitations` | `{"email":"livre5@aluno.desafiox.local"}` | **403** `not_team_leader` (não é líder da equipe B) | |
 | 11 | aluno | `GET /api/teams/{TEAM_A}/invitations` | — | **200**, convites de livre4 e livre6 | |
 | 12 | livre4 | `POST /api/invitations/{INVITATION_LIVRE4}/respond` | `{"status":"ACCEPTED"}` | **200**; a equipe passa a ter 4 integrantes | |
 
@@ -121,8 +121,8 @@ Coluna **Resultado**: `ok`, `falhou #N` ou `bloqueado`. Siga a ordem: os passos 
 | 7 | semliderc2 | repetir o passo 6 | — | **409** `leadership_request_pending_exists` | |
 | 8 | semliderc2 | `GET /api/teams/{TEAM_C}/leadership-requests` | — | **200**, o pedido do passo 6 | |
 | 9 | aluno | `GET /api/teams/{TEAM_C}/leadership-requests` | — | **403** ou **404** (não é integrante; anote qual veio) | |
-| 10 | aluno | `POST /api/teams/{TEAM_A}/leadership-transfer` | `{"member_id":999999}` | **400** | |
-| 11 | aluno | `POST /api/teams/{TEAM_A}/leadership-transfer` | `{"member_id":{MEMBRO1_MEMBER_ID}}` | **200** com a `Team`; membro1 vira `LEADER` e o aluno seed vira `MEMBER`. Em 27/11 a API exigiu `student_id` (divergência 9 do README): registre a falha e, para seguir o roteiro, repita com `{"student_id":<user_id do membro1>}`. | |
+| 10 | aluno | `POST /api/teams/{TEAM_A}/leadership-transfer` | `{"member_id":999999}` | **400** `validation_error` | |
+| 11 | aluno | `POST /api/teams/{TEAM_A}/leadership-transfer` | `{"member_id":{MEMBRO1_MEMBER_ID}}` | **200** com a `Team`; membro1 vira `LEADER` e o aluno seed vira `MEMBER`. `member_id` é o `id` do integrante em `members` (não o `user_id`). | |
 | 12 | aluno | `PATCH /api/teams/{TEAM_A}` | `{"name":"Tentativa"}` | **403** `not_team_leader` | |
 
 ## 2.8 Sair da equipe
