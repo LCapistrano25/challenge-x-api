@@ -136,7 +136,7 @@ Ordem da API: **calcular → finalistas → avaliação externa → pódio → h
 | 7 | admin | `POST .../finalists` | `{"project_ids":[999999]}` | **400** (fora do ranking) | |
 | 8 | admin | `POST .../finalists` | `{}` | **200**, Projeto Seed com `finalist: true` | |
 | 9 | admin | `POST .../results/homologate` | — | **409** `results_pending_scores` (o Projeto B ainda sem nota) | |
-| 10 | terminal | `uv run python manage.py apply_zero_scores` | — | "Notas zero aplicadas: 2." | |
+| 10 | terminal | `uv run python manage.py apply_zero_scores` | — | "Notas zero aplicadas: N." (N ≥ 2, as etapas do Projeto B) | |
 | 11 | admin | `POST .../results/calculate` | — | **200**, Projeto B com `final_score: "0.00"`; o Projeto Seed continua finalista | |
 | 12 | admin | `POST .../awards/calculate` | — | **200**, mas `award: null` (ainda sem avaliação externa) | |
 | 13 | admin | `POST .../results/homologate` | — | **409** `awards_not_calculated` | |

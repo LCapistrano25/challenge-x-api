@@ -169,6 +169,8 @@ LeadershipRequestFactory(team=team_b, requester=b_members[0].student)
 team_c = TeamFactory(edition=edition, name="Equipe Sem Lider C", leader=False)
 for i in (1, 2, 3):
     TeamMemberFactory(team=team_c, student=student(f"semliderc{i}"))
+# Pedido de lideranca exige desafio escolhido (regra fora do contrato, ver README).
+ProjectFactory(team=team_c, challenge=challenge, category=category, title="Projeto C")
 
 # Alunos sem equipe (convites, pedidos de entrada, nova equipe) e um inativo.
 livres = [student(f"livre{i}") for i in range(1, 7)]

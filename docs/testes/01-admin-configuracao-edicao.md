@@ -17,7 +17,7 @@ Coluna **Resultado**: `ok`, `falhou #N` ou `bloqueado`.
 | # | Perfil | Chamada | Corpo | Esperado | Resultado |
 |---|---|---|---|---|---|
 | 1 | sem login | `GET /api/courses` | — | **200**, lista `{id, name}` só de cursos ativos. Anote o id de Engenharia de Software como `{CURSO_ES}`. | |
-| 2 | sem login | `GET /api/sdgs` | — | **200**, as 17 ODS ativas com `id, number, title, description, icon` | |
+| 2 | sem login | `GET /api/sdgs` | — | **200**, as ODS ativas com `id, number, title, description, icon` (a base local traz só algumas: 1, 2, 3, 9 e 16) | |
 | 3 | sem login | `GET /api/admin/courses` | — | **401** `not_authenticated` | |
 | 4 | aluno | `GET /api/admin/courses` | — | **403** `permission_denied` | |
 | 5 | admin | `GET /api/admin/courses?search=engenharia&active=true` | — | **200**, lista com `term_count`, `active`, `created_at` | |
@@ -37,12 +37,12 @@ Coluna **Resultado**: `ok`, `falhou #N` ou `bloqueado`.
 
 | # | Perfil | Chamada | Corpo | Esperado | Resultado |
 |---|---|---|---|---|---|
-| 1 | admin | `GET /api/admin/sdgs?active=true` | — | **200**, cada ODS com `created_at` e `updated_at`. Anote o id da ODS 17 como `{ODS17}` e da ODS 9 como `{ODS9}`. | |
+| 1 | admin | `GET /api/admin/sdgs?active=true` | — | **200**, cada ODS com `created_at` e `updated_at`. Anote o id da ODS 9 como `{ODS9}`. | |
 | 2 | admin | `GET /api/admin/sdgs?active=talvez` | — | **400** `validation_error` | |
 | 3 | admin | `POST /api/admin/sdgs` | `{"number":9,"title":"Duplicada"}` | **409** `sdg_number_taken` | |
 | 4 | admin | `POST /api/admin/sdgs` | `{"number":18,"title":"Fora da faixa"}` | **400** `validation_error` em `number` (1 a 17) | |
-| 5 | admin | `DELETE /api/admin/sdgs/{ODS17}` | — | **204** (ODS sem uso) | |
-| 6 | admin | `POST /api/admin/sdgs` | `{"number":17,"title":"Parcerias e Meios de Implementação","icon":"ods-17.svg"}` | **201**. Anote o novo `{ODS17}`. | |
+| 5 | admin | `POST /api/admin/sdgs` | `{"number":17,"title":"Parcerias e Meios de Implementação","icon":"ods-17.svg"}` | **201**. Anote `{ODS17}`. | |
+| 6 | admin | `POST /api/admin/sdgs` e depois `DELETE /api/admin/sdgs/{id criado}` | `{"number":10,"title":"Redução das Desigualdades"}` | **201** e **204** (ODS sem uso) | |
 | 7 | admin | `PATCH /api/admin/sdgs/{ODS17}` | `{"active":false}` | **200**, `active: false`; a ODS some de `GET /api/sdgs` | |
 | 8 | aluno | `POST /api/admin/sdgs` | `{"number":17,"title":"x"}` | **403** | |
 
@@ -139,6 +139,7 @@ Fora deste roteiro: `409 criterion_in_use_by_evaluations` precisa de avaliação
 | 8 | admin | `GET /api/admin/editions/{ED}/challenges?course_id=abc` | — | **400** `validation_error` | |
 | 9 | admin | `PATCH /api/admin/challenges/{CH}` | `{"description":"Texto revisado."}` | **200** | |
 | 10 | admin | `PUT /api/admin/editions/{ED}/sdgs` | `{"sdg_ids":[]}` | **409** `sdg_in_use` (a ODS 9 tem desafio) | |
+| 11 | admin | `DELETE /api/admin/sdgs/{ODS9}` | — | **409** `sdg_in_use` (em 27/11 voltou **500**: divergência 6 do README) | |
 
 ## 1.9 Publicar o edital
 

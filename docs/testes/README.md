@@ -178,6 +178,19 @@ Achados ao validar os passos na `developer` (`c46e676`), em 27/11/2026. Nada foi
 4. **Comandos de fechamento citados no pedido não existem na `developer`.** `compute_results`, `select_finalists`, `compute_awards` e `approve_results` não estão em `apps/*/management/commands/`. Na `developer`, o fechamento é feito pelas rotas `results/calculate` → `finalists` → `awards/calculate` → `results/homologate`, e é assim que o roteiro 5 testa. Os comandos que existem são `apply_zero_scores` e `classify_team_status`.
 5. **Mensagem de busca com texto trocado.** `GET /api/teams/{id}/invitable-students?search=li` diz "tenha mais de 3 caracteres", mas a regra (e o comportamento) é **pelo menos** 3: `search=liv` funciona.
 
+### Segunda rodada (27/11, as 55 rotas que ainda não tinham sido chamadas)
+
+154 checagens, 144 conforme o contrato. Os desvios da API:
+
+6. **`DELETE /api/admin/sdgs/{id}` com ODS usada por desafio responde 500** (`ProtectedError`), em vez de `409 sdg_in_use`. Roteiro 01, passo 1.8.11. Issue #280.
+7. **`POST /api/admin/sdgs` com número repetido responde `400 validation_error`** (`non_field_errors`), em vez de `409 sdg_number_taken`. Roteiro 01, passo 1.2.3. Issue #281.
+8. **`GET /api/admin/sdgs?active=talvez` responde 200 e ignora o filtro**, em vez de `400 validation_error` (as outras listas já recusam). Roteiro 01, passo 1.2.2. Issue #282.
+9. **`POST /api/teams/{id}/leadership-transfer` exige `student_id`**, mas o contrato (`LeadershipTransfer`) pede `member_id`; e a resposta é o integrante, não a `Team`. Roteiro 02, passo 2.7.11. Issue #283.
+10. **Convite em equipe da qual o aluno não é líder responde `409 business_rule_violation`**, em vez de 403; o código nem existe no contrato. Roteiro 02, passo 2.4.10. Issue #284.
+11. **Pedido de liderança exige desafio escolhido**: sem projeto, `POST /api/teams/{id}/leadership-requests` responde `409 leadership_request_rejected`, regra e código fora do contrato. O cenário passou a dar projeto à Equipe C para o roteiro 02 seguir. Issue #285.
+
+Desvios menores, aceitos pelo contrato (que lista 403 e 404): membro que lista os pedidos de entrada da equipe recebe 404 (as outras rotas do líder dão `403 not_team_leader`); observação sobre integrante de fora da equipe recebe 404.
+
 ## 6. Rotas fora dos roteiros
 
 Todas as 124 operações do contrato aparecem em pelo menos um roteiro. Duas só têm teste parcial:
