@@ -258,3 +258,13 @@ def test_put_mantem_o_id_da_pergunta_que_continua(admin):
 
     restante = form.questions.get()
     assert restante.pk == ids[1] and restante.prompt == "Pitch revisado"
+
+
+def test_formulario_sem_titulo_e_aceito(admin):
+    edition = EditionFactory()
+    sem_titulo = {"questions": body()["questions"]}
+
+    response = client_for(admin).put(url(edition), sem_titulo, format="json")
+
+    assert response.status_code == 200, response.data
+    assert response.data["title"] is None

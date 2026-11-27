@@ -1,5 +1,6 @@
 from django.http import Http404
 from django.shortcuts import get_object_or_404
+from rest_framework import serializers
 from rest_framework.generics import ListAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -53,6 +54,14 @@ class EditionWinnersListView(APIView):
         return Response(WinnerSerializer(winners, many=True).data)
 
 
+class PublicProjectFilterSerializer(serializers.Serializer):
+    edition_id = serializers.IntegerField(required=False)
+    course_id = serializers.IntegerField(required=False)
+    sdg_id = serializers.IntegerField(required=False)
+    category_id = serializers.IntegerField(required=False)
+    search = serializers.CharField(required=False, allow_blank=True)
+
+
 class PublicProjectListView(ListAPIView):
     """GET /api/public/projects : Vitrine e acervo de projetos (público) - RF34."""
 
@@ -60,14 +69,9 @@ class PublicProjectListView(ListAPIView):
     serializer_class = PublicProjectSerializer
 
     def get_queryset(self):
-        # Captura os filtros da URL e passa para o seletor
-        return list_public_projects(
-            edition_id=self.request.query_params.get("edition"),
-            course_id=self.request.query_params.get("course"),
-            sdg_id=self.request.query_params.get("sdg"),
-            category_id=self.request.query_params.get("category"),
-            search=self.request.query_params.get("search"),
-        )
+        filters = PublicProjectFilterSerializer(data=self.request.query_params)
+        filters.is_valid(raise_exception=True)
+        return list_public_projects(**filters.validated_data)
 
 
 class PublicProjectDetailView(APIView):

@@ -11,14 +11,15 @@ Class-based views
     1. Add an import:  from other_app.views import Home
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 Including another URLconf
-    1. Import the include() function: from django.urls import include, path
+    1. Import the include() function: from django.urls import include, path, re_path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 
 from django.contrib import admin
-from django.urls import include, path
+from django.urls import include, path, re_path
 
 from config import api_docs
+from config.exception import api_not_found
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -41,5 +42,9 @@ urlpatterns = [
     path("api/support/", include("apps.support.urls")),
     path("api/admin/support/", include("apps.support.admin_urls")),
 ]
+
+# Por último: rota da API que não casou (inclusive parâmetro de caminho inválido)
+# sai em JSON também com DEBUG=True, quando o Django ignoraria o handler404.
+urlpatterns.append(re_path(r"^api/", api_not_found))
 
 handler404 = "config.exception.api_not_found"

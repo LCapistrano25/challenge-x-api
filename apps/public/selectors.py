@@ -5,6 +5,7 @@ from apps.editions.models import Challenge, Edition
 from apps.projects.enums import ProjectStatus
 from apps.projects.models import Project
 from apps.results.models import ProjectResult
+from apps.teams.enums import TeamStatus
 from apps.teams.models import TeamMember
 
 
@@ -34,7 +35,7 @@ def list_closed_editions() -> QuerySet[Edition]:
 
 
 def list_edition_winners(edition: Edition) -> QuerySet[ProjectResult]:
-    """Galeria de vencedores da edição (RF47)."""
+    """Galeria de vencedores da edição (RF35/RF46)."""
     if edition.status != EditionStatus.CLOSED:
         return ProjectResult.objects.none()
 
@@ -43,6 +44,7 @@ def list_edition_winners(edition: Edition) -> QuerySet[ProjectResult]:
             project__edition=edition,
             award__isnull=False,
             approved_at__isnull=False,
+            project__in=_visible_projects(),
         )
         .select_related(
             "project__edition",
@@ -65,12 +67,24 @@ def list_edition_winners(edition: Edition) -> QuerySet[ProjectResult]:
     )
 
 
+def _visible_projects() -> QuerySet[Project]:
+    """Projetos que podem ir à vitrine.
+
+    Fora: projeto ou equipe desclassificados (RF13) e projeto sem desafio, que
+    ainda não tem curso nem ODS para mostrar.
+    """
+    return (
+        Project.objects.exclude(status=ProjectStatus.DISQUALIFIED)
+        .exclude(team__status=TeamStatus.DISQUALIFIED)
+        .filter(challenge__isnull=False)
+    )
+
+
 def list_public_projects(
     edition_id=None, course_id=None, sdg_id=None, category_id=None, search=None
 ) -> QuerySet[Project]:
     """Vitrine e acervo de projetos (público) - RF34."""
-    # Exclui as equipas desclassificadas
-    qs = Project.objects.exclude(status=ProjectStatus.DISQUALIFIED)
+    qs = _visible_projects()
 
     if edition_id:
         qs = qs.filter(edition_id=edition_id)
@@ -120,7 +134,7 @@ def get_public_project(project_id: int) -> Project | None:
         approved_at__isnull=False
     ).values("project_id")
 
-    qs = Project.objects.exclude(status=ProjectStatus.DISQUALIFIED).filter(
+    qs = _visible_projects().filter(
         Q(edition__status=EditionStatus.PUBLISHED)
         | Q(edition__status=EditionStatus.CLOSED, id__in=projetos_homologados_ids)
     )

@@ -263,3 +263,14 @@ def test_painel_exige_login():
 
 def test_painel_so_para_professor():
     assert client_for(StudentFactory().user).get(PAINEL).status_code == 403
+
+
+def test_put_aceita_comentario_nulo(ctx):
+    body = corpo(ctx)
+    body["comment"] = None
+    for item in body["items"]:
+        item["comment"] = None
+
+    response = client_for(ctx.user).put(ctx.url, body, format="json")
+
+    assert response.status_code == 200

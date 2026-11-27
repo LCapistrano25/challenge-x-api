@@ -10,12 +10,16 @@ class EvaluationItemWriteSerializer(serializers.Serializer):
         queryset=StageCriterion.objects.all(), source="stage_criterion"
     )
     points = serializers.DecimalField(max_digits=5, decimal_places=2, min_value=0)
-    comment = serializers.CharField(required=False, allow_blank=True, default="")
+    comment = serializers.CharField(
+        required=False, allow_blank=True, allow_null=True, default=""
+    )
 
 
 class EvaluationWriteSerializer(serializers.Serializer):
     status = serializers.ChoiceField(choices=EvaluationStatus.choices)
-    comment = serializers.CharField(required=False, allow_blank=True, default="")
+    comment = serializers.CharField(
+        required=False, allow_blank=True, allow_null=True, default=""
+    )
     items = EvaluationItemWriteSerializer(many=True)
 
 
@@ -217,7 +221,9 @@ class FinalQuestionWriteSerializer(serializers.Serializer):
 
 
 class FinalFormWriteSerializer(serializers.Serializer):
-    title = serializers.CharField(max_length=150, allow_blank=True, allow_null=True)
+    title = serializers.CharField(
+        max_length=150, allow_blank=True, allow_null=True, required=False
+    )
     questions = FinalQuestionWriteSerializer(many=True, allow_empty=False)
 
     def validate_questions(self, questions):
