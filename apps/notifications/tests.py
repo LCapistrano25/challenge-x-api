@@ -112,6 +112,15 @@ def test_listar_notificacoes_filtro_unread(api_client):
     assert [item["id"] for item in body["results"]] == [str(nao_lida.id)]
 
 
+def test_filtro_unread_invalido_retorna_400(api_client):
+    api_client.force_authenticate(user=UserFactory())
+
+    response = api_client.get("/api/notifications?unread=abc")
+
+    assert response.status_code == 400
+    assert response.json()["error"]["details"].keys() == {"unread"}
+
+
 def test_marcar_notificacao_como_lida_segue_contrato(api_client):
     user = UserFactory()
     notif = make_notification(user)

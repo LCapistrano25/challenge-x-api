@@ -140,6 +140,8 @@ class SdgSerializer(serializers.Serializer):
     description = serializers.CharField(allow_blank=True, required=False)
     icon = serializers.CharField(max_length=100, allow_blank=True, required=False)
     active = serializers.BooleanField(required=False)
+    created_at = serializers.DateTimeField(read_only=True)
+    updated_at = serializers.DateTimeField(read_only=True)
 
 
 class SdgPublicListView(APIView):

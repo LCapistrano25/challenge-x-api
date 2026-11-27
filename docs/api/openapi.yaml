@@ -284,6 +284,8 @@ paths:
                 active: true
                 created_at: '2026-10-22T16:00:00Z'
                 updated_at: '2026-10-22T16:00:00Z'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -1134,6 +1136,8 @@ paths:
                 active: true
                 created_at: '2026-10-22T16:00:00Z'
                 updated_at: '2026-10-22T16:00:00Z'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -2627,6 +2631,8 @@ paths:
                 name: a.catolica-to.edu.br
                 role: STUDENT
                 active: true
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -2889,10 +2895,14 @@ paths:
                       name: Engenharia de Software
                   created_at: '2026-10-22T16:00:00Z'
                   updated_at: '2026-10-22T16:00:00Z'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/admin/external-evaluators/{user_id}:
     get:
       tags:
@@ -3103,6 +3113,8 @@ paths:
                 active: true
                 created_at: '2026-10-22T16:00:00Z'
                 updated_at: '2026-10-22T16:00:00Z'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -3620,10 +3632,14 @@ paths:
                   term: 4
                   created_at: '2026-10-22T16:00:00Z'
                   updated_at: '2026-10-22T16:00:00Z'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/admin/students/{user_id}:
     get:
       tags:
@@ -3854,10 +3870,14 @@ paths:
                   assigned_to:
                     user_id: 42
                     name: Maria Souza
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/admin/support/tickets/{ticket_id}:
     get:
       tags:
@@ -4050,10 +4070,14 @@ paths:
                     active: true
                   created_at: '2026-10-22T16:00:00Z'
                   updated_at: '2026-10-22T16:00:00Z'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/admin/teachers/{user_id}:
     get:
       tags:
@@ -4115,7 +4139,7 @@ paths:
         **Perfis permitidos:** ADMIN
 
         **Regras de negócio:**
-        - Cursos devem existir; vínculos duplicados não são criados.
+        - Cursos devem existir; o mesmo course_id repetido na lista responde 400 validation_error.
         - Inativar um vínculo (active=false) remove o escopo de avaliação naquele curso, preservando o histórico.
       x-status: confirmed
       x-requirements:
@@ -4261,10 +4285,14 @@ paths:
                   project:
                     id: 40
                     title: Monitoramento inteligente do consumo de água
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/admin/teams/{team_id}/deadline-extensions:
     post:
       tags:
@@ -5125,10 +5153,14 @@ paths:
                     name: Equipe Aurora
                     code: DXA7K2
                   my_evaluation_status: PENDING
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '409':
           description: Conflito com uma regra de negócio.
           content:
@@ -5802,6 +5834,8 @@ paths:
                 status: PENDING
                 created_at: '2026-10-22T16:00:00Z'
                 responded_at: null
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -5853,6 +5887,8 @@ paths:
                 status: PENDING
                 created_at: '2026-10-22T16:00:00Z'
                 responded_at: null
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -5913,8 +5949,12 @@ paths:
                   link: /convites/88
                   read_at: null
                   created_at: '2026-10-22T16:00:00Z'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/notifications/{notification_id}/read:
     post:
       tags:
@@ -6758,6 +6798,10 @@ paths:
                     name: Protótipos e Artefatos
                   members:
                   - name: Maria Souza
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/public/projects/{project_id}:
     get:
       tags:
@@ -6958,10 +7002,14 @@ paths:
                   created_at: '2026-10-22T16:00:00Z'
                   updated_at: '2026-10-22T16:00:00Z'
                   resolved_at: null
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/support/tickets/{ticket_id}:
     get:
       tags:
@@ -7062,10 +7110,14 @@ paths:
                   decision_justification: null
                   created_at: '2026-10-22T16:00:00Z'
                   decided_at: null
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/teacher/projects:
     get:
       tags:
@@ -7132,10 +7184,14 @@ paths:
                   evaluation_count: 1
                   min_evaluations: 2
                   my_evaluation_status: NOT_STARTED
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/teams:
     post:
       tags:
@@ -7293,10 +7349,14 @@ paths:
                   courses:
                   - id: 1
                     name: Engenharia de Software
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/teams/{team_id}:
     get:
       tags:
@@ -7512,6 +7572,8 @@ paths:
                   course:
                     id: 1
                     name: Engenharia de Software
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -7667,6 +7729,8 @@ paths:
                 status: PENDING
                 created_at: '2026-10-22T16:00:00Z'
                 responded_at: null
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -7812,6 +7876,8 @@ paths:
                 status: PENDING
                 created_at: '2026-10-22T16:00:00Z'
                 responded_at: null
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -8835,7 +8901,7 @@ components:
       name: page
       in: query
       required: false
-      description: Número da página (P-38).
+      description: Número da página (P-38). Página inexistente ou inválida responde 404 not_found.
       schema:
         type: integer
         minimum: 1
@@ -8844,11 +8910,9 @@ components:
       name: page_size
       in: query
       required: false
-      description: Itens por página (P-38).
+      description: Itens por página (P-38). Ausente, inválido ou menor que 1 usa 20; acima de 100 é limitado a 100, sem erro.
       schema:
         type: integer
-        minimum: 1
-        maximum: 100
         default: 20
     Search:
       name: search
@@ -9668,11 +9732,13 @@ components:
       properties:
         name:
           type: string
+          minLength: 1
           maxLength: 150
           examples:
           - Maria Souza Lima
         registration_number:
           type: string
+          minLength: 1
           maxLength: 30
           examples:
           - '202600124'
@@ -9764,6 +9830,7 @@ components:
       properties:
         name:
           type: string
+          minLength: 1
           maxLength: 150
           examples:
           - João Pereira
@@ -9844,6 +9911,7 @@ components:
       properties:
         name:
           type: string
+          minLength: 1
           maxLength: 150
           examples:
           - Ana Ribeiro
@@ -9861,6 +9929,7 @@ components:
       properties:
         name:
           type: string
+          minLength: 1
           maxLength: 150
           examples:
           - Ana Ribeiro
@@ -9874,6 +9943,7 @@ components:
           type: string
           description: Senha inicial; armazenada apenas como hash.
           format: password
+          minLength: 1
           examples:
           - SenhaInicial#2026
         institution:
@@ -9941,7 +10011,9 @@ components:
       properties:
         name:
           type: string
+          description: Domínio sem @, como em DOMAIN_NAME_PATTERN; gravado em minúsculas.
           maxLength: 100
+          pattern: ^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$
           examples:
           - a.catolica-to.edu.br
         role:
@@ -9965,7 +10037,9 @@ components:
       properties:
         name:
           type: string
+          description: Domínio sem @, como em DOMAIN_NAME_PATTERN; gravado em minúsculas.
           maxLength: 100
+          pattern: ^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$
           examples:
           - a.catolica-to.edu.br
         role:
@@ -10024,6 +10098,7 @@ components:
       properties:
         name:
           type: string
+          minLength: 1
           maxLength: 150
           examples:
           - Engenharia de Software
@@ -10049,6 +10124,7 @@ components:
       properties:
         name:
           type: string
+          minLength: 1
           maxLength: 150
           examples:
           - Engenharia de Software
@@ -10128,6 +10204,7 @@ components:
           - 9
         title:
           type: string
+          minLength: 1
           maxLength: 200
           examples:
           - Indústria, Inovação e Infraestrutura
@@ -10159,6 +10236,7 @@ components:
       properties:
         title:
           type: string
+          minLength: 1
           maxLength: 200
           examples:
           - Indústria, Inovação e Infraestrutura
@@ -10520,6 +10598,7 @@ components:
       properties:
         name:
           type: string
+          minLength: 1
           maxLength: 150
           examples:
           - Protótipos e Artefatos
@@ -10543,6 +10622,7 @@ components:
       properties:
         name:
           type: string
+          minLength: 1
           maxLength: 150
           examples:
           - Protótipos e Artefatos
@@ -10611,6 +10691,7 @@ components:
       properties:
         name:
           type: string
+          minLength: 1
           maxLength: 150
           examples:
           - Inovação
@@ -10637,6 +10718,7 @@ components:
       properties:
         name:
           type: string
+          minLength: 1
           maxLength: 150
           examples:
           - Inovação
@@ -11081,6 +11163,7 @@ components:
           - 1
         prompt:
           type: string
+          minLength: 1
           examples:
           - Clareza e qualidade do pitch
         kind:

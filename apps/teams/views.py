@@ -505,12 +505,12 @@ class TeacherLeadershipRequestsView(APIView):
                 status=request_status,
             )
 
-        return Response(
-            LeadershipRequestSerializer(
-                leadership_requests,
-                many=True,
-            ).data,
-            status=status.HTTP_200_OK,
+        paginator = DefaultPagination()
+        page = paginator.paginate_queryset(
+            leadership_requests.order_by("-created_at", "-id"), request, view=self
+        )
+        return paginator.get_paginated_response(
+            LeadershipRequestSerializer(page, many=True).data
         )
 
 
