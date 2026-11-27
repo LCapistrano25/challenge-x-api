@@ -52,7 +52,21 @@ class EditionReviewerInline(admin.TabularInline):
 class EditionAdmin(admin.ModelAdmin):
     list_display = ("__str__", "year", "semester", "status")
     list_filter = ("status",)
+    # Publicar e encerrar só pelos casos de uso: o encerramento é irreversível (RF47).
+    readonly_fields = ("status", "published_at", "closed_at")
     inlines = (EditionSdgInline, CategoryInline, EditionReviewerInline)
+
+    def get_readonly_fields(self, request, obj=None):
+        # Limites congelam com a publicação (RF48), como no update_edition.
+        if obj is not None and obj.status != EditionStatus.SETUP:
+            return (*self.readonly_fields, "min_members", "max_members")
+        return self.readonly_fields
+
+    def has_change_permission(self, request, obj=None):
+        # Encerrada não aceita alteração (ensure_edition_not_closed).
+        if obj is not None and obj.status == EditionStatus.CLOSED:
+            return False
+        return super().has_change_permission(request, obj)
 
 
 @admin.register(Challenge)
