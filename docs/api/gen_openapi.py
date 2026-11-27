@@ -156,7 +156,6 @@ enum("ResultExclusionReason", ["DISQUALIFIED", "NO_CHALLENGE", "PENDING_SCORE"],
 enum("ScoreStatus", ["PENDING", "DEFINITIVE", "ZERO_NO_SUBMISSION"], "Situação da nota consolidada da etapa (enum ScoreStatus).")
 enum("QuestionType", ["SCORE", "CONCEPT", "TEXT"], "Tipo de pergunta do formulário final (enum QuestionKind).")
 enum("FinalEvaluationStatus", ["PENDING", "EVALUATED"], "Situação da avaliação final (enum FinalEvaluationStatus).")
-enum("CertificateType", ["PARTICIPATION", "FINALIST", "AWARD"], "Tipo de certificado (enum CertificateKind). Incompleto em relação ao RF17 (P-34).")
 enum("SupportTicketStatus", ["OPEN", "IN_PROGRESS", "WAITING_USER", "RESOLVED", "CLOSED"], "Situação do chamado (enum support_ticket_status). WAITING_USER existe, mas os admins não usam: o usuário não tem como responder (P-06, P-08).")
 enum("SupportTicketPriority", ["LOW", "MEDIUM", "HIGH", "URGENT"], "Prioridade do chamado (enum support_ticket_priority).")
 enum("NotificationType", ["SYSTEM", "TEAM", "PROJECT", "DELIVERABLE", "EVALUATION", "RESULT", "CERTIFICATE"], "Tipo da notificação (enum notification_type).")
@@ -709,17 +708,6 @@ SC["EditionResults"] = obj({"edition_id": INT(ex=3), "approved_at": nul(DT(ex=No
 SC["FinalistsSelect"] = obj({"project_ids": arr(INT(ex=40, minimum=1), minItems=1, uniqueItems=True,
                                                 description="Lista completa de finalistas. Omitida: os 3 primeiros de cada curso (course_rank ≤ 3).")},
                            strict=True, description="Corpo opcional.")
-SC["CertificateTemplate"] = obj({"id": INT(ex=6), "edition_id": INT(ex=3), "kind": ref("CertificateType"),
-                                 "template_url": nul(URL(ex="https://storage.projetox.edu.br/certificados/modelos/participacao-2026-1.pdf")),
-                                 "signatures": nul(TXT(ex="Reitoria; Coordenação do Desafio X")), "created_at": DT(), "updated_at": DT()},
-                                ["id", "edition_id", "kind", "template_url", "signatures", "created_at", "updated_at"])
-SC["CertificateTemplateWrite"] = obj({"template_file": STR("Arquivo do modelo.", format="binary", contentMediaType="application/octet-stream"),
-                                      "signatures": STR("Dados ou referências das assinaturas digitais.", "Reitoria; Coordenação do Desafio X")},
-                                     desc="Ao menos um campo deve ser informado.")
-SC["Certificate"] = obj({"id": INT(ex=901), "kind": ref("CertificateType"), "edition": ref("EditionSummary"),
-                         "workload_hours": nul(INT(ex=40, enum=[20, 40])), "verification_code": STR(ex="CERT-2026-1-Q8W2E4"),
-                         "file_url": nul(URL(ex="https://storage.projetox.edu.br/certificados/CERT-2026-1-Q8W2E4.pdf")), "issued_at": DT()},
-                        ["id", "kind", "edition", "workload_hours", "verification_code", "file_url", "issued_at"])
 
 # ---------------------------------------------------------------- support
 SC["SupportTicketCreate"] = obj({"title": STR(ex="Correção de matrícula", maxLength=150, minLength=1),
@@ -780,7 +768,6 @@ PARAMS = {
     "VersionId": pp("version_id", {"type": "integer"}, "Identificador da versão da entrega."),
     "TicketId": pp("ticket_id", {"type": "string", "format": "uuid"}, "Identificador do chamado."),
     "NotificationId": pp("notification_id", {"type": "string", "format": "uuid"}, "Identificador da notificação."),
-    "CertificateTypePath": pp("certificate_type", ref("CertificateType"), "Tipo de certificado."),
     "Page": qp("page", {"type": "integer", "minimum": 1, "default": 1}, "Número da página (P-38)."),
     "PageSize": qp("page_size", {"type": "integer", "minimum": 1, "maximum": 100, "default": 20}, "Itens por página (P-38)."),
     "Search": qp("search", {"type": "string"}, "Busca textual."),
@@ -1368,15 +1355,6 @@ op("post", "/api/admin/editions/{edition_id}/results/homologate", "resultsApprov
               ("results_pending_scores", "Há projeto com nota de etapa pendente."), ("awards_not_calculated", "Calcule o pódio antes de homologar."),
               ("results_outdated", "As notas mudaram depois do cálculo; calcule de novo."), ("results_already_approved", "O resultado da edição já foi homologado."), CLOSED],
    pend=["P-46"])
-op("get", "/api/admin/editions/{edition_id}/certificate-templates", "resultsListCertificateTemplates", "results", "Listar modelos de certificado",
-   ["RF17"], ["ADMIN"], "Lista os modelos de certificado da edição.", params=["EditionId"], ok=arr(ref("CertificateTemplate")), errs=["404"], pend=["P-34"])
-op("put", "/api/admin/editions/{edition_id}/certificate-templates/{certificate_type}", "resultsSaveCertificateTemplate", "results",
-   "Configurar modelo de certificado", ["RF17"], ["ADMIN"], "Cria ou substitui o modelo de um tipo de certificado (um por tipo e edição).",
-   params=["EditionId", "CertificateTypePath"], body=ref("CertificateTemplateWrite"), ct="multipart/form-data", ok=ref("CertificateTemplate"), errs=["404"],
-   pend=["P-34", "P-43"])
-op("get", "/api/me/certificates", "resultsListMyCertificates", "results", "Listar meus certificados", ["RF17"], ALL,
-   "Lista os certificados emitidos para o usuário autenticado, com link para o PDF.", ok=arr(ref("Certificate")),
-   authz="Somente certificados do próprio usuário; preservados mesmo com a conta desativada.")
 
 # ---------- support
 op("post", "/api/support/tickets", "supportCreateTicket", "support", "Abrir chamado de correção cadastral", ["RFXX"], ["STUDENT", "TEACHER"],
@@ -1439,7 +1417,7 @@ spec = {
         {"name": "teams", "description": "Equipes, integrantes, convites, solicitações e observações."},
         {"name": "projects", "description": "Projetos, entregas, versões e comprovantes."},
         {"name": "evaluations", "description": "Avaliações acadêmicas, notas e avaliação final."},
-        {"name": "results", "description": "Certificados."},
+        {"name": "results", "description": "Ranking, finalistas, pódio e homologação dos resultados."},
         {"name": "support", "description": "Chamados de correção cadastral."},
         {"name": "notifications", "description": "Notificações do painel."},
         {"name": "public", "description": "Painel público (sem autenticação)."},

@@ -35,7 +35,7 @@ tags:
 - name: evaluations
   description: Avaliações acadêmicas, notas e avaliação final.
 - name: results
-  description: Certificados.
+  description: Ranking, finalistas, pódio e homologação dos resultados.
 - name: support
   description: Chamados de correção cadastral.
 - name: notifications
@@ -1087,110 +1087,6 @@ paths:
                       code: edition_closed
                       message: A edição está encerrada e não pode ser alterada.
                       details: null
-  /api/admin/editions/{edition_id}/certificate-templates:
-    get:
-      tags:
-      - results
-      operationId: resultsListCertificateTemplates
-      summary: Listar modelos de certificado
-      description: |-
-        Lista os modelos de certificado da edição.
-
-        **Requisitos:** RF17
-
-        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
-
-        **Perfis permitidos:** ADMIN
-
-        **Pendências relacionadas (api-pendencias.md):** P-34
-      x-status: confirmed
-      x-requirements:
-      - RF17
-      x-roles:
-      - ADMIN
-      x-pendencias:
-      - P-34
-      parameters:
-      - $ref: '#/components/parameters/EditionId'
-      responses:
-        '200':
-          description: Operação concluída.
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/CertificateTemplate'
-              example:
-              - id: 6
-                edition_id: 3
-                kind: PARTICIPATION
-                template_url: https://storage.projetox.edu.br/certificados/modelos/participacao-2026-1.pdf
-                signatures: Reitoria; Coordenação do Desafio X
-                created_at: '2026-10-22T16:00:00Z'
-                updated_at: '2026-10-22T16:00:00Z'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-  /api/admin/editions/{edition_id}/certificate-templates/{certificate_type}:
-    put:
-      tags:
-      - results
-      operationId: resultsSaveCertificateTemplate
-      summary: Configurar modelo de certificado
-      description: |-
-        Cria ou substitui o modelo de um tipo de certificado (um por tipo e edição).
-
-        **Requisitos:** RF17
-
-        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
-
-        **Perfis permitidos:** ADMIN
-
-        **Pendências relacionadas (api-pendencias.md):** P-34, P-43
-      x-status: confirmed
-      x-requirements:
-      - RF17
-      x-roles:
-      - ADMIN
-      x-pendencias:
-      - P-34
-      - P-43
-      parameters:
-      - $ref: '#/components/parameters/EditionId'
-      - $ref: '#/components/parameters/CertificateTypePath'
-      requestBody:
-        required: true
-        content:
-          multipart/form-data:
-            schema:
-              $ref: '#/components/schemas/CertificateTemplateWrite'
-      responses:
-        '200':
-          description: Operação concluída.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CertificateTemplate'
-              example:
-                id: 6
-                edition_id: 3
-                kind: PARTICIPATION
-                template_url: https://storage.projetox.edu.br/certificados/modelos/participacao-2026-1.pdf
-                signatures: Reitoria; Coordenação do Desafio X
-                created_at: '2026-10-22T16:00:00Z'
-                updated_at: '2026-10-22T16:00:00Z'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
   /api/admin/editions/{edition_id}/challenges:
     get:
       tags:
@@ -5739,54 +5635,6 @@ paths:
                       code: team_has_leader
                       message: A equipe já possui líder ativo.
                       details: null
-  /api/me/certificates:
-    get:
-      tags:
-      - results
-      operationId: resultsListMyCertificates
-      summary: Listar meus certificados
-      description: |-
-        Lista os certificados emitidos para o usuário autenticado, com link para o PDF.
-
-        **Requisitos:** RF17
-
-        **Autenticação:** obrigatória (sessão por cookie; POST, PUT, PATCH e DELETE exigem o cabeçalho X-CSRFToken).
-
-        **Perfis permitidos:** STUDENT, TEACHER, EXTERNAL_REVIEWER, ADMIN
-
-        **Autorização adicional:** Somente certificados do próprio usuário; preservados mesmo com a conta desativada.
-      x-status: confirmed
-      x-requirements:
-      - RF17
-      x-roles:
-      - STUDENT
-      - TEACHER
-      - EXTERNAL_REVIEWER
-      - ADMIN
-      responses:
-        '200':
-          description: Operação concluída.
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Certificate'
-              example:
-              - id: 901
-                kind: PARTICIPATION
-                edition:
-                  id: 3
-                  year: 2026
-                  semester: 1
-                  name: Desafio X 2026/1
-                  status: SETUP
-                workload_hours: 40
-                verification_code: CERT-2026-1-Q8W2E4
-                file_url: https://storage.projetox.edu.br/certificados/CERT-2026-1-Q8W2E4.pdf
-                issued_at: '2026-10-22T16:00:00Z'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
   /api/me/dashboard:
     get:
       tags:
@@ -8983,13 +8831,6 @@ components:
       schema:
         type: string
         format: uuid
-    CertificateTypePath:
-      name: certificate_type
-      in: path
-      required: true
-      description: Tipo de certificado.
-      schema:
-        $ref: '#/components/schemas/CertificateType'
     Page:
       name: page
       in: query
@@ -9305,13 +9146,6 @@ components:
       - PENDING
       - EVALUATED
       description: Situação da avaliação final (enum FinalEvaluationStatus).
-    CertificateType:
-      type: string
-      enum:
-      - PARTICIPATION
-      - FINALIST
-      - AWARD
-      description: Tipo de certificado (enum CertificateKind). Incompleto em relação ao RF17 (P-34).
     SupportTicketStatus:
       type: string
       enum:
@@ -13568,108 +13402,6 @@ components:
           description: 'Lista completa de finalistas. Omitida: os 3 primeiros de cada curso (course_rank ≤ 3).'
       additionalProperties: false
       description: Corpo opcional.
-    CertificateTemplate:
-      type: object
-      properties:
-        id:
-          type: integer
-          examples:
-          - 6
-        edition_id:
-          type: integer
-          examples:
-          - 3
-        kind:
-          $ref: '#/components/schemas/CertificateType'
-        template_url:
-          type:
-          - string
-          - 'null'
-          format: uri
-          examples:
-          - https://storage.projetox.edu.br/certificados/modelos/participacao-2026-1.pdf
-        signatures:
-          type:
-          - string
-          - 'null'
-          examples:
-          - Reitoria; Coordenação do Desafio X
-        created_at:
-          type: string
-          format: date-time
-          examples:
-          - '2026-10-22T16:00:00Z'
-        updated_at:
-          type: string
-          format: date-time
-          examples:
-          - '2026-10-22T16:00:00Z'
-      required:
-      - id
-      - edition_id
-      - kind
-      - template_url
-      - signatures
-      - created_at
-      - updated_at
-    CertificateTemplateWrite:
-      type: object
-      description: Ao menos um campo deve ser informado.
-      properties:
-        template_file:
-          type: string
-          description: Arquivo do modelo.
-          format: binary
-          contentMediaType: application/octet-stream
-        signatures:
-          type: string
-          description: Dados ou referências das assinaturas digitais.
-          examples:
-          - Reitoria; Coordenação do Desafio X
-    Certificate:
-      type: object
-      properties:
-        id:
-          type: integer
-          examples:
-          - 901
-        kind:
-          $ref: '#/components/schemas/CertificateType'
-        edition:
-          $ref: '#/components/schemas/EditionSummary'
-        workload_hours:
-          type:
-          - integer
-          - 'null'
-          enum:
-          - 20
-          - 40
-          examples:
-          - 40
-        verification_code:
-          type: string
-          examples:
-          - CERT-2026-1-Q8W2E4
-        file_url:
-          type:
-          - string
-          - 'null'
-          format: uri
-          examples:
-          - https://storage.projetox.edu.br/certificados/CERT-2026-1-Q8W2E4.pdf
-        issued_at:
-          type: string
-          format: date-time
-          examples:
-          - '2026-10-22T16:00:00Z'
-      required:
-      - id
-      - kind
-      - edition
-      - workload_hours
-      - verification_code
-      - file_url
-      - issued_at
     SupportTicketCreate:
       type: object
       properties:
