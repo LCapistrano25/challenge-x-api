@@ -150,10 +150,10 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
-  # CD da homologação: push na developer com lint e testes verdes atualiza a
+  # CD da homologação: push na main com lint e testes verdes atualiza a
   # instância Lightsail com este commit. Configuração: docs/deploy-lightsail.md, seção 4.
   deploy:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/developer'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     needs: [lint, test]
     environment: homologacao
@@ -178,7 +178,7 @@ jobs:
         run: |
           ssh -i ~/.ssh/id_deploy -o StrictHostKeyChecking=yes "ubuntu@$HOST" "set -e
             cd ~/challenge-x-api
-            git fetch --quiet origin developer
+            git fetch --quiet origin main
             git reset --hard $GITHUB_SHA
             docker compose -f docker-compose.prod.yaml up -d --build --wait
             docker image prune -f"

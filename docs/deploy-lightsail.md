@@ -29,7 +29,7 @@ sudo usermod -aG docker ubuntu && exit   # entre de novo para valer o grupo
 
 ```bash
 git clone https://github.com/LCapistrano25/challenge-x-api.git && cd challenge-x-api
-git switch main            # homologação: developer
+git switch main            # o CD (seção 4) sobe a main
 cp .env.example .env && nano .env
 ```
 
@@ -67,7 +67,7 @@ As migrations rodam sozinhas na subida do container `api`.
 
 ### Automático na homologação (CD)
 
-Job `deploy` do `.github/workflows/ci.yml`: a cada push na `developer` com o CI verde, o GitHub
+Job `deploy` do `.github/workflows/ci.yml`: a cada push na `main` com o CI verde, o GitHub
 entra por SSH na instância e roda o comando acima com o commit testado
 (`git reset --hard <sha>`). Configuração, uma vez só:
 
@@ -88,7 +88,7 @@ entra por SSH na instância e roda o comando acima com o commit testado
 
 O repositório no servidor precisa estar em `~/challenge-x-api` (seção 3), sem
 alterações locais além do `.env`. Para refazer um deploy: **Actions → CI → Re-run failed jobs** (ou Re-run all)
-na execução da `developer`.
+na execução da `main`.
 
 ## 5. Backup (#102)
 
