@@ -171,6 +171,17 @@ def test_pdf_invalido_nao_publica(admin_client, edition):
     assert edition.status == EditionStatus.SETUP
 
 
+def test_edital_acima_de_10_mb_nao_publica(admin_client, edition):
+    grande = b"%PDF-" + b"0" * (10 * 1024 * 1024) + b"\n%%EOF\n"
+
+    response = publish(admin_client, edition.pk, grande)
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "validation_error"
+    edition.refresh_from_db()
+    assert edition.status == EditionStatus.SETUP
+
+
 @pytest.mark.parametrize("status", [EditionStatus.PUBLISHED, EditionStatus.CLOSED])
 def test_rejeita_edicao_fora_de_configuracao(admin_client, edition, status):
     edition.status = status

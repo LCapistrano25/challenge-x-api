@@ -278,10 +278,15 @@ class EditionCreateSerializer(RejectUnknownFieldsMixin, serializers.Serializer):
     )
 
 
+NOTICE_MAX_BYTES = 10 * 1024 * 1024
+
+
 class EditionPublishSerializer(serializers.Serializer):
     notice_file = serializers.FileField()
 
     def validate_notice_file(self, file):
+        if file.size > NOTICE_MAX_BYTES:
+            raise serializers.ValidationError("O edital deve ter no máximo 10 MB.")
         header = file.read(5)
         file.seek(max(0, file.size - 1024))
         trailer = file.read().rstrip()
