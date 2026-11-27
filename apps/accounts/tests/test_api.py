@@ -561,3 +561,16 @@ def test_senha_fraca_do_avaliador_aponta_o_campo():
     assert resposta.status_code == 400
     assert resposta.data["error"]["code"] == "validation_error"
     assert "password" in resposta.data["error"]["details"]
+
+
+@pytest.mark.django_db
+def test_email_acima_de_254_caracteres_retorna_400():
+    # Passa no validador de e-mail, mas não cabe na coluna (antes era 500).
+    email = "a" * 60 + "@" + ".".join(["b" * 63] * 3) + ".com"
+    resposta = post_evaluator(
+        UserFactory(role=UserRole.ADMIN), {**EVALUATOR, "email": email}
+    )
+
+    assert resposta.status_code == 400
+    assert resposta.data["error"]["code"] == "validation_error"
+    assert not User.objects.filter(email=email).exists()

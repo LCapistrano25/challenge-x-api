@@ -37,7 +37,7 @@ class TeacherProfileSerializer(serializers.Serializer):
 
 class ExternalReviewSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=150)
-    email = serializers.EmailField()
+    email = serializers.EmailField(max_length=254)
     password = serializers.CharField(write_only=True, trim_whitespace=False)
     # Opcional e anulável no contrato; o model guarda vazio.
     institution = serializers.CharField(
