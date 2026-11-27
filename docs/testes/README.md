@@ -8,13 +8,13 @@ Roteiros para testar a API **sem o frontend**, antes da integração. Cada pesso
 
 ## Quem faz qual fluxo
 
-| Roteiro | Fluxo | Perfis | Cenário | Rotas usadas | Responsável |
+| Roteiro | Fluxo | Perfis | Cenário | Rotas usadas | Responsável (task) |
 |---|---|---|---|---|---|
-| [01](01-admin-configuracao-edicao.md) | Admin — configuração da edição | ADMIN (+ aluno para 403) | só `seed_users` | 39 | |
-| [02](02-aluno-equipe.md) | Aluno — equipe | STUDENT (+ professor para 403) | `cenario.py` padrão | 23 | |
-| [03](03-aluno-projeto-entregas.md) | Aluno — projeto e entregas | STUDENT, ADMIN, TEACHER | `cenario.py` padrão | 18 | |
-| [04](04-professor-avaliador.md) | Professor e avaliador externo | TEACHER, EXTERNAL_REVIEWER, ADMIN | `cenario.py` padrão | 19 | |
-| [05](05-admin-usuarios-resultados-suporte.md) | Admin — usuários, equipes, suporte e resultados | ADMIN, STUDENT, TEACHER | `cenario.py` com `CENARIO=resultados` | 39 | |
+| [01](01-admin-configuracao-edicao.md) | Admin — configuração da edição | ADMIN (+ aluno para 403) | só `seed_users` | 39 | @Viniciusgt39 (#274) |
+| [02](02-aluno-equipe.md) | Aluno — equipe | STUDENT (+ professor para 403) | `cenario.py` padrão | 23 | @theokkkk1 (#275) |
+| [03](03-aluno-projeto-entregas.md) | Aluno — projeto e entregas | STUDENT, ADMIN, TEACHER | `cenario.py` padrão | 18 | @ViniciusGGomes (#276) |
+| [04](04-professor-avaliador.md) | Professor e avaliador externo | TEACHER, EXTERNAL_REVIEWER, ADMIN | `cenario.py` padrão | 19 | @LCapistrano25 (#277) |
+| [05](05-admin-usuarios-resultados-suporte.md) | Admin — usuários, equipes, suporte e resultados | ADMIN, STUDENT, TEACHER | `cenario.py` com `CENARIO=resultados` | 39 | @Shueiz (#278) |
 
 As 124 operações do contrato estão cobertas; algumas aparecem em mais de um roteiro (por exemplo, o roteiro 3 usa a desclassificação, que é do 5).
 
