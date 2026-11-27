@@ -23,6 +23,10 @@ class NotificationSerializer(serializers.Serializer):
         return obj.link or None
 
 
+class NotificationFilterSerializer(serializers.Serializer):
+    unread = serializers.BooleanField(required=False, default=False)
+
+
 class NotificationListView(ListAPIView):
     """GET /api/notifications: listar minhas notificações."""
 
@@ -30,8 +34,11 @@ class NotificationListView(ListAPIView):
     serializer_class = NotificationSerializer
 
     def get_queryset(self):
-        unread = self.request.query_params.get("unread", "").lower() in ("true", "1")
-        return list_user_notifications(user=self.request.user, unread_only=unread)
+        filters = NotificationFilterSerializer(data=self.request.query_params)
+        filters.is_valid(raise_exception=True)
+        return list_user_notifications(
+            user=self.request.user, unread_only=filters.validated_data["unread"]
+        )
 
 
 class NotificationReadView(APIView):
