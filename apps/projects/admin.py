@@ -1,5 +1,6 @@
 from django.contrib import admin
 
+from apps.core.admin import ReadOnlyMixin
 from apps.projects.models import (
     DeadlineExtension,
     Project,
@@ -16,19 +17,6 @@ class ProjectAdmin(admin.ModelAdmin):
     list_filter = ("edition", "status")
     list_select_related = ("team", "edition", "challenge")
     search_fields = ("title", "team__name")
-
-
-class ReadOnlyMixin:
-    """Versões e itens enviados são histórico: o admin só consulta (RF31)."""
-
-    def has_add_permission(self, request, obj=None):
-        return False
-
-    def has_change_permission(self, request, obj=None):
-        return False
-
-    def has_delete_permission(self, request, obj=None):
-        return False
 
 
 class SubmissionVersionInline(ReadOnlyMixin, admin.TabularInline):
