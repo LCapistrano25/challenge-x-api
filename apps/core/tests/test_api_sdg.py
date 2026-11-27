@@ -62,3 +62,18 @@ def test_api_delete_sdg(api_client, admin_user):
     response = api_client.delete(f"/api/admin/sdgs/{sdg.id}")
 
     assert response.status_code == status.HTTP_204_NO_CONTENT
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("field,size", [("title", 201), ("icon", 101)])
+def test_api_update_sdg_field_too_long_returns_400(api_client, admin_user, field, size):
+    """Testa se texto acima do limite da coluna retorna 400, e não 500."""
+    sdg = Sdg.objects.first()
+    api_client.force_authenticate(user=admin_user)
+
+    response = api_client.patch(
+        f"/api/admin/sdgs/{sdg.pk}", data={field: "a" * size}, format="json"
+    )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert field in response.data["error"]["details"]

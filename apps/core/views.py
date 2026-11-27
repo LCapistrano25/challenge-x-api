@@ -136,9 +136,9 @@ class SdgSerializer(serializers.Serializer):
 
     id = serializers.IntegerField(read_only=True)
     number = serializers.IntegerField(required=False)
-    title = serializers.CharField(required=False)
+    title = serializers.CharField(max_length=200, required=False)
     description = serializers.CharField(allow_blank=True, required=False)
-    icon = serializers.CharField(allow_blank=True, required=False)
+    icon = serializers.CharField(max_length=100, allow_blank=True, required=False)
     active = serializers.BooleanField(required=False)
 
 
