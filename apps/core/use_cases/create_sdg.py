@@ -1,6 +1,7 @@
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 
+from apps.core.exceptions import SdgNumberTaken
 from apps.core.models import Sdg
 
 
@@ -34,4 +35,4 @@ def create_sdg(
         )
         return sdg
     except IntegrityError as e:
-        raise ValidationError("Já existe uma ODS cadastrada com este número.") from e
+        raise SdgNumberTaken() from e

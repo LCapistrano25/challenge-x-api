@@ -7,7 +7,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts.permissions import IsAdmin
-from apps.core.models import Course
+from apps.core.models import Course, Sdg
 from apps.core.use_cases.create_course import create_course
 from apps.core.use_cases.create_sdg import create_sdg
 from apps.core.use_cases.delete_course import delete_course
@@ -25,6 +25,17 @@ class CourseSerializer(serializers.ModelSerializer):
         model = Course
         fields = ["id", "name", "term_count", "active", "created_at", "updated_at"]
         read_only_fields = fields
+
+
+def _active_filter(request) -> bool | None:
+    """Filtro `active` da query: vazio não filtra; valor fora de true/false é 400."""
+    raw = request.query_params.get("active")
+    if raw is None or raw == "":
+        return None
+    lowered = raw.lower()
+    if lowered not in ("true", "false"):
+        raise DRFValidationError({"active": "Use true ou false."})
+    return lowered == "true"
 
 
 class CourseCreateSerializer(serializers.Serializer):
@@ -48,18 +59,9 @@ class CourseCreateView(APIView):
 
     def get(self, request):
         search = request.query_params.get("search")
-        active_raw = request.query_params.get("active")
-        active = None
-        if active_raw is not None and active_raw != "":
-            lowered = active_raw.lower()
-            if lowered == "true":
-                active = True
-            elif lowered == "false":
-                active = False
-            else:
-                raise DRFValidationError({"active": "Use true ou false."})
-
-        courses = list_courses(actor=request.user, search=search, active=active)
+        courses = list_courses(
+            actor=request.user, search=search, active=_active_filter(request)
+        )
         return Response(
             CourseSerializer(courses, many=True).data,
             status=status.HTTP_200_OK,
@@ -161,7 +163,7 @@ class SdgAdminListCreateView(APIView):
     permission_classes = [IsAdminUser]
 
     def get(self, request):
-        sdgs = list_sdgs(actor=request.user)
+        sdgs = list_sdgs(actor=request.user, active=_active_filter(request))
         serializer = SdgSerializer(sdgs, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -192,6 +194,7 @@ class SdgAdminDetailView(APIView):
             raise DRFValidationError(e.messages) from e
 
     def delete(self, request, sdg_id):
+        get_object_or_404(Sdg, pk=sdg_id)
         try:
             delete_sdg(actor=request.user, sdg_id=sdg_id)
             return Response(status=status.HTTP_204_NO_CONTENT)
