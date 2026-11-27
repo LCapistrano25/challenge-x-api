@@ -23,6 +23,9 @@ Todas as mudanças desta seção já estão na `developer` e no contrato. As dec
 | **Equipe no schema `Team`** (#245) | `GET /api/teams/{team_id}`, `POST /api/teams` | Sai `qualification`; entram `situation`, `disqualified_at` e `disqualified_by`. |
 | **Admin: listar e desclassificar** (#219) | `GET /api/admin/teams`, `POST /api/admin/teams/{team_id}/disqualify` | Lista paginada com `edition_id`, `status` e `search`. Desclassificar exige `reason`; também desclassifica o projeto. 409 `team_already_disqualified` e `edition_closed`. |
 | **Observações sobre integrantes** (#215) | `POST/GET /api/teams/{team_id}/member-notes` | Corpo `{member_id, text}`, sem `stage_id`. 403 `not_team_leader` no POST. |
+| **Transferir liderança** (#283) | `POST /api/teams/{team_id}/leadership-transfer` | Corpo **`{"member_id"}`** (o `id` do integrante em `team.members`, não o `user_id`). Resposta 200 com a **`Team`** inteira (antes vinha só o integrante). Destinatário que não é outro integrante ativo: 400 `validation_error`; quem não é líder: 403 `not_team_leader`; equipe desclassificada: 409 `team_disqualified`. |
+| **Convite por quem não é líder** (#284) | `POST /api/teams/{team_id}/invitations` | 403 `not_team_leader` (antes 409 `business_rule_violation`). |
+| **Pedido de liderança sem desafio** (#285) | `POST /api/teams/{team_id}/leadership-requests` | 409 `challenge_not_selected`: quem decide é professor do curso do desafio, então a equipe precisa ter escolhido um. Mostre a mensagem e oriente a escolher o desafio antes. |
 
 ### Projeto, painel e entregas
 

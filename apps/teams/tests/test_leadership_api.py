@@ -49,7 +49,7 @@ def test_lider_transfere_lideranca_pela_api():
     ).student
 
     new_leader = StudentFactory()
-    TeamMemberFactory(
+    new_membership = TeamMemberFactory(
         team=team,
         student=new_leader,
         role=MemberRole.MEMBER,
@@ -59,13 +59,17 @@ def test_lider_transfere_lideranca_pela_api():
 
     response = client.post(
         f"/api/teams/{team.id}/leadership-transfer",
-        {"student_id": new_leader.pk},
+        {"member_id": new_membership.pk},
         format="json",
     )
 
     assert response.status_code == 200, response.data
-    assert response.data["student"]["user_id"] == new_leader.user_id
-    assert response.data["role"] == MemberRole.LEADER
+    leader_ids = [
+        m["student"]["user_id"]
+        for m in response.data["members"]
+        if m["role"] == MemberRole.LEADER
+    ]
+    assert leader_ids == [new_leader.user_id]
 
     team.refresh_from_db()
 
@@ -81,7 +85,7 @@ def test_aluno_que_nao_e_lider_nao_transfere_lideranca():
 
     response = client.post(
         f"/api/teams/{team.id}/leadership-transfer",
-        {"student_id": student.pk},
+        {"member_id": 1},
         format="json",
     )
 
@@ -98,14 +102,14 @@ def test_professor_nao_transfere_lideranca():
 
     response = client.post(
         f"/api/teams/{team.id}/leadership-transfer",
-        {"student_id": 1},
+        {"member_id": 1},
         format="json",
     )
 
     assert response.status_code == 403
 
 
-def test_transferencia_sem_student_id_retorna_400():
+def test_transferencia_sem_member_id_retorna_400():
     team = TeamFactory()
     leader = team.members.get(
         role=MemberRole.LEADER,
@@ -135,12 +139,12 @@ def test_nao_transfere_lideranca_para_aluno_de_outra_equipe():
 
     response = client.post(
         f"/api/teams/{team.id}/leadership-transfer",
-        {"student_id": other_student.pk},
+        {"member_id": TeamMemberFactory(student=other_student).pk},
         format="json",
     )
 
-    assert response.status_code == 409
-    assert response.data["error"]["code"] == "leadership_transfer_rejected"
+    assert response.status_code == 400
+    assert response.data["error"]["code"] == "validation_error"
 
 
 def test_lider_nao_transfere_lideranca_para_si_mesmo():
@@ -154,12 +158,12 @@ def test_lider_nao_transfere_lideranca_para_si_mesmo():
 
     response = client.post(
         f"/api/teams/{team.id}/leadership-transfer",
-        {"student_id": leader.pk},
+        {"member_id": team.members.get(student=leader).pk},
         format="json",
     )
 
-    assert response.status_code == 409
-    assert response.data["error"]["code"] == "leadership_transfer_rejected"
+    assert response.status_code == 400
+    assert response.data["error"]["code"] == "validation_error"
 
 
 def test_aluno_solicita_lideranca_pela_api():
@@ -836,3 +840,34 @@ def test_aluno_nao_decide_solicitacao_de_lideranca():
     )
 
     assert response.status_code == 403
+
+
+def test_solicitar_lideranca_sem_desafio_retorna_challenge_not_selected():
+    """Sem desafio não há professor para decidir: 409 challenge_not_selected (#285)."""
+    team = TeamFactory(leader=False)
+    student = StudentFactory()
+    TeamMemberFactory(team=team, student=student, role=MemberRole.MEMBER)
+
+    response = authenticated_client(student.user).post(
+        f"/api/teams/{team.id}/leadership-requests",
+        {"justification": "O líder saiu."},
+        format="json",
+    )
+
+    assert response.status_code == 409
+    assert response.data["error"]["code"] == "challenge_not_selected"
+
+
+def test_transferencia_em_equipe_desclassificada_retorna_team_disqualified():
+    team = TeamFactory(disqualified=True)
+    leader = team.members.get(role=MemberRole.LEADER, active=True).student
+    member = TeamMemberFactory(team=team, role=MemberRole.MEMBER)
+
+    response = authenticated_client(leader.user).post(
+        f"/api/teams/{team.id}/leadership-transfer",
+        {"member_id": member.pk},
+        format="json",
+    )
+
+    assert response.status_code == 409
+    assert response.data["error"]["code"] == "team_disqualified"

@@ -26,10 +26,21 @@ class LeadershipTransferNotFound(LeadershipTransferRejected):
 
 
 class LeadershipTransferPermissionDenied(LeadershipTransferRejected):
-    """Usuário não possui permissão para transferir a liderança."""
+    """Quem pede não é o líder ativo da equipe."""
 
-    code = "permission_denied"
+    code = "not_team_leader"
     http_status = HTTPStatus.FORBIDDEN
+
+
+class LeadershipTransferInvalidMember(LeadershipTransferRejected):
+    """O destinatário não é outro integrante ativo da equipe: 400 pelo contrato."""
+
+    code = "validation_error"
+    http_status = HTTPStatus.BAD_REQUEST
+
+
+class LeadershipTransferTeamDisqualified(LeadershipTransferRejected):
+    code = "team_disqualified"
 
 
 @transaction.atomic
@@ -37,9 +48,12 @@ def transfer_leadership(
     *,
     actor: User,
     team_id: int,
-    student_id: int,
+    member_id: int,
 ) -> TeamMember:
-    """Transfere a liderança para outro integrante ativo da mesma equipe."""
+    """Transfere a liderança para outro integrante ativo da mesma equipe (RF27).
+
+    `member_id` é o vínculo (team_member) do novo líder, como no contrato.
+    """
     if actor.role != UserRole.STUDENT:
         raise LeadershipTransferRejected("Somente alunos podem transferir a liderança.")
 
@@ -54,7 +68,7 @@ def transfer_leadership(
         raise LeadershipTransferNotFound("Equipe não encontrada.")
 
     if team.status != TeamStatus.ACTIVE:
-        raise LeadershipTransferRejected(
+        raise LeadershipTransferTeamDisqualified(
             "Não é possível transferir a liderança de uma equipe desclassificada."
         )
 
@@ -78,8 +92,8 @@ def transfer_leadership(
         TeamMember.objects.select_for_update()
         .select_related("student__user")
         .filter(
+            pk=member_id,
             team=team,
-            student_id=student_id,
             active=True,
             role=MemberRole.MEMBER,
         )
@@ -87,7 +101,7 @@ def transfer_leadership(
     )
 
     if new_leader_membership is None:
-        raise LeadershipTransferRejected(
+        raise LeadershipTransferInvalidMember(
             "O novo líder deve ser outro integrante ativo da equipe."
         )
 

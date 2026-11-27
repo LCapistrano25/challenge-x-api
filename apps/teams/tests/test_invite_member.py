@@ -9,6 +9,7 @@ from apps.accounts.enums import UserRole
 from apps.accounts.factories import StudentFactory, UserFactory
 from apps.editions.factories import StageFactory
 from apps.notifications.models import Notification, NotificationType
+from apps.projects.exceptions import NotTeamLeader
 from apps.teams.enums import InvitationStatus, MemberRole
 from apps.teams.factories import (
     InvitationFactory,
@@ -135,7 +136,7 @@ def test_integrante_que_nao_e_lider_nao_pode_convidar():
     invited_student = StudentFactory()
 
     with pytest.raises(
-        InvitationRejected,
+        NotTeamLeader,
         match="Somente o líder ativo da equipe pode enviar convites.",
     ):
         invite_member(
@@ -163,7 +164,7 @@ def test_ex_lider_nao_pode_enviar_convite():
     invited_student = StudentFactory()
 
     with pytest.raises(
-        InvitationRejected,
+        NotTeamLeader,
         match="Somente o líder ativo da equipe pode enviar convites.",
     ):
         invite_member(

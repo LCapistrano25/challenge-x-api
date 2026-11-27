@@ -8,6 +8,7 @@ from apps.accounts.models import Student, User
 from apps.core.exceptions import BusinessRuleViolation
 from apps.notifications.models import NotificationType
 from apps.notifications.services import create_notification
+from apps.projects.exceptions import NotTeamLeader
 from apps.teams.enums import InvitationStatus, MemberRole, TeamStatus
 from apps.teams.models import Invitation, Team, TeamMember
 from apps.teams.rules import is_formation_open_for_team
@@ -52,9 +53,7 @@ def invite_member(
     ).exists()
 
     if not is_leader:
-        raise InvitationRejected(
-            "Somente o líder ativo da equipe pode enviar convites."
-        )
+        raise NotTeamLeader("Somente o líder ativo da equipe pode enviar convites.")
 
     now = timezone.now()
 
