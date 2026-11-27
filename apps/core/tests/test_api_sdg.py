@@ -3,6 +3,7 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from apps.core.models import Sdg
+from apps.editions.factories import ChallengeFactory
 
 
 @pytest.fixture
@@ -91,3 +92,65 @@ def test_api_admin_sdg_response_has_timestamps(api_client, admin_user):
 
     assert response.status_code == status.HTTP_200_OK
     assert {"created_at", "updated_at"} <= response.data.keys()
+
+
+@pytest.mark.django_db
+def test_api_create_sdg_duplicate_number_returns_409(api_client, admin_user):
+    """Número repetido volta 409 sdg_number_taken, como no contrato (#281)."""
+    api_client.force_authenticate(user=admin_user)
+    number = Sdg.objects.first().number
+
+    response = api_client.post(
+        "/api/admin/sdgs", data={"number": number, "title": "Duplicada"}
+    )
+
+    assert response.status_code == status.HTTP_409_CONFLICT
+    assert response.data["error"]["code"] == "sdg_number_taken"
+
+
+@pytest.mark.django_db
+def test_api_delete_sdg_in_use_returns_409(api_client, admin_user):
+    """ODS usada por desafio volta 409 sdg_in_use, não 500 (#280)."""
+    api_client.force_authenticate(user=admin_user)
+    sdg = Sdg.objects.first()
+    ChallengeFactory(sdg=sdg)
+
+    response = api_client.delete(f"/api/admin/sdgs/{sdg.id}")
+
+    assert response.status_code == status.HTTP_409_CONFLICT
+    assert response.data["error"]["code"] == "sdg_in_use"
+
+
+@pytest.mark.django_db
+def test_api_delete_sdg_not_found_returns_404(api_client, admin_user):
+    api_client.force_authenticate(user=admin_user)
+
+    response = api_client.delete("/api/admin/sdgs/999999")
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+@pytest.mark.django_db
+def test_api_list_admin_sdgs_filters_by_active(api_client, admin_user):
+    """O filtro active separa ativas de inativas (#282)."""
+    api_client.force_authenticate(user=admin_user)
+    inactive = Sdg.objects.first()
+    inactive.active = False
+    inactive.save()
+
+    response = api_client.get("/api/admin/sdgs?active=false")
+
+    assert response.status_code == status.HTTP_200_OK
+    assert [s["id"] for s in response.data] == [inactive.id]
+
+
+@pytest.mark.django_db
+def test_api_list_admin_sdgs_invalid_active_returns_400(api_client, admin_user):
+    """Filtro active inválido volta 400 validation_error (#282)."""
+    api_client.force_authenticate(user=admin_user)
+
+    response = api_client.get("/api/admin/sdgs?active=talvez")
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert response.data["error"]["code"] == "validation_error"
+    assert "active" in response.data["error"]["details"]
