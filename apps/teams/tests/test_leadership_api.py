@@ -418,8 +418,9 @@ def test_professor_consulta_solicitacoes_dos_seus_cursos():
     response = client.get("/api/teacher/leadership-requests")
 
     assert response.status_code == 200, response.data
-    assert len(response.data) == 1
-    assert response.data[0]["id"] == leadership_request.id
+    # Página do contrato (PaginatedLeadershipRequest), não lista solta.
+    assert response.data["count"] == 1
+    assert response.data["results"][0]["id"] == leadership_request.id
 
 
 def test_professor_sem_vinculo_nao_consulta_solicitacoes():
@@ -438,7 +439,7 @@ def test_professor_sem_vinculo_nao_consulta_solicitacoes():
     response = client.get("/api/teacher/leadership-requests")
 
     assert response.status_code == 200
-    assert response.data == []
+    assert response.data["results"] == []
 
 
 def test_professor_com_vinculo_inativo_nao_consulta_solicitacoes():
@@ -462,7 +463,7 @@ def test_professor_com_vinculo_inativo_nao_consulta_solicitacoes():
     response = client.get("/api/teacher/leadership-requests")
 
     assert response.status_code == 200
-    assert response.data == []
+    assert response.data["results"] == []
 
 
 def test_professor_aprova_solicitacao_de_lideranca_pela_api():
