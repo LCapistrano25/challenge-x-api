@@ -166,6 +166,9 @@ Os schemas `Certificate`, `CertificateTemplate`, `CertificateTemplateWrite` e o 
 | **Solicitações de liderança do professor** | `GET /api/teacher/leadership-requests` | Agora vem **paginado** (`{count, next, previous, results}`), como o contrato já dizia. Antes vinha uma lista solta. |
 | **ODS com datas** | `GET/POST/PATCH /api/admin/sdgs` | A resposta passa a trazer `created_at` e `updated_at`, como o schema `Sdg`. |
 | **Regras declaradas no contrato** | cadastros do admin | Nomes obrigatórios não aceitam texto vazio (`minLength: 1`); domínio de e-mail tem `pattern`; curso repetido ao editar professor dá 400. A API já fazia isso; agora o contrato mostra. |
+| **Avaliação em etapa sem nota** (#290) | `GET /api/projects/{project_id}/stages/{stage_id}/evaluation` | Etapa de formação ou não pontuada responde **404** (antes 200 com `max_score: "None"`). Só abra o formulário em etapa SUBMISSION pontuada. |
+| **ODS: POST e PATCH incompletos** (#290) | `POST/PATCH /api/admin/sdgs` | POST sem `number` ou `title` e PATCH sem nenhum campo respondem 400 `validation_error` (antes 500 e 200). |
+| **Mais limites no contrato** (#290) | formulário final, cadastro do aluno, prorrogação, retificação, observações | `order` da pergunta vai até 32767; `registration_number`, `reason` da prorrogação e da retificação com `minLength: 1`; `member_id` com `minimum: 1`. |
 
 ---
 
