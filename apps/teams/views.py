@@ -46,7 +46,6 @@ from apps.teams.serializers import (
     TeamAvailabilitySerializer,
     TeamCreateSerializer,
     TeamLeaveSerializer,
-    TeamMemberSerializer,
     TeamSerializer,
     TeamUpdateSerializer,
 )
@@ -403,7 +402,7 @@ class LeadershipTransferView(APIView):
         )
 
         return Response(
-            TeamMemberSerializer(new_leader).data,
+            TeamSerializer(new_leader.team).data,
             status=status.HTTP_200_OK,
         )
 

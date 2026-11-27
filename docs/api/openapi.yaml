@@ -7905,6 +7905,7 @@ paths:
         - Somente quando a equipe não possui LEADER ativo.
         - No máximo uma solicitação PENDING por equipe.
         - Permitida após a formação se a equipe estiver ativa.
+        - A equipe precisa ter desafio escolhido: quem decide é professor do curso do desafio (409 challenge_not_selected, #285).
 
         **Pendências relacionadas (api-pendencias.md):** P-24
       x-status: confirmed
@@ -7976,6 +7977,13 @@ paths:
                     error:
                       code: leadership_request_pending_exists
                       message: Já existe solicitação pendente.
+                      details: null
+                challenge_not_selected:
+                  summary: A equipe precisa possuir um desafio selecionado para solicitar liderança.
+                  value:
+                    error:
+                      code: challenge_not_selected
+                      message: A equipe precisa possuir um desafio selecionado para solicitar liderança.
                       details: null
                 edition_closed:
                   summary: A edição está encerrada e não pode ser alterada.

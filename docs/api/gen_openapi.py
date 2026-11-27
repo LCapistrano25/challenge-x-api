@@ -1151,8 +1151,10 @@ op("post", "/api/teams/{team_id}/leadership-requests", "teamsCreateLeadershipReq
    ["STUDENT"], "Registra pedido para assumir a liderança, a ser decidido por professor do curso do desafio.", params=["TeamId"],
    body=ref("LeadershipRequestCreate"), ok=ref("LeadershipRequest"), ok_code="201", ok_desc="Solicitação registrada.", errs=["404"],
    authz="Integrante ativo da equipe.",
-   rules=["Somente quando a equipe não possui LEADER ativo.", "No máximo uma solicitação PENDING por equipe.", "Permitida após a formação se a equipe estiver ativa."],
-   conflicts=[("team_has_leader", "A equipe já possui líder ativo."), ("leadership_request_pending_exists", "Já existe solicitação pendente."), CLOSED],
+   rules=["Somente quando a equipe não possui LEADER ativo.", "No máximo uma solicitação PENDING por equipe.", "Permitida após a formação se a equipe estiver ativa.",
+          "A equipe precisa ter desafio escolhido: quem decide é professor do curso do desafio (409 challenge_not_selected, #285)."],
+   conflicts=[("team_has_leader", "A equipe já possui líder ativo."), ("leadership_request_pending_exists", "Já existe solicitação pendente."),
+              ("challenge_not_selected", "A equipe precisa possuir um desafio selecionado para solicitar liderança."), CLOSED],
    pend=["P-24"])
 op("get", "/api/teams/{team_id}/leadership-requests", "teamsListLeadershipRequests", "teams", "Listar solicitações de liderança da equipe", ["RF28"],
    ["STUDENT"], "Lista o histórico de solicitações de liderança.", params=["TeamId"], ok=arr(ref("LeadershipRequest")), errs=["404"],

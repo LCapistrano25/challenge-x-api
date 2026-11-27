@@ -273,7 +273,7 @@ class TeamAvailabilitySerializer(serializers.ModelSerializer):
 
 
 class LeadershipTransferSerializer(serializers.Serializer):
-    student_id = serializers.IntegerField()
+    member_id = serializers.IntegerField()
 
 
 class LeadershipRequestCreateSerializer(serializers.Serializer):

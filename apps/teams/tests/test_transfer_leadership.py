@@ -34,7 +34,7 @@ def test_transfer_leadership_successfully():
     result = transfer_leadership(
         actor=current_leader.student.user,
         team_id=team.id,
-        student_id=new_student.user_id,
+        member_id=new_membership.pk,
     )
 
     current_leader.refresh_from_db()
@@ -63,7 +63,7 @@ def test_transfer_leadership_rejects_non_student():
         transfer_leadership(
             actor=admin,
             team_id=team.id,
-            student_id=target.user_id,
+            member_id=999998,
         )
 
 
@@ -81,7 +81,7 @@ def test_transfer_leadership_rejects_student_without_profile():
         transfer_leadership(
             actor=student_user,
             team_id=team.id,
-            student_id=target.user_id,
+            member_id=999998,
         )
 
 
@@ -95,7 +95,7 @@ def test_transfer_leadership_rejects_nonexistent_team():
         transfer_leadership(
             actor=student.user,
             team_id=999999,
-            student_id=999998,
+            member_id=999998,
         )
 
 
@@ -117,7 +117,7 @@ def test_transfer_leadership_rejects_non_leader():
         transfer_leadership(
             actor=student.user,
             team_id=team.id,
-            student_id=leader.student_id,
+            member_id=leader.pk,
         )
 
     membership.refresh_from_db()
@@ -143,7 +143,7 @@ def test_transfer_leadership_rejects_student_outside_team():
         transfer_leadership(
             actor=leader.student.user,
             team_id=team.id,
-            student_id=outsider.user_id,
+            member_id=TeamMemberFactory(student=outsider).pk,
         )
 
 
@@ -173,7 +173,7 @@ def test_transfer_leadership_rejects_inactive_member():
         transfer_leadership(
             actor=leader.student.user,
             team_id=team.id,
-            student_id=student.user_id,
+            member_id=membership.pk,
         )
 
 
@@ -192,7 +192,7 @@ def test_transfer_leadership_rejects_team_without_another_member():
         transfer_leadership(
             actor=leader.student.user,
             team_id=team.id,
-            student_id=leader.student_id,
+            member_id=leader.pk,
         )
 
     leader.refresh_from_db()
@@ -211,7 +211,7 @@ def test_transfer_leadership_notifies_all_active_members():
 
     new_student = StudentFactory(course=leader.student.course)
 
-    TeamMemberFactory(
+    new_membership = TeamMemberFactory(
         team=team,
         student=new_student,
         role=MemberRole.MEMBER,
@@ -223,7 +223,7 @@ def test_transfer_leadership_notifies_all_active_members():
         transfer_leadership(
             actor=leader.student.user,
             team_id=team.id,
-            student_id=new_student.user_id,
+            member_id=new_membership.pk,
         )
 
     assert notify.call_count == 2
