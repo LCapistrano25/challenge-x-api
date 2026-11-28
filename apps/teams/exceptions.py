@@ -29,3 +29,18 @@ class MemberNoteNotFound(MemberNoteError):
 class MemberNotePermissionDenied(MemberNoteError):
     code = "permission_denied"
     http_status = HTTPStatus.FORBIDDEN
+
+
+class TeamNotActive(BusinessRuleViolation):
+    code = "team_not_active"
+    default_message = "A equipe não está ativa."
+
+
+class TeamNotDisqualified(BusinessRuleViolation):
+    code = "team_not_disqualified"
+    default_message = "A equipe não está desclassificada."
+
+
+class InvalidNewLeader(BusinessRuleViolation):
+    code = "invalid_new_leader"
+    default_message = "O novo líder deve ser um integrante ativo, que ainda não lidera."
