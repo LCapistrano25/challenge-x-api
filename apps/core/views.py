@@ -170,6 +170,14 @@ class SdgAdminListCreateView(APIView):
     def post(self, request):
         serializer = SdgSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        # O serializer é do PATCH também; no POST number e title são obrigatórios.
+        missing = {
+            field: ["Este campo é obrigatório."]
+            for field in ("number", "title")
+            if field not in serializer.validated_data
+        }
+        if missing:
+            raise DRFValidationError(missing)
         try:
             sdg = create_sdg(actor=request.user, **serializer.validated_data)
             return Response(SdgSerializer(sdg).data, status=status.HTTP_201_CREATED)
@@ -185,6 +193,10 @@ class SdgAdminDetailView(APIView):
     def patch(self, request, sdg_id):
         serializer = SdgSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        if not serializer.validated_data:
+            raise DRFValidationError(
+                {"non_field_errors": ["Informe ao menos um campo."]}
+            )
         try:
             sdg = update_sdg(
                 actor=request.user, sdg_id=sdg_id, **serializer.validated_data

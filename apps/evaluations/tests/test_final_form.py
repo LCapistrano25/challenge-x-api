@@ -268,3 +268,14 @@ def test_formulario_sem_titulo_e_aceito(admin):
 
     assert response.status_code == 200, response.data
     assert response.data["title"] is None
+
+
+def test_api_order_acima_do_smallint_responde_400(admin):
+    # Antes chegava ao banco e respondia 500 (smallint out of range).
+    data = body()
+    data["questions"][1]["order"] = 32768
+
+    response = client_for(admin).put(url(EditionFactory()), data, format="json")
+
+    assert response.status_code == 400
+    assert response.data["error"]["code"] == "validation_error"

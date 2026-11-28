@@ -102,6 +102,20 @@ def test_get_so_para_professor(ctx):
     assert client_for(aluno).get(ctx.url).status_code == 403
 
 
+def test_get_em_etapa_sem_nota_e_404(ctx):
+    # Etapa de formação não tem avaliação do professor (antes: max_score "None").
+    projeto_id = ctx.url.split("/")[3]
+    formacao = StageFactory(
+        edition=ctx.c1.stage.edition, formation=True, order=ctx.c1.stage.order + 1
+    )
+
+    response = client_for(ctx.user).get(
+        f"/api/projects/{projeto_id}/stages/{formacao.pk}/evaluation"
+    )
+
+    assert response.status_code == 404
+
+
 def test_get_de_professor_de_outro_curso_e_403(ctx):
     outro = TeacherCourseFactory().teacher.user
 

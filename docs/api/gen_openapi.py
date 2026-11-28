@@ -209,7 +209,7 @@ SC["SessionResponse"] = obj({"user_id": USER_ID(), "name": STR(ex="Ana Ribeiro")
                            "Usuário da sessão. A credencial vai no cookie de sessão, não no corpo (#70, P-03).")
 SC["StudentProfileCreate"] = obj({
     "course_id": INT("Curso ativo do aluno.", 1),
-    "registration_number": STR("Matrícula (única).", "202600123", maxLength=30),
+    "registration_number": STR("Matrícula (única).", "202600123", minLength=1, maxLength=30),
     "term": INT("Período do aluno (1..term_count do curso).", 4, minimum=1),
 }, ["course_id", "registration_number", "term"], strict=True)
 SC["StudentProfileCreated"] = obj({"student": obj({"user_id": USER_ID()}, ["user_id"])}, ["student"])
@@ -389,7 +389,7 @@ SC["FinalQuestion"] = obj({"id": INT(ex=61), "order": INT(ex=1), "prompt": TXT(e
 SC["FinalForm"] = obj({"id": INT(ex=4), "edition_id": INT(ex=3), "title": nul(STR(ex="Avaliação da Apresentação Final")), "published": BOOL(ex=False),
                        "questions": arr(ref("FinalQuestion")), "created_at": DT(), "updated_at": DT()},
                       ["id", "edition_id", "title", "published", "questions", "created_at", "updated_at"])
-SC["FinalQuestionWrite"] = obj({"order": INT(ex=1, minimum=1), "prompt": TXT(ex="Clareza e qualidade do pitch", minLength=1), "kind": ref("QuestionType"),
+SC["FinalQuestionWrite"] = obj({"order": INT(ex=1, minimum=1, maximum=32767), "prompt": TXT(ex="Clareza e qualidade do pitch", minLength=1), "kind": ref("QuestionType"),
                                 "max_score": nul(DEC("Obrigatória e positiva para SCORE; nula para CONCEPT e TEXT.", "10.00"))},
                                ["order", "prompt", "kind"], strict=True)
 SC["FinalFormWrite"] = obj({"title": nul(STR(ex="Avaliação da Apresentação Final", maxLength=150)),
@@ -522,7 +522,7 @@ SC["JoinRequest"] = obj({"id": INT(ex=45), "team": ref("TeamRef"),
                          "status": ref("RequestStatus"), "created_at": DT(), "responded_at": nul(DT(ex=None))},
                         ["id", "team", "student", "status", "created_at", "responded_at"])
 SC["JoinRequestDecision"] = obj({"status": STR(ex="APPROVED", enum=["APPROVED", "REJECTED"])}, ["status"], strict=True)
-SC["LeadershipTransfer"] = obj({"member_id": INT("Vínculo (team_member) ativo que receberá a liderança.", 102)}, ["member_id"], strict=True)
+SC["LeadershipTransfer"] = obj({"member_id": INT("Vínculo (team_member) ativo que receberá a liderança.", 102, minimum=1)}, ["member_id"], strict=True)
 SC["LeadershipRequestCreate"] = obj({"justification": TXT(ex="O líder anterior deixou a instituição sem transferir a liderança.", minLength=1)}, ["justification"], strict=True)
 SC["LeadershipRequest"] = obj({
     "id": INT(ex=9), "team": ref("TeamRef"), "requester": ref("UserSummary"), "justification": TXT(ex="O líder anterior deixou a instituição sem transferir a liderança."),
@@ -533,7 +533,7 @@ SC["LeadershipDecision"] = obj({"status": STR(ex="APPROVED", enum=["APPROVED", "
                                 "decision_justification": TXT(ex="Integrante ativo e com participação regular.", minLength=1)},
                                ["status", "decision_justification"], strict=True)
 SC["MemberNoteCreate"] = obj({
-    "member_id": INT("Vínculo (team_member) observado.", 103),
+    "member_id": INT("Vínculo (team_member) observado.", 103, minimum=1),
     "text": TXT(ex="Não participou das duas últimas reuniões.", minLength=1),
 }, ["member_id", "text"], strict=True)
 SC["MemberNoteCreated"] = obj({"id": INT(ex=17), "created_at": DT()}, ["id", "created_at"], desc="Não retorna o conteúdo: o líder não pode visualizá-lo (RF33).")
@@ -614,7 +614,7 @@ SC["Receipt"] = obj({
 SC["DeadlineExtensionWrite"] = obj({
     "stage_id": INT("Etapa a prorrogar; precisa ser da edição do projeto.", 12),
     "ends_at": DT("Novo prazo da equipe; precisa ser depois do fim da etapa.", "2026-11-25T23:59:00Z"),
-    "reason": TXT("Justificativa da prorrogação (obrigatória, sem ser só espaços).", "Atestado médico do líder."),
+    "reason": TXT("Justificativa da prorrogação (obrigatória, sem ser só espaços).", "Atestado médico do líder.", minLength=1),
 }, ["stage_id", "ends_at", "reason"], strict=True)
 SC["DeadlineExtension"] = obj({
     "id": INT(ex=3), "team_id": INT(ex=15), "project_id": INT(ex=9), "stage_id": INT(ex=12),
@@ -662,7 +662,7 @@ SC["EvaluationWrite"] = obj({"status": STR("DRAFT salva rascunho; FINALIZED conc
                              "items": arr(ref("EvaluationItemWrite"), description="Um item por critério da etapa (todos obrigatórios para FINALIZED).")},
                             ["status", "items"], strict=True)
 SC["RectificationWrite"] = obj({"stage_criterion_id": INT(ex=51), "new_points": DEC("Novo valor; de 0 até o máximo do critério e diferente do atual.", "1.50"),
-                                "reason": TXT("Justificativa técnica ou operacional (obrigatória).", "Erro de digitação do professor.")},
+                                "reason": TXT("Justificativa técnica ou operacional (obrigatória).", "Erro de digitação do professor.", minLength=1)},
                                ["stage_criterion_id", "new_points", "reason"], strict=True)
 SC["Rectification"] = obj({
     "id": INT(ex=9), "evaluation_id": INT(ex=201), "stage_criterion_id": INT(ex=51),
@@ -1274,7 +1274,8 @@ op("get", "/api/teacher/projects", "evaluationsListTeacherProjects", "evaluation
    pend=["P-27"])
 op("get", "/api/projects/{project_id}/stages/{stage_id}/evaluation", "evaluationsGetMyEvaluation", "evaluations", "Formulário e avaliação do professor",
    ["RF38"], ["TEACHER"], "Retorna critérios e pontuações máximas da etapa e a avaliação do professor autenticado, se existir.",
-   params=["ProjectId", "StageId"], ok=ref("EvaluationForm"), errs=["404"], authz="Vínculo ativo com o curso do desafio do projeto.")
+   params=["ProjectId", "StageId"], ok=ref("EvaluationForm"), errs=["404"], authz="Vínculo ativo com o curso do desafio do projeto.",
+   rules=["Etapa sem avaliação do professor (não pontuada ou que não é SUBMISSION) responde 404: não há formulário."])
 op("put", "/api/projects/{project_id}/stages/{stage_id}/evaluation", "evaluationsSaveMyEvaluation", "evaluations", "Salvar avaliação da entrega",
    ["RF38"], ["TEACHER"], "Cria ou atualiza a avaliação do professor autenticado (uma por professor, projeto e etapa).",
    params=["ProjectId", "StageId"], body=ref("EvaluationWrite"), ok=ref("Evaluation"), errs=["404"], authz="Vínculo ativo com o curso do desafio do projeto.",

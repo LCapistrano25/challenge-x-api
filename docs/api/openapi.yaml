@@ -6194,6 +6194,9 @@ paths:
         **Perfis permitidos:** TEACHER
 
         **Autorização adicional:** Vínculo ativo com o curso do desafio do projeto.
+
+        **Regras de negócio:**
+        - Etapa sem avaliação do professor (não pontuada ou que não é SUBMISSION) responde 404: não há formulário.
       x-status: confirmed
       x-requirements:
       - RF38
@@ -9597,6 +9600,7 @@ components:
         registration_number:
           type: string
           description: Matrícula (única).
+          minLength: 1
           maxLength: 30
           examples:
           - '202600123'
@@ -11167,6 +11171,7 @@ components:
         order:
           type: integer
           minimum: 1
+          maximum: 32767
           examples:
           - 1
         prompt:
@@ -11920,6 +11925,7 @@ components:
         member_id:
           type: integer
           description: Vínculo (team_member) ativo que receberá a liderança.
+          minimum: 1
           examples:
           - 102
       required:
@@ -12010,6 +12016,7 @@ components:
         member_id:
           type: integer
           description: Vínculo (team_member) observado.
+          minimum: 1
           examples:
           - 103
         text:
@@ -12621,6 +12628,7 @@ components:
         reason:
           type: string
           description: Justificativa da prorrogação (obrigatória, sem ser só espaços).
+          minLength: 1
           examples:
           - Atestado médico do líder.
       required:
@@ -13025,6 +13033,7 @@ components:
         reason:
           type: string
           description: Justificativa técnica ou operacional (obrigatória).
+          minLength: 1
           examples:
           - Erro de digitação do professor.
       required:
