@@ -5,6 +5,7 @@ import pytest
 from django.utils import timezone
 
 from apps.accounts.factories import StudentFactory
+from apps.editions.enums import EditionStatus
 from apps.editions.factories import StageFactory
 from apps.teams.enums import InvitationStatus, MemberRole
 from apps.teams.factories import InvitationFactory, TeamFactory, TeamMemberFactory
@@ -171,3 +172,12 @@ def test_durante_a_janela_extra_ninguem_sai():
 
     with pytest.raises(LeaveTeamRejected, match="prazo de formação"):
         leave_team(actor=membro.student.user, team_id=team.id, confirm=True)
+
+
+def test_janela_extra_nao_vale_em_edicao_encerrada():
+    team = TeamFactory()
+    team.formation_extended_until = timezone.now() + timedelta(hours=1)
+    assert is_formation_open_for_team(team) is True
+
+    team.edition.status = EditionStatus.CLOSED
+    assert is_formation_open_for_team(team) is False

@@ -235,8 +235,8 @@ def test_aluno_que_ja_esta_em_equipe_nao_pode_criar_outra():
     create_open_formation(edition)
 
     TeamMemberFactory(
+        team=TeamFactory(edition=edition),
         student=student,
-        edition=edition,
         active=True,
     )
 
@@ -851,7 +851,7 @@ def test_aluno_lista_equipes_retorna_dados_de_disponibilidade_e_cursos():
 
 def test_equipes_de_edicoes_nao_publicadas_nao_aparecem():
     student = StudentFactory()
-    TeamFactory()
+    TeamFactory(edition__status=EditionStatus.SETUP)
 
     client = authenticated_client(student.user)
 

@@ -3,7 +3,7 @@ from datetime import timedelta
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
-from apps.editions.enums import StageKind
+from apps.editions.enums import EditionStatus, StageKind
 from apps.editions.models import Stage
 
 # Saída que deixa a equipe abaixo do mínimo nas últimas horas do prazo dá tempo extra
@@ -14,10 +14,15 @@ FORMATION_EXTENSION = timedelta(hours=48)
 
 
 def get_open_formation_stage(edition, now=None):
-    """Etapa de formação em andamento na edição, ou None (RF22)."""
+    """Etapa de formação em andamento na edição, ou None (RF22).
+
+    Só edição publicada forma equipes: em configuração os limites ainda mudam
+    (RF48) e a validação deles não olha equipes existentes.
+    """
     now = now or timezone.now()
     return Stage.objects.filter(
         edition=edition,
+        edition__status=EditionStatus.PUBLISHED,
         kind=StageKind.FORMATION,
         starts_at__lte=now,
         ends_at__gte=now,
@@ -29,7 +34,9 @@ def is_formation_open_for_team(team, now=None) -> bool:
     now = now or timezone.now()
     extended = team.formation_extended_until
     return get_open_formation_stage(team.edition, now) is not None or (
-        extended is not None and now <= extended
+        extended is not None
+        and now <= extended
+        and team.edition.status == EditionStatus.PUBLISHED
     )
 
 
