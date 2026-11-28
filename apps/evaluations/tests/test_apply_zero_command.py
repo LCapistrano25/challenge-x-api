@@ -68,7 +68,7 @@ def test_ignora_etapa_com_prazo_aberto(project):
 
 
 def test_ignora_edicao_que_nao_esta_publicada():
-    projeto = ProjectFactory()  # edição em configuração
+    projeto = ProjectFactory(team__edition__status=EditionStatus.SETUP)
     etapa_encerrada(projeto)
 
     rodar()

@@ -7,11 +7,13 @@ from django.utils import timezone
 
 from apps.accounts.enums import UserRole
 from apps.accounts.factories import StudentFactory, UserFactory
+from apps.editions.enums import EditionStatus
 from apps.editions.factories import EditionFactory, StageFactory
 from apps.teams.enums import InvitationStatus, MemberRole, TeamStatus
 from apps.teams.factories import TeamFactory, TeamMemberFactory
 from apps.teams.models import Invitation, Team, TeamMember
 from apps.teams.use_cases.create_team import (
+    FormationClosed,
     TeamCreationRejected,
     TeamInvitationsRequired,
     create_team,
@@ -27,6 +29,9 @@ def convites(quantidade=2):
 
 
 def abre_formacao(edition):
+    # Formação só abre em edição publicada (#301).
+    edition.status = EditionStatus.PUBLISHED
+    edition.save(update_fields=["status"])
     now = timezone.now()
     StageFactory(
         edition=edition,
@@ -38,7 +43,7 @@ def abre_formacao(edition):
 
 def test_aluno_cria_equipe_e_se_torna_lider():
     student = StudentFactory()
-    edition = EditionFactory()
+    edition = EditionFactory(status=EditionStatus.PUBLISHED)
 
     now = timezone.now()
     StageFactory(
@@ -74,7 +79,7 @@ def test_aluno_cria_equipe_e_se_torna_lider():
 
 def test_usuario_que_nao_e_aluno_nao_pode_criar_equipe():
     user = UserFactory(role=UserRole.TEACHER)
-    edition = EditionFactory()
+    edition = EditionFactory(status=EditionStatus.PUBLISHED)
 
     with pytest.raises(
         TeamCreationRejected,
@@ -91,7 +96,7 @@ def test_usuario_que_nao_e_aluno_nao_pode_criar_equipe():
 
 def test_nao_pode_criar_equipe_fora_do_periodo_de_formacao():
     student = StudentFactory()
-    edition = EditionFactory()
+    edition = EditionFactory(status=EditionStatus.PUBLISHED)
 
     now = timezone.now()
     StageFactory(
@@ -116,7 +121,7 @@ def test_nao_pode_criar_equipe_fora_do_periodo_de_formacao():
 
 def test_aluno_nao_pode_criar_equipe_se_ja_participa_de_uma_ativa():
     student = StudentFactory()
-    edition = EditionFactory()
+    edition = EditionFactory(status=EditionStatus.PUBLISHED)
 
     now = timezone.now()
     StageFactory(
@@ -148,7 +153,7 @@ def test_aluno_nao_pode_criar_equipe_se_ja_participa_de_uma_ativa():
 
 def test_nao_pode_criar_equipe_com_nome_vazio():
     student = StudentFactory()
-    edition = EditionFactory()
+    edition = EditionFactory(status=EditionStatus.PUBLISHED)
 
     now = timezone.now()
     StageFactory(
@@ -240,7 +245,7 @@ def test_convite_recusado_desfaz_a_criacao_da_equipe():
 
 def test_nome_de_equipe_desfeita_pode_ser_reutilizado():
     student = StudentFactory()
-    edition = EditionFactory()
+    edition = EditionFactory(status=EditionStatus.PUBLISHED)
     abre_formacao(edition)
     TeamFactory(edition=edition, name="Equipe Aurora", status=TeamStatus.DISBANDED)
 
@@ -256,7 +261,7 @@ def test_nome_de_equipe_desfeita_pode_ser_reutilizado():
 
 def test_nao_pode_criar_equipe_com_nome_duplicado_na_edicao():
     student = StudentFactory()
-    edition = EditionFactory()
+    edition = EditionFactory(status=EditionStatus.PUBLISHED)
 
     now = timezone.now()
     StageFactory(
@@ -308,7 +313,7 @@ def test_nao_pode_criar_equipe_para_edicao_inexistente():
 
 def test_nao_pode_criar_equipe_sem_perfil_de_aluno():
     user = UserFactory(role=UserRole.STUDENT)
-    edition = EditionFactory()
+    edition = EditionFactory(status=EditionStatus.PUBLISHED)
 
     with pytest.raises(
         TeamCreationRejected,
@@ -325,7 +330,7 @@ def test_nao_pode_criar_equipe_sem_perfil_de_aluno():
 
 def test_remove_espacos_do_nome_da_equipe():
     student = StudentFactory()
-    edition = EditionFactory()
+    edition = EditionFactory(status=EditionStatus.PUBLISHED)
 
     now = timezone.now()
     StageFactory(
@@ -348,7 +353,7 @@ def test_remove_espacos_do_nome_da_equipe():
 def test_tenta_novo_codigo_quando_codigo_ja_existe(monkeypatch):
     existing_team = TeamFactory()
     student = StudentFactory()
-    edition = EditionFactory()
+    edition = EditionFactory(status=EditionStatus.PUBLISHED)
 
     now = timezone.now()
     StageFactory(
@@ -381,7 +386,7 @@ def test_rejeita_criacao_quando_nao_consegue_gerar_codigo_unico(
 ):
     existing_team = TeamFactory()
     student = StudentFactory()
-    edition = EditionFactory()
+    edition = EditionFactory(status=EditionStatus.PUBLISHED)
 
     now = timezone.now()
     StageFactory(
@@ -412,7 +417,7 @@ def test_rejeita_criacao_quando_nao_consegue_gerar_codigo_unico(
 
 def test_reverte_criacao_da_equipe_se_falhar_ao_criar_lider():
     student = StudentFactory()
-    edition = EditionFactory()
+    edition = EditionFactory(status=EditionStatus.PUBLISHED)
 
     now = timezone.now()
     StageFactory(
@@ -439,3 +444,28 @@ def test_reverte_criacao_da_equipe_se_falhar_ao_criar_lider():
 
     assert Team.objects.count() == 0
     assert TeamMember.objects.count() == 0
+
+
+# Formação só em edição publicada (#301)
+
+
+@pytest.mark.parametrize("status", [EditionStatus.SETUP, EditionStatus.CLOSED])
+def test_edicao_nao_publicada_nao_forma_equipe_mesmo_com_etapa_aberta(status):
+    edition = EditionFactory(status=status)
+    now = timezone.now()
+    StageFactory(
+        edition=edition,
+        formation=True,
+        starts_at=now - timedelta(days=1),
+        ends_at=now + timedelta(days=7),
+    )
+
+    with pytest.raises(FormationClosed):
+        create_team(
+            actor=StudentFactory().user,
+            edition_id=edition.id,
+            name="Equipe Fora de Hora",
+            invitations=convites(),
+        )
+
+    assert not Team.objects.filter(edition=edition).exists()
