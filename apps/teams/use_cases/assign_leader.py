@@ -8,14 +8,17 @@ from apps.accounts.rules import ensure_actor_is_admin
 from apps.editions.rules import ensure_edition_not_closed
 from apps.notifications.models import NotificationType
 from apps.notifications.services import create_notification
-from apps.teams.enums import MemberRole, TeamStatus
+from apps.teams.enums import MemberRole, RequestStatus, TeamStatus
 from apps.teams.exceptions import InvalidNewLeader, TeamNotActive
-from apps.teams.models import Team, TeamMember
+from apps.teams.models import LeadershipRequest, Team, TeamMember
 
 
 @transaction.atomic
 def assign_leader(*, actor: User, member: TeamMember) -> Team:
     """Faz do integrante ativo `member` o líder; o líder atual vira integrante.
+
+    O pedido de liderança pendente da equipe é cancelado: a coordenação já
+    decidiu, e o pedido ficaria parado sem professor para responder.
 
     Sem rota no contrato: ação do Django admin. Levanta NotAdminActor,
     TeamNotActive, EditionClosed e InvalidNewLeader.
@@ -38,6 +41,13 @@ def assign_leader(*, actor: User, member: TeamMember) -> Team:
     )
     member.role = MemberRole.LEADER
     member.save(update_fields=["role", "updated_at"])
+    now = timezone.now()
+    LeadershipRequest.objects.filter(team=team, status=RequestStatus.PENDING).update(
+        status=RequestStatus.CANCELLED,
+        decision_justification="Liderança definida pela coordenação.",
+        decided_at=now,
+        updated_at=now,
+    )
     for active in team.members.filter(active=True).select_related("student__user"):
         create_notification(
             user=active.student.user,
