@@ -23,6 +23,7 @@ cp .env.example .env          # preencher DJANGO_SECRET_KEY
 docker compose up -d          # Postgres na porta 5433
 uv run python manage.py migrate
 uv run python manage.py seed_users --password "SuaSenha!2026"   # só com DEBUG=True
+uv run python manage.py seed_homologacao --password "SuaSenha!2026"   # banco vazio: faculdade inteira (~2 min)
 uv run pytest
 ```
 
