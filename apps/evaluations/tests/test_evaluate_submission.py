@@ -20,6 +20,7 @@ from apps.projects.factories import (
     SubmissionFactory,
     SubmissionVersionFactory,
 )
+from apps.teams.enums import TeamStatus
 
 pytestmark = pytest.mark.django_db
 
@@ -201,3 +202,20 @@ def test_nao_finaliza_com_o_prazo_de_entrega_da_equipe_aberto(ctx):
     with pytest.raises(ValidationError, match="prazo de entrega"):
         avaliar(ctx, finalize=True)
     avaliar(ctx)  # o rascunho continua liberado
+
+
+@pytest.mark.parametrize("status", [TeamStatus.DISQUALIFIED, TeamStatus.DISBANDED])
+def test_equipe_que_nao_esta_ativa_nao_e_avaliada(ctx, status):
+    team = ctx.project.team
+    team.status = status
+    if status == TeamStatus.DISQUALIFIED:
+        team.disqualification_reason = "Plágio"
+        team.disqualified_at = timezone.now()
+        team.disqualified_by = UserFactory(role=UserRole.ADMIN)
+    team.save()
+
+    with pytest.raises(ValidationError) as erro:
+        avaliar(ctx)
+
+    assert "team" in erro.value.message_dict
+    assert not Evaluation.objects.exists()
