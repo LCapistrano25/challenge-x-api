@@ -182,6 +182,17 @@ class StrictBooleanField(serializers.BooleanField):
         return super().to_internal_value(data)
 
 
+class EditionCloseSerializer(RejectUnknownFieldsMixin, serializers.Serializer):
+    """Confirmação explícita do encerramento irreversível (P-45)."""
+
+    confirm = StrictBooleanField()
+
+    def validate_confirm(self, value):
+        if value is not True:
+            raise serializers.ValidationError("Confirme o encerramento com true.")
+        return value
+
+
 class CriterionWriteSerializer(RejectUnknownFieldsMixin, serializers.Serializer):
     name = StrictCharField(max_length=150)
     rubric = StrictCharField(
@@ -267,10 +278,15 @@ class EditionCreateSerializer(RejectUnknownFieldsMixin, serializers.Serializer):
     )
 
 
+NOTICE_MAX_BYTES = 10 * 1024 * 1024
+
+
 class EditionPublishSerializer(serializers.Serializer):
     notice_file = serializers.FileField()
 
     def validate_notice_file(self, file):
+        if file.size > NOTICE_MAX_BYTES:
+            raise serializers.ValidationError("O edital deve ter no máximo 10 MB.")
         header = file.read(5)
         file.seek(max(0, file.size - 1024))
         trailer = file.read().rstrip()

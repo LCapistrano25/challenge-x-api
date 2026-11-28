@@ -1,6 +1,6 @@
 # Mudanças do contrato da API que exigem ajuste no frontend
 
-Comparação: `docs/api/openapi.yaml` da `main` × branch `feat/49-email-domains` (20/11/2026).
+Comparação: `docs/api/openapi.yaml` da `main` × branch `feat/49-email-domains` (20/11/2026). Seção 0 atualizada em 26/11/2026 contra a `developer`.
 Fonte de verdade: `docs/api/openapi.yaml`. Em caso de dúvida, vale o contrato.
 
 Formato de erro de todas as rotas: `{"error": {"code", "message", "details"}}`.
@@ -10,7 +10,7 @@ Formato de erro de todas as rotas: `{"error": {"code", "message", "details"}}`.
 
 ## 0. Mudanças de 24 a 26/11/2026 (decisões da #217)
 
-As mudanças desta seção já estão na `developer` e no contrato, com exceção das subseções das #127 e #128, que ainda não estão na `developer`. As decisões estão na seção 0 do `docs/decisoes-regulamento.md`.
+Todas as mudanças desta seção já estão na `developer` e no contrato. As decisões estão na seção 0 do `docs/decisoes-regulamento.md`.
 
 ### Equipes
 
@@ -23,6 +23,9 @@ As mudanças desta seção já estão na `developer` e no contrato, com exceçã
 | **Equipe no schema `Team`** (#245) | `GET /api/teams/{team_id}`, `POST /api/teams` | Sai `qualification`; entram `situation`, `disqualified_at` e `disqualified_by`. |
 | **Admin: listar e desclassificar** (#219) | `GET /api/admin/teams`, `POST /api/admin/teams/{team_id}/disqualify` | Lista paginada com `edition_id`, `status` e `search`. Desclassificar exige `reason`; também desclassifica o projeto. 409 `team_already_disqualified` e `edition_closed`. |
 | **Observações sobre integrantes** (#215) | `POST/GET /api/teams/{team_id}/member-notes` | Corpo `{member_id, text}`, sem `stage_id`. 403 `not_team_leader` no POST. |
+| **Transferir liderança** (#283) | `POST /api/teams/{team_id}/leadership-transfer` | Corpo **`{"member_id"}`** (o `id` do integrante em `team.members`, não o `user_id`). Resposta 200 com a **`Team`** inteira (antes vinha só o integrante). Destinatário que não é outro integrante ativo: 400 `validation_error`; quem não é líder: 403 `not_team_leader`; equipe desclassificada: 409 `team_disqualified`. |
+| **Convite por quem não é líder** (#284) | `POST /api/teams/{team_id}/invitations` | 403 `not_team_leader` (antes 409 `business_rule_violation`). |
+| **Pedido de liderança sem desafio** (#285) | `POST /api/teams/{team_id}/leadership-requests` | 409 `challenge_not_selected`: quem decide é professor do curso do desafio, então a equipe precisa ter escolhido um. Mostre a mensagem e oriente a escolher o desafio antes. |
 
 ### Projeto, painel e entregas
 
@@ -63,6 +66,10 @@ Ordem do fluxo: **calcular → finalistas → avaliação externa → pódio →
 - [ ] Publicação do edital: `stage_criteria` e 503
 - [ ] Resultado: botão do pódio, `category_rank`, `award` e os dois 409 novos da homologação
 - [ ] Vencedores agrupados por categoria
+- [ ] Critérios da etapa: tela com `GET/PUT /api/admin/stages/{stage_id}/criteria`
+- [ ] Encerrar edição: diálogo de confirmação, `{"confirm": true}` e os dois 409
+- [ ] Telas de gestão de alunos, professores e avaliadores (lista, edição e status)
+- [ ] Remover chamadas e telas de certificados
 
 ### Edições e JSON malformado (#122 e #71)
 
@@ -74,7 +81,7 @@ Ordem do fluxo: **calcular → finalistas → avaliação externa → pódio →
   retornam `validation_error` e corpos acima do limite retornam
   `request_too_large`.
 
-### Critérios de avaliação (#127, ainda fora da `developer`)
+### Critérios de avaliação (#127)
 
 | O quê | Chamada | Para o front |
 |---|---|---|
@@ -89,7 +96,7 @@ Ordem do fluxo: **calcular → finalistas → avaliação externa → pódio →
 - `tiebreak_order` aceita `null` ou inteiro de 1 a 32767. Posição duplicada na edição dá `409 tiebreak_order_taken`. No PATCH, omitir `rubric` ou `tiebreak_order` mantém o valor, e `null` limpa.
 - Edição `PUBLISHED` aceita as três operações de escrita, sujeitas às regras de cada rota. Edição encerrada permite leitura. As três operações de escrita devolvem `409 edition_closed`.
 
-### Etapas e campos de entrega (#128, ainda fora da `developer`)
+### Etapas e campos de entrega (#128)
 
 | O quê | Chamada | Para o front |
 |---|---|---|
@@ -104,6 +111,61 @@ Ordem do fluxo: **calcular → finalistas → avaliação externa → pódio →
 - `name` não pode ficar em branco; espaços nas pontas são removidos.
 - `scored` tem padrão `true`: em `FORMATION` e `FINAL`, envie `false`. `FORMATION` é única por edição. Ao desativar a pontuação no PATCH, envie também `max_score: null`.
 - Ideia, Protótipo Parcial e Momento Final do Pitch usam `SUBMISSION` com campos configuráveis. Entrega Preliminar é um marco de mentoria, sem nota nem entrega digital obrigatória (D-06).
+
+### Critérios e pontuações da etapa (#129)
+
+| O quê | Chamada | Para o front |
+|---|---|---|
+| Listar | `GET /api/admin/stages/{stage_id}/criteria` | `200`, array de `StageCriterion`: `{id, criterion: {id, name}, max_score}`. |
+| Definir | `PUT /api/admin/stages/{stage_id}/criteria` | Corpo `{"items": [{"criterion_id", "max_score"}]}`. A lista **substitui** o conjunto (lista vazia desvincula tudo). `200` com o mesmo array do GET. |
+
+- Só ADMIN. `401`, `403` e `404` (etapa inexistente) como nas outras rotas de edição.
+- `max_score` vai como texto decimal (`"10.00"`), maior que 0 e até `99.99`. Número em vez de texto, campo extra ou item incompleto dão `400 validation_error`.
+- A etapa precisa ser pontuada. Critério repetido ou de outra edição também dá `400 validation_error` (em `items`).
+- Só edição em `SETUP` aceita o PUT: publicada dá `409 edition_published`, encerrada dá `409 edition_closed`.
+- Os critérios não precisam somar o valor da etapa (D-02).
+
+### Encerrar a edição (#130)
+
+`POST /api/admin/editions/{edition_id}/close` com o corpo **exato** `{"confirm": true}`.
+
+- `200` com a `Edition` já `CLOSED` e com `closed_at`. É irreversível: mostre um diálogo de confirmação antes.
+- Corpo vazio, `false`, texto ou campo extra dão `400 validation_error`.
+- Edição em configuração dá `409 edition_not_published`; já encerrada dá `409 edition_already_closed`.
+- Os projetos da edição que não estão desclassificados passam a `COMPLETED`.
+- A pré-carga dos critérios e categorias padrão **não** existe (foi para o backlog, #263): a edição nova nasce vazia.
+
+### Gestão de usuários pelo admin (#258)
+
+Para cada tipo (`students`, `teachers`, `external-evaluators`):
+
+| O quê | Chamada | Para o front |
+|---|---|---|
+| Listar | `GET /api/admin/{tipo}` | Paginada, com `search` (nome, e-mail e, para aluno, matrícula), `active` e `course_id` (não vale para avaliador). |
+| Consultar | `GET /api/admin/{tipo}/{user_id}` | `404` se não existir. |
+| Atualizar | `PATCH /api/admin/{tipo}/{user_id}` | Só os campos enviados; e-mail não é editável. Aluno: `409 registration_number_taken`. |
+| Ativar/desativar | `PATCH /api/admin/{tipo}/{user_id}/status` | Corpo `{"active": true}` ou `{"active": false}`; resposta `{user_id, active}`. Desativar derruba as sessões abertas; nada é excluído. |
+
+### Certificados saíram do contrato (D-07)
+
+Os certificados foram adiados (podem ser emitidos pela universidade). Estas rotas **saíram do contrato** e não existem no backend; não construa telas para elas:
+
+- `GET /api/admin/editions/{edition_id}/certificate-templates`
+- `PUT /api/admin/editions/{edition_id}/certificate-templates/{certificate_type}`
+- `GET /api/me/certificates`
+
+Os schemas `Certificate`, `CertificateTemplate`, `CertificateTemplateWrite` e o enum `CertificateType` também saíram. Se o tema voltar, ele está no backlog (#263).
+
+### Paginação, filtros e validação (teste com Schemathesis, 26/11)
+
+| O quê | Onde | Para o front |
+|---|---|---|
+| **Página inexistente** | todas as listas paginadas | `?page=` além da última (ou inválida) responde **404 `not_found`** ("Página inválida."). Ao apagar o último item de uma página, volte para a anterior. |
+| **`page_size`** | todas as listas paginadas | Sem erro: ausente, inválido ou menor que 1 usa 20; acima de 100 vira 100. |
+| **Filtro inválido** | rotas com filtro em query (`active`, `status`, `course_id`, `unread`...) | **400 `validation_error`** com o filtro em `details`. `GET /api/notifications?unread=abc` passou a dar 400 (antes ignorava). |
+| **Solicitações de liderança do professor** | `GET /api/teacher/leadership-requests` | Agora vem **paginado** (`{count, next, previous, results}`), como o contrato já dizia. Antes vinha uma lista solta. |
+| **ODS com datas** | `GET/POST/PATCH /api/admin/sdgs` | A resposta passa a trazer `created_at` e `updated_at`, como o schema `Sdg`. |
+| **Regras declaradas no contrato** | cadastros do admin | Nomes obrigatórios não aceitam texto vazio (`minLength: 1`); domínio de e-mail tem `pattern`; curso repetido ao editar professor dá 400. A API já fazia isso; agora o contrato mostra. |
 
 ---
 
@@ -150,7 +212,7 @@ Todas devolvem 200 com o `Project` atualizado. Os corpos não aceitam campos ext
 
 - **Removido:** `slug`. Sobram `{id, name}`.
 - **Fazer:** buscar `course.slug` / `.slug` no código e trocar por `name` (ou `id` para chave). Isso inclui filtros, `key` de listas e rotas montadas com slug.
-- Não mudou ainda: os schemas do **próprio curso** (`/api/admin/courses`, `/api/courses`) e o erro `course_slug_taken` ainda têm `slug`. Isso muda na task de cursos.
+- Os schemas do **próprio curso** (`/api/admin/courses`, `/api/courses`) também perderam o `slug`, e o erro de duplicidade agora é `409 course_name_taken` (#225).
 
 ---
 
@@ -180,8 +242,6 @@ Todas devolvem 200 com o `Project` atualizado. Os corpos não aceitam campos ext
    - 403 `inactive_account`
    - 409 `microsoft_identity_mismatch`
    - 503 `external_service_error` (Microsoft fora do ar ou login não configurado)
-
-Atenção: o texto das rotas no contrato ainda diz "Bearer JWT". Está desatualizado; vale a sessão por cookie. E `GET /api/auth/csrf` existe no backend mas **não está listado como rota no contrato** ainda.
 
 ---
 
@@ -427,6 +487,4 @@ As respostas passam a usar os nomes do contrato. Os antigos deixam de existir, s
 
 ## Pontos em aberto (confirmar com o backend)
 
-- `GET /api/auth/csrf` existe no código, mas não está documentado como rota no contrato.
-- As operações marcadas `x-status: proposed` (12, incluindo envio de entrega e avaliação do professor) ainda podem mudar.
-- Admin de desafios ainda mostra `title` no contrato. Confirmar se o título continua existindo para o admin.
+- Restam 4 operações marcadas `x-status: proposed`, que ainda podem mudar: `editionsCreateStage`, `editionsUpdateStage`, `evaluationsSaveMyEvaluation` e `evaluationsCreateRectification`.

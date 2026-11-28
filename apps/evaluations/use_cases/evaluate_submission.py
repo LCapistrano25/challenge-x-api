@@ -73,7 +73,7 @@ def evaluate_submission(
             evaluation=evaluation, stage_criterion=criterion
         ).first() or EvaluationItem(evaluation=evaluation, stage_criterion=criterion)
         item.points = data["points"]
-        item.comment = data.get("comment", "")
+        item.comment = data.get("comment") or ""
         item.full_clean()
         item.save()
     evaluation.items.exclude(stage_criterion__in=criteria_ids).delete()

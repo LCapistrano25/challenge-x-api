@@ -1,7 +1,7 @@
 from apps.core.models import Sdg
 
 
-def list_sdgs(*, actor):
+def list_sdgs(*, actor, active: bool | None = None):
     """
     Lista todas as ODS.
     Regra: Apenas administradores.
@@ -9,4 +9,7 @@ def list_sdgs(*, actor):
     if not actor.is_staff and not actor.is_superuser:
         raise PermissionError("Apenas administradores podem listar ODS.")
 
-    return Sdg.objects.all().order_by("number")
+    sdgs = Sdg.objects.all()
+    if active is not None:
+        sdgs = sdgs.filter(active=active)
+    return sdgs.order_by("number")

@@ -1,0 +1,2 @@
+# Scripts de shell com LF, senão o Git Bash quebra no checkout do Windows.
+*.sh text eol=lf

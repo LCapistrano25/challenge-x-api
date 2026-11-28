@@ -29,7 +29,7 @@ sudo usermod -aG docker ubuntu && exit   # entre de novo para valer o grupo
 
 ```bash
 git clone https://github.com/LCapistrano25/challenge-x-api.git && cd challenge-x-api
-git switch main            # homologação: developer
+git switch main            # o CD (seção 4) sobe a main
 cp .env.example .env && nano .env
 ```
 
@@ -64,6 +64,31 @@ git pull && docker compose -f docker-compose.prod.yaml up -d --build
 ```
 
 As migrations rodam sozinhas na subida do container `api`.
+
+### Automático na homologação (CD)
+
+Job `deploy` do `.github/workflows/ci.yml`: a cada push na `main` com o CI verde, o GitHub
+entra por SSH na instância e roda o comando acima com o commit testado
+(`git reset --hard <sha>`). Configuração, uma vez só:
+
+1. Na instância, uma chave só para o deploy:
+   ```bash
+   ssh-keygen -t ed25519 -N "" -f ~/deploy_key -C github-cd
+   cat ~/deploy_key.pub >> ~/.ssh/authorized_keys
+   cat ~/deploy_key && rm ~/deploy_key ~/deploy_key.pub   # copie a privada antes de apagar
+   ```
+2. No seu computador: `ssh-keyscan -t ed25519 <ip-estatico>` (a saída é o known_hosts).
+3. GitHub → **Settings → Environments → New environment** `homologacao` → secrets:
+
+   | Secret | Valor |
+   |---|---|
+   | `LIGHTSAIL_HOST` | IP estático da instância |
+   | `LIGHTSAIL_SSH_KEY` | a chave privada do passo 1, inteira |
+   | `LIGHTSAIL_KNOWN_HOSTS` | a saída do passo 2 |
+
+O repositório no servidor precisa estar em `~/challenge-x-api` (seção 3), sem
+alterações locais além do `.env`. Para refazer um deploy: **Actions → CI → Re-run failed jobs** (ou Re-run all)
+na execução da `main`.
 
 ## 5. Backup (#102)
 

@@ -1,6 +1,7 @@
 import pytest
 from django.core.exceptions import ValidationError
 
+from apps.core.exceptions import SdgNumberTaken
 from apps.core.models import Sdg
 from apps.core.use_cases.create_sdg import create_sdg
 
@@ -50,7 +51,5 @@ def test_create_sdg_fails_if_duplicate_number(admin_user):
     Sdg.objects.all().delete()  # Limpamos para testar a duplicação controlada
     create_sdg(actor=admin_user, number=3, title="Saúde")
 
-    with pytest.raises(
-        ValidationError, match="Já existe uma ODS cadastrada com este número."
-    ):
+    with pytest.raises(SdgNumberTaken):
         create_sdg(actor=admin_user, number=3, title="Outro Título")

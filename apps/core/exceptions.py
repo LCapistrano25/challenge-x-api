@@ -40,3 +40,13 @@ class CourseNameTaken(BusinessRuleViolation):
 class CourseInUse(BusinessRuleViolation):
     code = "course_in_use"
     default_message = "O curso possui vínculos e só pode ser inativado."
+
+
+class SdgNumberTaken(BusinessRuleViolation):
+    code = "sdg_number_taken"
+    default_message = "Já existe ODS com este número."
+
+
+class SdgInUse(BusinessRuleViolation):
+    code = "sdg_in_use"
+    default_message = "A ODS está em uso e só pode ser inativada."

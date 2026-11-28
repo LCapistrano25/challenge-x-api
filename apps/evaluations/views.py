@@ -91,7 +91,7 @@ class StageEvaluationView(APIView):
             project=project,
             stage=stage,
             items=data["items"],
-            comment=data["comment"],
+            comment=data["comment"] or "",
             finalize=data["status"] == "FINALIZED",
         )
         evaluation = get_evaluation(project, stage, request.user)
@@ -175,7 +175,7 @@ class FinalFormView(APIView):
         form = configure_final_form(
             actor=request.user,
             edition=edition,
-            title=serializer.validated_data["title"],
+            title=serializer.validated_data.get("title"),
             questions=serializer.validated_data["questions"],
         )
         return Response(FinalFormSerializer(form).data)

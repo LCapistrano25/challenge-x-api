@@ -198,7 +198,7 @@ def test_projetos_edicao_encerrada_so_mostra_publicos_homologados(api_client):
     # Projeto sem resultado (Não deve aparecer)
     p_sem_resultado = ProjectFactory(edition=edicao)
 
-    response = api_client.get(f"/api/public/projects?edition={edicao.id}")
+    response = api_client.get(f"/api/public/projects?edition_id={edicao.id}")
     resultados = response.json()["results"]
 
     ids_retornados = [p["id"] for p in resultados]
@@ -221,3 +221,69 @@ def test_detalhe_projeto_segue_contrato_e_desclassificado_da_404(api_client):
     # Testa falha (404)
     response_falha = api_client.get(f"/api/public/projects/{p_desclassificado.id}")
     assert response_falha.status_code == 404
+
+
+def test_projeto_de_equipe_desclassificada_fica_fora_da_vitrine(api_client):
+    edicao = EditionFactory(status=EditionStatus.PUBLISHED)
+    valido = ProjectFactory(team__edition=edicao)
+    # Status do projeto ainda IN_PROGRESS: vale a situação da equipe.
+    fora = ProjectFactory(team__edition=edicao, team__disqualified=True)
+
+    ids = [p["id"] for p in api_client.get("/api/public/projects").json()["results"]]
+    assert valido.id in ids
+    assert fora.id not in ids
+    assert api_client.get(f"/api/public/projects/{fora.id}").status_code == 404
+
+
+def test_projeto_sem_desafio_fica_fora_da_vitrine(api_client):
+    edicao = EditionFactory(status=EditionStatus.PUBLISHED)
+    valido = ProjectFactory(team__edition=edicao)
+    sem_desafio = ProjectFactory(team__edition=edicao, challenge=None)
+
+    response = api_client.get("/api/public/projects")
+
+    assert response.status_code == 200
+    ids = [p["id"] for p in response.json()["results"]]
+    assert ids == [valido.id]
+    assert api_client.get(f"/api/public/projects/{sem_desafio.id}").status_code == 404
+
+
+def test_vencedores_nao_mostra_equipe_desclassificada(api_client):
+    from apps.teams.enums import TeamStatus
+
+    edition = closed_edition()
+    result = winner(edition)
+    from apps.accounts.factories import UserFactory
+
+    team = result.project.team
+    team.status = TeamStatus.DISQUALIFIED
+    team.disqualification_reason = "Plágio"
+    team.disqualified_at = timezone.now()
+    team.disqualified_by = UserFactory()
+    team.save()
+
+    response = api_client.get(f"/api/public/editions/{edition.id}/winners")
+
+    assert response.json() == []
+
+
+@pytest.mark.parametrize("param", ["edition_id", "course_id", "sdg_id", "category_id"])
+def test_vitrine_filtro_invalido_responde_400(api_client, param):
+    response = api_client.get(f"/api/public/projects?{param}=abc")
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "validation_error"
+
+
+def test_vitrine_filtra_por_curso_com_nome_do_contrato(api_client):
+    edition = EditionFactory(status=EditionStatus.PUBLISHED)
+    alvo = ProjectFactory(
+        team__edition=edition, challenge=ChallengeFactory(edition=edition)
+    )
+    ProjectFactory(team__edition=edition, challenge=ChallengeFactory(edition=edition))
+
+    response = api_client.get(
+        f"/api/public/projects?course_id={alvo.challenge.course_id}"
+    )
+
+    assert [p["id"] for p in response.json()["results"]] == [alvo.id]

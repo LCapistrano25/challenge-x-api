@@ -35,6 +35,15 @@ class LeadershipRequestTeamHasLeader(LeadershipRequestRejected):
     default_message = "A equipe já possui um líder ativo."
 
 
+class LeadershipRequestChallengeNotSelected(LeadershipRequestRejected):
+    """Sem desafio não há professor do curso para decidir o pedido (#285)."""
+
+    code = "challenge_not_selected"
+    default_message = (
+        "A equipe precisa possuir um desafio selecionado para solicitar liderança."
+    )
+
+
 class LeadershipRequestPendingExists(LeadershipRequestRejected):
     code = "leadership_request_pending_exists"
     default_message = "Já existe uma solicitação de liderança pendente."
@@ -104,9 +113,7 @@ def request_leadership(
     project = getattr(team, "project", None)
 
     if project is None or project.challenge_id is None:
-        raise LeadershipRequestRejected(
-            "A equipe precisa possuir um desafio selecionado para solicitar liderança."
-        )
+        raise LeadershipRequestChallengeNotSelected()
 
     try:
         with transaction.atomic():

@@ -163,12 +163,19 @@ def test_corpo_acima_do_limite_sai_em_json(fmt, settings):
 
 
 @pytest.mark.django_db
+@pytest.mark.parametrize("debug", [False, True])
 @pytest.mark.parametrize(
     "url",
-    ["/api/rota-que-nao-existe", "/api/admin/editions/abc/evaluators"],
+    [
+        "/api/rota-que-nao-existe",
+        "/api/admin/editions/abc/evaluators",
+        "/api/teams/abc",
+    ],
 )
-def test_rota_inexistente_da_api_responde_404_em_json(url):
+def test_rota_inexistente_da_api_responde_404_em_json(url, debug, settings):
     from rest_framework.test import APIClient
+
+    settings.DEBUG = debug
 
     response = APIClient().get(url)
     assert response.status_code == 404
