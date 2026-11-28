@@ -174,11 +174,11 @@ jobs:
       - name: Deploy
         env:
           HOST: ${{ secrets.LIGHTSAIL_HOST }}
-        # O .env do servidor é ignorado pelo git: o reset não o toca.
+        # O .env do servidor é ignorado pelo git: o checkout não o toca.
         run: |
           ssh -i ~/.ssh/id_deploy -o StrictHostKeyChecking=yes "ubuntu@$HOST" "set -e
-            cd ~/challenge-x-api
+            cd /srv/desafiox/homolog/api  # a stack api já roda dessa pasta
             git fetch --quiet origin main
-            git reset --hard $GITHUB_SHA
+            git checkout --force -B main $GITHUB_SHA
             docker compose -f docker-compose.prod.yaml up -d --build --wait
             docker image prune -f"

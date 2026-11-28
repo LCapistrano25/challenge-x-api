@@ -69,7 +69,7 @@ As migrations rodam sozinhas na subida do container `api`.
 
 Job `deploy` do `.github/workflows/ci.yml`: a cada push na `main` com o CI verde, o GitHub
 entra por SSH na instância e roda o comando acima com o commit testado
-(`git reset --hard <sha>`). Configuração, uma vez só:
+(`git checkout --force -B main <sha>`). Configuração, uma vez só:
 
 1. Na instância, uma chave só para o deploy:
    ```bash
@@ -86,7 +86,7 @@ entra por SSH na instância e roda o comando acima com o commit testado
    | `LIGHTSAIL_SSH_KEY` | a chave privada do passo 1, inteira |
    | `LIGHTSAIL_KNOWN_HOSTS` | a saída do passo 2 |
 
-O repositório no servidor precisa estar em `~/challenge-x-api` (seção 3), sem
+O repositório da homologação fica em `/srv/desafiox/homolog/api` (a stack `api` roda dali), sem
 alterações locais além do `.env`. Para refazer um deploy: **Actions → CI → Re-run failed jobs** (ou Re-run all)
 na execução da `main`.
 
