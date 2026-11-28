@@ -943,7 +943,7 @@ op("patch", "/api/admin/editions/{edition_id}", "editionsUpdate", "editions", "A
 op("post", "/api/admin/editions/{edition_id}/publish", "editionsPublish", "editions", "Publicar edital da edição", ["RF09"], ["ADMIN"],
    "Valida as parametrizações obrigatórias, armazena o PDF do edital e muda o status para PUBLISHED.",
    params=["EditionId"], body=ref("EditionPublish"), ct="multipart/form-data", ok=ref("Edition"), errs=["404"],
-   rules=["Pré-condições: cursos ativos, ODS habilitadas, desafios, categorias, limites, critérios, etapas pontuadas somando 10,00 e critérios vinculados às etapas pontuadas.",
+   rules=["Pré-condições: cursos ativos, ODS habilitadas, desafios, categorias, limites, critérios, etapas pontuadas somando 10,00, critérios vinculados às etapas pontuadas e, em cada curso com desafio, professores ativos suficientes para o min_evaluations das etapas (pendência teachers, #304).",
           "Após publicar, congela etapas, pontuação, critérios por etapa e limites de equipe."],
    conflicts=[("edition_not_in_setup", "Somente edições em configuração podem ser publicadas."),
               ("publication_requirements_not_met", "Há parametrizações obrigatórias pendentes; ver details.")], pend=["P-16", "P-43"],
