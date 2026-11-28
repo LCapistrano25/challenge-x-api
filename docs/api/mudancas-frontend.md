@@ -170,6 +170,14 @@ Os schemas `Certificate`, `CertificateTemplate`, `CertificateTemplateWrite` e o 
 | **ODS: POST e PATCH incompletos** (#290) | `POST/PATCH /api/admin/sdgs` | POST sem `number` ou `title` e PATCH sem nenhum campo respondem 400 `validation_error` (antes 500 e 200). |
 | **Mais limites no contrato** (#290) | formulário final, cadastro do aluno, prorrogação, retificação, observações | `order` da pergunta vai até 32767; `registration_number`, `reason` da prorrogação e da retificação com `minLength: 1`; `member_id` com `minimum: 1`. |
 
+### Casos atípicos do professor (#304, 28/11)
+
+| O quê | Onde | Para o front |
+|---|---|---|
+| **Publicar exige professores** | `POST /api/admin/editions/{edition_id}/publish` | Nova pendência **`details.teachers`** em `publication_requirements_not_met`: algum curso com desafio não tem professores ativos suficientes para o `min_evaluations` das etapas. A mensagem lista os cursos. Mostre junto das outras pendências. |
+| **Equipe não ativa não é avaliada** | `PUT /api/projects/{project_id}/stages/{stage_id}/evaluation` | Equipe desclassificada ou desfeita: **400 `validation_error`** com `details.team`. Esconda o botão de avaliar para essas equipes na lista do professor. |
+| **Pedido de liderança cancelado pela coordenação** | `GET /api/teacher/leadership-requests` e `GET /api/teams/{team_id}/leadership-requests` | Quando o admin define o líder, o pedido pendente vira `CANCELLED` com `decision_justification` "Liderança definida pela coordenação." Trate `CANCELLED` como encerrado. |
+
 ---
 
 ## 1. Projeto: o `PUT /api/teams/{team_id}/project` foi removido
