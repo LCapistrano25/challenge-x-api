@@ -10,9 +10,13 @@ from apps.editions.factories import EditionFactory
 from apps.notifications.models import Notification
 from apps.projects.enums import ProjectStatus
 from apps.projects.factories import ProjectFactory
-from apps.teams.enums import MemberRole, TeamStatus
+from apps.teams.enums import MemberRole, RequestStatus, TeamStatus
 from apps.teams.exceptions import InvalidNewLeader, TeamNotActive, TeamNotDisqualified
-from apps.teams.factories import TeamFactory, TeamMemberFactory
+from apps.teams.factories import (
+    LeadershipRequestFactory,
+    TeamFactory,
+    TeamMemberFactory,
+)
 from apps.teams.models import Team, TeamMember
 from apps.teams.use_cases.assign_leader import assign_leader
 from apps.teams.use_cases.disqualify_team import disqualify_team
@@ -187,3 +191,22 @@ def test_inline_recusa_integrantes_acima_do_maximo(admin_client):
     assert response.status_code == 200  # formulário volta com erro
     assert "o máximo é 1" in response.content.decode()
     assert TeamMember.objects.filter(team=team).count() == 1
+
+
+def test_trocar_lider_cancela_o_pedido_pendente_da_equipe(admin_user):
+    team = TeamFactory()
+    new = TeamMemberFactory(team=team)
+    pending = LeadershipRequestFactory(team=team, requester=new.student)
+    decided = LeadershipRequestFactory(team=team, status=RequestStatus.REJECTED)
+    other_team = LeadershipRequestFactory()
+
+    assign_leader(actor=admin_user, member=new)
+
+    pending.refresh_from_db()
+    decided.refresh_from_db()
+    other_team.refresh_from_db()
+    assert pending.status == RequestStatus.CANCELLED
+    assert pending.decision_justification == "Liderança definida pela coordenação."
+    assert pending.decided_at is not None
+    assert decided.status == RequestStatus.REJECTED
+    assert other_team.status == RequestStatus.PENDING
