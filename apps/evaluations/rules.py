@@ -13,6 +13,7 @@ from apps.evaluations.exceptions import (
     FinalistNotFound,
     TeacherNotInCourse,
 )
+from apps.teams.enums import TeamStatus
 
 # Os models importam estas regras; por isso elas pegam os models pelo registro
 # do Django (como a FK por string), sem import que fecharia o ciclo.
@@ -103,6 +104,12 @@ def ensure_stage_is_evaluable(stage) -> None:
     """Só etapas pontuadas de entrega têm avaliação do professor (RF38)."""
     if stage.kind != StageKind.SUBMISSION or not stage.scored:
         raise ValidationError({"stage": "A etapa não tem avaliação do professor."})
+
+
+def ensure_team_is_active(project) -> None:
+    """Equipe desclassificada ou desfeita está fora da disputa: não se avalia."""
+    if project.team.status != TeamStatus.ACTIVE:
+        raise ValidationError({"team": "A equipe não está ativa no desafio."})
 
 
 def ensure_has_valid_submission(project, stage) -> None:

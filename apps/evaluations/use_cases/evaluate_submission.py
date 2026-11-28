@@ -18,6 +18,7 @@ from apps.evaluations.rules import (
     ensure_stage_is_evaluable,
     ensure_submission_period_closed,
     ensure_teacher_in_challenge_course,
+    ensure_team_is_active,
 )
 from apps.evaluations.use_cases.recalculate_stage_score import recalculate_stage_score
 from apps.projects.models import Project
@@ -56,6 +57,7 @@ def evaluate_submission(
     ensure_teacher_in_challenge_course(teacher, project)
     ensure_same_edition(project, stage.edition_id, "stage")
     ensure_stage_is_evaluable(stage)
+    ensure_team_is_active(project)
     ensure_has_valid_submission(project, stage)
 
     # Trava a avaliação: dois salvamentos ao mesmo tempo viram um depois do outro.

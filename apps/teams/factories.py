@@ -4,6 +4,7 @@ from factory.django import DjangoModelFactory
 
 from apps.accounts.enums import UserRole
 from apps.accounts.factories import StudentFactory, UserFactory
+from apps.editions.enums import EditionStatus
 from apps.editions.factories import EditionFactory
 from apps.teams.enums import MemberRole, TeamSituation, TeamStatus
 from apps.teams.models import (
@@ -33,7 +34,8 @@ class TeamFactory(DjangoModelFactory):
         model = Team
         skip_postgeneration_save = True
 
-    edition = factory.SubFactory(EditionFactory)
+    # Equipe só se forma em edição publicada (#301).
+    edition = factory.SubFactory(EditionFactory, status=EditionStatus.PUBLISHED)
     name = factory.Sequence(lambda n: f"Equipe {n}")
     code = factory.Sequence(lambda n: f"EQ{n:04d}")
 
