@@ -149,3 +149,36 @@ jobs:
         uses: SonarSource/sonarqube-scan-action@v6
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  # CD da homologação: push na main com lint e testes verdes atualiza a
+  # instância Lightsail com este commit. Configuração: docs/deploy-lightsail.md, seção 4.
+  deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    environment: homologacao
+    timeout-minutes: 30
+    concurrency:
+      group: deploy-homologacao
+      cancel-in-progress: false
+    steps:
+      - name: Chave SSH
+        env:
+          SSH_KEY: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.LIGHTSAIL_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_deploy && chmod 600 ~/.ssh/id_deploy
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      - name: Deploy
+        env:
+          HOST: ${{ secrets.LIGHTSAIL_HOST }}
+        # O .env do servidor é ignorado pelo git: o reset não o toca.
+        run: |
+          ssh -i ~/.ssh/id_deploy -o StrictHostKeyChecking=yes "ubuntu@$HOST" "set -e
+            cd ~/challenge-x-api
+            git fetch --quiet origin main
+            git reset --hard $GITHUB_SHA
+            docker compose -f docker-compose.prod.yaml up -d --build --wait
+            docker image prune -f"
