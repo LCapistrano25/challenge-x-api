@@ -6,11 +6,12 @@ from django.core.exceptions import (
 )
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.http import Http404, JsonResponse
+from django.views.csrf import csrf_failure as django_csrf_failure
 from django.views.defaults import page_not_found
 from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 from rest_framework.response import Response
 from rest_framework.views import exception_handler
-from django.views.csrf import csrf_failure as django_csrf_failure
+
 from apps.core.exceptions import AppError
 
 
@@ -69,6 +70,7 @@ def api_not_found(request, exception=None):
     if request.path.startswith("/api/"):
         return JsonResponse(body("not_found", "Recurso não encontrado."), status=404)
     return page_not_found(request, exception)
+
 
 def api_csrf_failure(request, reason=""):
     """Falha de CSRF: na API sai no formato padrão; fora dela, a página do Django."""
