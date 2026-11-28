@@ -198,7 +198,7 @@ class RectificationSerializer(serializers.Serializer):
 
 
 class FinalQuestionWriteSerializer(serializers.Serializer):
-    order = serializers.IntegerField(min_value=1)
+    order = serializers.IntegerField(min_value=1, max_value=32767)
     prompt = serializers.CharField()
     kind = serializers.ChoiceField(choices=QuestionKind.choices)
     max_score = serializers.DecimalField(

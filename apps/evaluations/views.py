@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import status
 from rest_framework.exceptions import NotFound, ValidationError
 from rest_framework.response import Response
@@ -15,6 +16,7 @@ from apps.evaluations.models import (
 from apps.evaluations.rules import (
     ensure_final_form_published,
     ensure_reviewer_covers_finalist,
+    ensure_stage_is_evaluable,
     ensure_teacher_in_challenge_course,
 )
 from apps.evaluations.selectors import (
@@ -72,6 +74,11 @@ class StageEvaluationView(APIView):
     def get(self, request, project_id, stage_id):
         project, stage = get_project_and_stage(project_id, stage_id)
         ensure_teacher_in_challenge_course(request.user.teacher, project)
+        try:
+            ensure_stage_is_evaluable(stage)
+        except DjangoValidationError as e:
+            # Sem avaliação do professor não há formulário: 404, como no contrato.
+            raise NotFound("A etapa não tem avaliação do professor.") from e
         form = {
             "project": project,
             "stage": stage,

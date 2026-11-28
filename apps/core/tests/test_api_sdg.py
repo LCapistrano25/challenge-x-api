@@ -154,3 +154,25 @@ def test_api_list_admin_sdgs_invalid_active_returns_400(api_client, admin_user):
     assert response.status_code == status.HTTP_400_BAD_REQUEST
     assert response.data["error"]["code"] == "validation_error"
     assert "active" in response.data["error"]["details"]
+
+
+@pytest.mark.django_db
+def test_api_create_sdg_without_number_and_title_returns_400(api_client, admin_user):
+    """Testa se o POST sem number e title responde 400, e não 500."""
+    api_client.force_authenticate(user=admin_user)
+
+    response = api_client.post("/api/admin/sdgs", data={}, format="json")
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert {"number", "title"} <= response.data["error"]["details"].keys()
+
+
+@pytest.mark.django_db
+def test_api_update_sdg_without_fields_returns_400(api_client, admin_user):
+    """Testa se o PATCH sem nenhum campo responde 400 (contrato: minProperties 1)."""
+    sdg = Sdg.objects.first()
+    api_client.force_authenticate(user=admin_user)
+
+    response = api_client.patch(f"/api/admin/sdgs/{sdg.pk}", data={}, format="json")
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
