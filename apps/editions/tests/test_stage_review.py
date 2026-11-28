@@ -53,6 +53,8 @@ def test_api_recusa_nome_em_branco_e_remove_espacos_das_pontas(admin):
 
 def test_mudar_somente_campos_atualiza_a_data_da_etapa(admin):
     stage = _stage(admin)
-    before = Stage.objects.get(pk=stage.pk).updated_at
+    # Recua a data: no Windows duas gravações seguidas podem ter o mesmo horário.
+    before = timezone.now() - timedelta(hours=1)
+    Stage.objects.filter(pk=stage.pk).update(updated_at=before)
     update_stage(actor=admin, stage=stage, submission_fields=[{"kind": "LINK"}])
     assert Stage.objects.get(pk=stage.pk).updated_at > before
