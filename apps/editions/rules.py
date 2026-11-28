@@ -156,6 +156,27 @@ def ensure_edition_ready_for_publication(edition) -> None:
     # funciona como peso (D-02). Só precisa haver critério em cada etapa pontuada.
     if any(not stage.criterion_links.exists() for stage in stages):
         pending["stage_criteria"] = "Vincule critérios a cada etapa pontuada."
+    # Sem professores suficientes a nota fica pendente e trava os finalistas (#304).
+    needed = max((stage.min_evaluations for stage in stages), default=0)
+    if needed:
+        links = apps.get_model("accounts", "TeacherCourse").objects.filter(
+            active=True, teacher__user__is_active=True
+        )
+        courses = (
+            edition.challenges.filter(active=True, course__active=True)
+            .values_list("course_id", "course__name")
+            .distinct()
+        )
+        short = sorted(
+            name
+            for course_id, name in courses
+            if links.filter(course_id=course_id).count() < needed
+        )
+        if short:
+            pending["teachers"] = (
+                f"Vincule ao menos {needed} professor(es) ativo(s) a cada curso com "
+                f"desafio: {', '.join(short)}."
+            )
 
     if pending:
         raise PublicationRequirementsNotMet(pending)

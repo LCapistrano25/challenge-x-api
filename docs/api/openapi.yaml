@@ -1985,7 +1985,7 @@ paths:
         **Perfis permitidos:** ADMIN
 
         **Regras de negócio:**
-        - Pré-condições: cursos ativos, ODS habilitadas, desafios, categorias, limites, critérios, etapas pontuadas somando 10,00 e critérios vinculados às etapas pontuadas.
+        - Pré-condições: cursos ativos, ODS habilitadas, desafios, categorias, limites, critérios, etapas pontuadas somando 10,00, critérios vinculados às etapas pontuadas e, em cada curso com desafio, professores ativos suficientes para o min_evaluations das etapas (pendência teachers, #304).
         - Após publicar, congela etapas, pontuação, critérios por etapa e limites de equipe.
 
         **Pendências relacionadas (api-pendencias.md):** P-16, P-43

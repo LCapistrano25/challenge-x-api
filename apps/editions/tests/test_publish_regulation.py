@@ -23,7 +23,7 @@ from rest_framework.test import APIClient
 
 from apps.accounts.enums import UserRole
 from apps.accounts.exceptions import NotAdminActor
-from apps.accounts.factories import UserFactory
+from apps.accounts.factories import TeacherCourseFactory, UserFactory
 from apps.core.models import Course, Sdg
 from apps.core.tests.contract import CONTRACT, mismatches, schema
 from apps.editions.enums import EditionStatus
@@ -46,7 +46,8 @@ PDF = b"%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\n%%EOF\n"
 @pytest.fixture
 def edition():
     edition = EditionFactory()
-    ChallengeFactory(edition=edition)
+    challenge = ChallengeFactory(edition=edition)
+    TeacherCourseFactory(course=challenge.course)
     CategoryFactory(edition=edition)
     stage = StageFactory(edition=edition, max_score=Decimal("10"))
     StageCriterionFactory(stage=stage, max_score=Decimal("10"))
@@ -577,3 +578,41 @@ def test_publicacoes_concorrentes_gravam_apenas_um_edital(edition, regulation_st
     assert edition.status == EditionStatus.PUBLISHED
     assert edition.regulation_url == responses[200]["regulation_url"]
     assert len(list(regulation_storage.rglob("*.pdf"))) == 1
+
+
+# Professores suficientes por curso (#304)
+
+
+def _teacher_links(edition):
+    course = edition.challenges.get().course
+    return apps.get_model("accounts", "TeacherCourse").objects.filter(course=course)
+
+
+@pytest.mark.parametrize("cenario", ["sem_professor", "minimo_2", "professor_inativo"])
+def test_curso_sem_professores_suficientes_bloqueia_publicacao(
+    admin_client, edition, cenario
+):
+    links = _teacher_links(edition)
+    if cenario == "sem_professor":
+        links.delete()
+    elif cenario == "minimo_2":
+        edition.stages.update(min_evaluations=2)
+    else:
+        user = links.get().teacher.user
+        user.is_active = False
+        user.save(update_fields=["is_active"])
+
+    response = publish(admin_client, edition.pk)
+
+    assert response.status_code == 409
+    details = response.json()["error"]["details"]
+    assert edition.challenges.get().course.name in details["teachers"]
+    edition.refresh_from_db()
+    assert edition.status == EditionStatus.SETUP
+
+
+def test_professores_suficientes_para_o_minimo_publicam(admin_client, edition):
+    edition.stages.update(min_evaluations=2)
+    TeacherCourseFactory(course=edition.challenges.get().course)
+
+    assert publish(admin_client, edition.pk).status_code == 200
