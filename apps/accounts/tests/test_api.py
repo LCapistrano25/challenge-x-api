@@ -382,6 +382,18 @@ class SessionTests(TestCase):
         self.assertEqual(idade_antes, 1800)
         self.assertEqual(idade_depois, 1800)
 
+    def test_login_sem_csrf_retorna_json_padrao(self):
+        client = APIClient(enforce_csrf_checks=True)
+        resposta = client.post(
+            "/api/auth/sessions/password",
+            {"email": self.usuario.email, "password": "qualquer-senha"},
+            format="json",
+        )
+
+        self.assertEqual(resposta.status_code, 403)
+        self.assertEqual(resposta["Content-Type"], "application/json")
+        self.assertEqual(resposta.json()["error"]["code"], "permission_denied")
+
 
 # POST /api/auth/students: autocadastro do aluno autenticado (RF19)
 
